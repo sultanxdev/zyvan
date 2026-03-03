@@ -1,5 +1,10 @@
-# ⚡ Zyven: Distributed Reliability Middleware
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Zyven Logo" width="120" />
+</p>
+
+# Zyven: Distributed Reliability Middleware
 > **Eliminate Webhook Data Loss.** Zyven is a high-performance middleware that guarantees at-least-once delivery between your core services and external endpoints.
+
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Status: Active Development](https://img.shields.io/badge/Status-Active--Development-orange)
