@@ -1,1 +1,3 @@
-console.log("The frontend dashboard is purely a UI on top of the backend API. There is nothing to display until the engine work");
+// client/ — Next.js Dashboard
+// This folder will be initialized with: npx create-next-app@latest . --typescript --app --tailwind
+// It is intentionally empty until Phase 7 of the build guide.
