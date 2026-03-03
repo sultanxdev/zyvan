@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { db } from '../config/db';
 import { queue } from '../config/queue';
 import { IngestEventInput } from '../api/events/validator';
