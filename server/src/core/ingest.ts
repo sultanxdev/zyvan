@@ -14,7 +14,7 @@ export async function ingestEvent(
     input: IngestEventInput,
     idempotencyKey: string
 ) {
-    return await db.$transaction(async (tx) => {
+    return await db.$transaction(async (tx: Prisma.TransactionClient) => {
         // 1. Check idempotency first (fast path on duplicate)
         const existing = await tx.event.findUnique({
             where: { idempotencyKey },
@@ -41,8 +41,8 @@ export async function ingestEvent(
                 idempotencyKey,
                 endpointId: input.endpoint_id,
                 eventType: input.event_type,
-                payload: input.payload,
-                metadata: input.metadata ?? null,
+                payload: input.payload as Prisma.InputJsonValue,
+                metadata: input.metadata as Prisma.InputJsonValue | undefined,
                 status: 'RECEIVED',
             },
         });
