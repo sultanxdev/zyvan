@@ -1,1 +1,1 @@
-console.log("Hello World");
+console.log("The frontend dashboard is purely a UI on top of the backend API. There is nothing to display until the engine work");
