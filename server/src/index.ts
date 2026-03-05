@@ -20,12 +20,12 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
     res.on('finish', () => {
-        logger.info('HTTP request', {
+        logger.info({
             method: req.method,
             url: req.url,
             status: res.statusCode,
             ms: Date.now() - start,
-        });
+        }, 'HTTP request');
     });
     next();
 });
@@ -80,16 +80,16 @@ app.use((_req: Request, res: Response) => {
 
 // ── Global error handler ──────────────────────────────────
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    logger.error('Unhandled error', { message: err.message, stack: err.stack });
+    logger.error({ message: err.message, stack: err.stack }, 'Unhandled error');
     res.status(500).json({ error: 'Internal server error' });
 });
 
 // ── Start server ──────────────────────────────────────────
 app.listen(config.port, () => {
-    logger.info(`Server running on http://localhost:${config.port}`, {
+    logger.info({
         env: config.nodeEnv,
         port: config.port,
-    });
+    }, `Server running on http://localhost:${config.port}`);
 });
 
 export default app;
