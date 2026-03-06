@@ -119,42 +119,9 @@ eventRouter.get(
 );
 
 // ─────────────────────────────────────────────────────────
-// POST /v1/events/:id/replay — replay a dead-lettered event
-// ─────────────────────────────────────────────────────────
-eventRouter.post(
-    '/:id/replay',
-    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-        try {
-            const event = await db.event.findUnique({ where: { id: req.params.id } });
-
-            if (!event) {
-                res.status(404).json({ error: 'Event not found' });
-                return;
-            }
-
-            if (event.status !== 'DEAD_LETTERED') {
-                res.status(409).json({
-                    error: `Only DEAD_LETTERED events can be replayed. Current status: ${event.status}`,
-                });
-                return;
-            }
-
-            await db.event.update({
-                where: { id: event.id },
-                data: { status: 'DISPATCHING', retryCount: 0, failureReason: null },
-            });
-
-            await enqueueEvent(event.id);
-
-            res.json({ event_id: event.id, status: 'replaying' });
-        } catch (err) {
-            next(err);
-        }
-    }
-);
-
-// ─────────────────────────────────────────────────────────
 // POST /v1/events/replay/bulk — replay multiple DLQ events
+// MUST be registered BEFORE /:id/replay so Express does not
+// match 'replay' as the :id param and route to the wrong handler.
 // ─────────────────────────────────────────────────────────
 eventRouter.post(
     '/replay/bulk',
@@ -196,6 +163,41 @@ eventRouter.post(
                 .map((r) => r.reason?.message ?? 'Unknown error');
 
             res.json({ replayed, failed });
+        } catch (err) {
+            next(err);
+        }
+    }
+);
+
+// ─────────────────────────────────────────────────────────
+// POST /v1/events/:id/replay — replay a dead-lettered event
+// ─────────────────────────────────────────────────────────
+eventRouter.post(
+    '/:id/replay',
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const event = await db.event.findUnique({ where: { id: req.params.id } });
+
+            if (!event) {
+                res.status(404).json({ error: 'Event not found' });
+                return;
+            }
+
+            if (event.status !== 'DEAD_LETTERED') {
+                res.status(409).json({
+                    error: `Only DEAD_LETTERED events can be replayed. Current status: ${event.status}`,
+                });
+                return;
+            }
+
+            await db.event.update({
+                where: { id: event.id },
+                data: { status: 'DISPATCHING', retryCount: 0, failureReason: null },
+            });
+
+            await enqueueEvent(event.id);
+
+            res.json({ event_id: event.id, status: 'replaying' });
         } catch (err) {
             next(err);
         }
