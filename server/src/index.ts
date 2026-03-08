@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
 import { config } from './config/env';
 import { logger } from './config/logger';
 import { db } from './config/db';
@@ -11,6 +12,13 @@ import { authMiddleware } from './middleware/auth';
 import './workers/dispatch';
 
 const app = express();
+
+// ── CORS ──────────────────────────────────────────────────
+app.use(cors({
+    origin: config.corsOrigins,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'x-api-key', 'Idempotency-Key'],
+}));
 
 // ── Body parsing ──────────────────────────────────────────
 app.use(express.json({ limit: '512kb' }));

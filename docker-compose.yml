@@ -14,7 +14,7 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U zyvan -d zyvan_db" ]
+      test: ["CMD-SHELL", "pg_isready -U zyvan -d zyvan_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,7 +26,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -44,13 +44,25 @@ services:
     environment:
       - DATABASE_URL=postgresql://zyvan:zyvan_secret@postgres:5432/zyvan_db
       - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: zyvan_client
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://server:3000
+    depends_on:
+      - server
+
 volumes:
   pg_data:
-
-
