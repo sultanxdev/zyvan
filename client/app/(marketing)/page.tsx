@@ -3,8 +3,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Zap, ShieldCheck, Activity, TerminalSquare, Github, ArrowRight } from 'lucide-react';
+import { Zap, ShieldCheck, Activity, TerminalSquare, Github, ArrowRight, CheckCircle2 } from 'lucide-react';
 import LightPillar from '@/components/LightPillar';
+import Footer from '@/components/Footer';
 
 export default function LandingPage() {
   return (
@@ -226,15 +227,128 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 bg-black py-12 text-center text-sm text-gray-500">
-        <div className="max-w-7xl mx-auto flex flex-col items-center gap-4">
-          <div className="flex items-center gap-2 text-white/50 hover:text-white transition-colors">
-            <Zap size={16} /> Zyvan Reliability Engine
-          </div>
-          <p>Built with Next.js, BullMQ, Express, and PostgreSQL.</p>
+      {/* How it Works Section */}
+      <section className="py-32 px-6 max-w-7xl mx-auto relative z-10 border-t border-white/5">
+        <div className="mb-20 text-center max-w-3xl mx-auto">
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 text-white">How Zyvan Works</h2>
+          <p className="text-gray-400 text-lg">A simple 3-step integration to make your webhooks 100% reliable.</p>
         </div>
-      </footer>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+          <div className="hidden md:block absolute top-12 left-[15%] right-[15%] h-[1px] bg-gradient-to-r from-transparent via-lime-500/30 to-transparent"></div>
+          
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="w-24 h-24 rounded-full bg-black border border-white/10 shadow-[0_0_30px_rgba(163,230,53,0.1)] flex items-center justify-center mb-8 relative">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-lime-500/20 to-emerald-500/20 flex items-center justify-center border border-lime-500/30">
+                <span className="text-2xl font-bold font-mono text-lime-400">1</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-4">Connect</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">Route your existing webhooks to your secure Zyvan ingress endpoint. No complex SDKs needed.</p>
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="w-24 h-24 rounded-full bg-black border border-white/10 shadow-[0_0_30px_rgba(163,230,53,0.1)] flex items-center justify-center mb-8 relative">
+               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 flex items-center justify-center border border-emerald-500/30">
+                <span className="text-2xl font-bold font-mono text-emerald-400">2</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-4">Process</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">Zyvan queues, rate limits, and safely dispatches events to your destination servers.</p>
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="w-24 h-24 rounded-full bg-black border border-white/10 shadow-[0_0_30px_rgba(163,230,53,0.1)] flex items-center justify-center mb-8 relative">
+               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center border border-cyan-500/30">
+                <span className="text-2xl font-bold font-mono text-cyan-400">3</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-white mb-4">Monitor</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">Track every event lifecycle. Replay failures instantly with a click from the dashboard.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="py-32 relative z-10 border-t border-white/5 bg-gradient-to-b from-transparent to-black">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="mb-20 text-center max-w-3xl mx-auto">
+            <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 text-white">Transparent Pricing</h2>
+            <p className="text-gray-400 text-lg">Whether you self-host or use our cloud, we have you covered.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+            {/* Open Source */}
+            <div className="p-8 rounded-[32px] bg-white/5 backdrop-blur-md border border-white/10 flex flex-col">
+              <div className="mb-6 flex justify-between items-start">
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Self-Hosted</h3>
+                  <p className="text-gray-400 text-sm">Deploy on your own infrastructure.</p>
+                </div>
+                <div className="px-4 py-1.5 rounded-full bg-white/10 text-xs font-semibold text-white">Free Forever</div>
+              </div>
+              <div className="text-5xl font-bold text-white mb-8">$0 <span className="text-lg text-gray-500 font-medium">/mo</span></div>
+              <ul className="space-y-4 mb-8 flex-1 text-sm text-gray-300">
+                <li className="flex items-center gap-3"><CheckCircle2 size={18} className="text-lime-400" /> Unlimited events</li>
+                <li className="flex items-center gap-3"><CheckCircle2 size={18} className="text-lime-400" /> Full observability dashboard</li>
+                <li className="flex items-center gap-3"><CheckCircle2 size={18} className="text-lime-400" /> Automatic retries & DLQ</li>
+                <li className="flex items-center gap-3"><CheckCircle2 size={18} className="text-lime-400" /> Community support</li>
+              </ul>
+              <Link href="https://github.com/sultanxdev/zyvan" className="w-full py-4 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-center transition-colors border border-white/10">
+                View on GitHub
+              </Link>
+            </div>
+
+            {/* Cloud */}
+            <div className="p-8 rounded-[32px] bg-gradient-to-b from-lime-500/10 to-emerald-500/5 backdrop-blur-md border border-lime-500/20 flex flex-col relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-lime-500/10 blur-[80px] rounded-full pointer-events-none" />
+              <div className="mb-6 flex justify-between items-start relative z-10">
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Zyvan Cloud</h3>
+                  <p className="text-lime-200/60 text-sm">Fully managed cluster with enterprise SLAs.</p>
+                </div>
+                <div className="px-4 py-1.5 rounded-full bg-lime-500 text-black text-xs font-bold">Coming Soon</div>
+              </div>
+              <div className="text-5xl font-bold text-white mb-8">Custom <span className="text-lg text-lime-200/60 font-medium">/volume</span></div>
+              <ul className="space-y-4 mb-8 flex-1 text-sm text-gray-300 relative z-10">
+                <li className="flex items-center gap-3"><CheckCircle2 size={18} className="text-lime-400" /> 99.99% Guaranteed uptime SLA</li>
+                <li className="flex items-center gap-3"><CheckCircle2 size={18} className="text-lime-400" /> Global multi-region routing</li>
+                <li className="flex items-center gap-3"><CheckCircle2 size={18} className="text-lime-400" /> Premium support & onboarding</li>
+                <li className="flex items-center gap-3"><CheckCircle2 size={18} className="text-lime-400" /> VPC peering & compliance</li>
+              </ul>
+              <button disabled className="w-full py-4 rounded-xl bg-lime-500 text-black font-semibold text-center transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 relative z-10">
+                Join Waitlist
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-32 px-6 max-w-4xl mx-auto relative z-10">
+        <div className="mb-16 text-center">
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 text-white">Frequently Asked Questions</h2>
+        </div>
+        
+        <div className="space-y-6">
+          <div className="p-8 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+            <h3 className="text-xl font-semibold text-white mb-3">Is Zyvan open source?</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">Yes, Zyvan is 100% open source under the MIT license. You can clone the repository, run it on your own servers via Docker Compose, and modify it without restrictions.</p>
+          </div>
+          
+          <div className="p-8 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+            <h3 className="text-xl font-semibold text-white mb-3">How does it prevent duplicate events?</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">We use an advanced distributed idempotency key system. When your services send a webhook out, if they retry, Zyvan safely drops the duplicate by recognizing the `idempotencyKey` cache stored in Redis.</p>
+          </div>
+          
+          <div className="p-8 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+            <h3 className="text-xl font-semibold text-white mb-3">What happens if my destination endpoint goes offline?</h3>
+            <p className="text-gray-400 text-sm leading-relaxed">Zyvan will intercept the failure and automatically place the event in an exponential backoff queue. It will progressively retry for up to 3 days. If it still fails, it routes the payload to the Dead Letter Queue for manual review.</p>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
     </div>
   );
 }
