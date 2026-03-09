@@ -118,6 +118,44 @@ app.get(
     }
 );
 
+// ── Bootstrap (no-auth, only when no keys exist) ──────────
+// Safe first-run helper: creates the initial API key so users
+// can then use the dashboard. Rejects if any key already exists.
+app.post(
+    '/v1/bootstrap',
+    async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const keyCount = await db.apiKey.count();
+            if (keyCount > 0) {
+                res.status(403).json({
+                    error: 'Bootstrap is disabled — API keys already exist. Use the Settings page to manage keys.',
+                });
+                return;
+            }
+
+            const crypto = await import('crypto');
+            const rawKey = `zv_live_${crypto.randomBytes(24).toString('hex')}`;
+            const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+            const prefix = rawKey.slice(0, 12);
+
+            const apiKey = await db.apiKey.create({
+                data: { keyHash, prefix, name: 'bootstrap', isActive: true },
+            });
+
+            logger.warn('[Bootstrap] Initial API key created — store it securely!');
+
+            res.status(201).json({
+                message: 'Bootstrap successful — copy this key now, it cannot be retrieved again.',
+                id: apiKey.id,
+                key: rawKey,
+                prefix: apiKey.prefix,
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
+);
+
 // ── API Routes ────────────────────────────────────────────
 app.use('/v1/events', eventRouter);
 app.use('/v1/endpoints', endpointRouter);

@@ -38,13 +38,15 @@ services:
     container_name: zyvan_server
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "4000:4000"
     env_file:
       - ./server/.env
     environment:
+      - PORT=4000
       - DATABASE_URL=postgresql://zyvan:zyvan_secret@postgres:5432/zyvan_db
       - REDIS_URL=redis://redis:6379
       - NODE_ENV=production
+      - CORS_ORIGINS=http://localhost:3000,http://client:3000
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,9 +60,9 @@ services:
     container_name: zyvan_client
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://server:3000
+      - NEXT_PUBLIC_API_URL=http://server:4000
     depends_on:
       - server
 

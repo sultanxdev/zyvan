@@ -141,4 +141,7 @@ export const api = {
     revoke: (id: string) =>
       fetch(`${API_BASE}/v1/api-keys/${id}`, { method: 'DELETE', headers: { 'x-api-key': API_KEY } }),
   },
+  bootstrap: () =>
+    fetch(`${API_BASE}/v1/bootstrap`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+      .then((r) => r.json()),
 };
