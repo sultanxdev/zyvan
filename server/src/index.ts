@@ -76,6 +76,48 @@ app.get(
     }
 );
 
+// ── Analytics time-series (auth required) ─────────────────
+app.get(
+    '/v1/analytics/time-series',
+    authMiddleware,
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+        try {
+            const days = Math.min(Number(req.query.days) || 7, 30);
+            const since = new Date();
+            since.setDate(since.getDate() - days);
+
+            // Fetch raw events in the window
+            const events = await db.event.findMany({
+                where: { createdAt: { gte: since } },
+                select: { createdAt: true, status: true },
+            });
+
+            // Bucket by date
+            const buckets: Record<string, { date: string; total: number; delivered: number; failed: number }> = {};
+
+            for (let i = 0; i < days; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() - (days - 1 - i));
+                const key = d.toISOString().slice(0, 10);
+                buckets[key] = { date: key, total: 0, delivered: 0, failed: 0 };
+            }
+
+            for (const evt of events) {
+                const key = evt.createdAt.toISOString().slice(0, 10);
+                if (buckets[key]) {
+                    buckets[key].total++;
+                    if (evt.status === 'DELIVERED') buckets[key].delivered++;
+                    if (evt.status === 'DEAD_LETTERED') buckets[key].failed++;
+                }
+            }
+
+            res.json({ data: Object.values(buckets) });
+        } catch (err) {
+            next(err);
+        }
+    }
+);
+
 // ── API Routes ────────────────────────────────────────────
 app.use('/v1/events', eventRouter);
 app.use('/v1/endpoints', endpointRouter);

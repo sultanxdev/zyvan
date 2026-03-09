@@ -58,6 +58,7 @@ export interface Event {
 
 export interface Endpoint {
   id: string;
+  name: string | null;
   url: string;
   max_retries: number;
   timeout_ms: number;
@@ -86,11 +87,19 @@ export interface AnalyticsSummary {
   success_rate: string;
 }
 
+export interface TimeSeriesPoint {
+  date: string;
+  total: number;
+  delivered: number;
+  failed: number;
+}
+
 // ── API Helpers ─────────────────────────────────────────────
 
 export const api = {
   analytics: {
     summary: () => apiFetch<AnalyticsSummary>('/v1/analytics/summary'),
+    timeSeries: (days = 7) => apiFetch<{ data: TimeSeriesPoint[] }>(`/v1/analytics/time-series?days=${days}`),
   },
   events: {
     list: (params?: { status?: string; endpoint_id?: string; limit?: number; offset?: number }) => {
@@ -111,14 +120,17 @@ export const api = {
       }),
   },
   endpoints: {
-    list: () => apiFetch<{ data: Endpoint[]; count: number }>('/v1/endpoints'),
+    list: (active?: boolean) => {
+      const qs = active === false ? '?active=false' : '';
+      return apiFetch<{ data: Endpoint[]; count: number }>(`/v1/endpoints${qs}`);
+    },
     get: (id: string) => apiFetch<Endpoint>(`/v1/endpoints/${id}`),
-    create: (data: { url: string; max_retries?: number; timeout_ms?: number }) =>
+    create: (data: { url: string; name?: string; max_retries?: number; timeout_ms?: number }) =>
       apiFetch<Endpoint & { signing_secret: string }>('/v1/endpoints', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    update: (id: string, data: Partial<{ url: string; max_retries: number; timeout_ms: number; is_active: boolean }>) =>
+    update: (id: string, data: Partial<{ url: string; name: string; max_retries: number; timeout_ms: number; is_active: boolean }>) =>
       apiFetch<Endpoint>(`/v1/endpoints/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => fetch(`${API_BASE}/v1/endpoints/${id}`, { method: 'DELETE', headers: { 'x-api-key': API_KEY } }),
   },

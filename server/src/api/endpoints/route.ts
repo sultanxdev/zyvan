@@ -24,6 +24,7 @@ const UpdateEndpointSchema = z.object({
     max_retries: z.number().int().min(0).max(20).optional(),
     timeout_ms: z.number().int().min(1000).max(60000).optional(),
     is_active: z.boolean().optional(),
+    name: z.string().max(100).optional(),
 });
 
 // ── POST /v1/endpoints — Register a new endpoint ──────────────────────
@@ -41,7 +42,7 @@ endpointRouter.post(
                 return;
             }
 
-            const { url, max_retries, timeout_ms } = parsed.data;
+            const { url, max_retries, timeout_ms, name } = parsed.data;
 
             // Quick sync check first (fast path rejection)
             if (!isHttpsUrl(url)) {
@@ -67,12 +68,14 @@ endpointRouter.post(
                     signingSecret,
                     maxRetries: max_retries,
                     timeoutMs: timeout_ms,
+                    name: name ?? null,
                 },
             });
 
             // Return signing_secret ONLY on creation — it will never be retrievable again
             res.status(201).json({
                 id: endpoint.id,
+                name: endpoint.name,
                 url: endpoint.url,
                 signing_secret: signingSecret, // ← shown once only
                 max_retries: endpoint.maxRetries,
@@ -90,13 +93,18 @@ endpointRouter.post(
 
 endpointRouter.get(
     '/',
-    async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
+            const { active } = req.query;
+            // Default to active only unless active=false is passed
+            const where = active === 'false' ? {} : { isActive: true };
+
             const endpoints = await db.endpoint.findMany({
-                where: { isActive: true },
+                where,
                 orderBy: { createdAt: 'desc' },
                 select: {
                     id: true,
+                    name: true,
                     url: true,
                     maxRetries: true,
                     timeoutMs: true,
@@ -110,6 +118,7 @@ endpointRouter.get(
             res.json({
                 data: endpoints.map((ep) => ({
                     id: ep.id,
+                    name: ep.name,
                     url: ep.url,
                     max_retries: ep.maxRetries,
                     timeout_ms: ep.timeoutMs,
@@ -136,6 +145,7 @@ endpointRouter.get(
                 where: { id: req.params.id },
                 select: {
                     id: true,
+                    name: true,
                     url: true,
                     maxRetries: true,
                     timeoutMs: true,
@@ -153,6 +163,7 @@ endpointRouter.get(
 
             res.json({
                 id: endpoint.id,
+                name: endpoint.name,
                 url: endpoint.url,
                 max_retries: endpoint.maxRetries,
                 timeout_ms: endpoint.timeoutMs,
@@ -182,7 +193,7 @@ endpointRouter.patch(
                 return;
             }
 
-            const { url, max_retries, timeout_ms, is_active } = parsed.data;
+            const { url, max_retries, timeout_ms, is_active, name } = parsed.data;
 
             // SSRF check on new URL if provided
             if (url !== undefined) {
@@ -210,9 +221,11 @@ endpointRouter.patch(
                     ...(max_retries !== undefined && { maxRetries: max_retries }),
                     ...(timeout_ms !== undefined && { timeoutMs: timeout_ms }),
                     ...(is_active !== undefined && { isActive: is_active }),
+                    ...(name !== undefined && { name }),
                 },
                 select: {
                     id: true,
+                    name: true,
                     url: true,
                     maxRetries: true,
                     timeoutMs: true,
@@ -224,6 +237,7 @@ endpointRouter.patch(
 
             res.json({
                 id: updated.id,
+                name: updated.name,
                 url: updated.url,
                 max_retries: updated.maxRetries,
                 timeout_ms: updated.timeoutMs,

@@ -29,6 +29,7 @@ enum EventStatus {
 /// A registered webhook target endpoint
 model Endpoint {
   id            String   @id @default(uuid())
+  name          String?  @map("endpoint_name")
   url           String
   signingSecret String   @map("signing_secret")
   maxRetries    Int      @default(5) @map("max_retries")

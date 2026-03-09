@@ -68,20 +68,25 @@ eventRouter.get(
         try {
             const { status, endpoint_id, limit = '20', offset = '0' } = req.query;
 
-            const events = await db.event.findMany({
-                where: {
-                    ...(status && { status: status as any }),
-                    ...(endpoint_id && { endpointId: endpoint_id as string }),
-                },
-                orderBy: { createdAt: 'desc' },
-                take: Math.min(Number(limit), 100), // cap at 100
-                skip: Math.max(Number(offset), 0),
-                include: { _count: { select: { attempts: true } } },
-            });
+            const where = {
+                ...(status && { status: status as any }),
+                ...(endpoint_id && { endpointId: endpoint_id as string }),
+            };
+
+            const [events, total] = await Promise.all([
+                db.event.findMany({
+                    where,
+                    orderBy: { createdAt: 'desc' },
+                    take: Math.min(Number(limit), 100), // cap at 100
+                    skip: Math.max(Number(offset), 0),
+                    include: { _count: { select: { attempts: true } } },
+                }),
+                db.event.count({ where }),
+            ]);
 
             res.json({
                 data: events,
-                count: events.length,
+                count: total,  // true total for pagination
             });
         } catch (err) {
             next(err);

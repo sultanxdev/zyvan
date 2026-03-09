@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { api, type AnalyticsSummary, type Event } from '@/lib/api';
+import { api, type AnalyticsSummary, type Event, type TimeSeriesPoint } from '@/lib/api';
 import { StatusBadge, StatCard, Spinner, PageHeader, EmptyState } from '@/components/ui';
 import {
   CheckCircle2,
@@ -12,21 +12,33 @@ import {
   RefreshCw,
   ListChecks,
 } from 'lucide-react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts';
 import Link from 'next/link';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 
 const PIE_COLORS: Record<string, string> = {
-  delivered: '#22c55e', // var(--success)
-  dead_lettered: '#ef4444', // var(--danger)
-  retrying: '#a855f7', // var(--retry)
-  dispatching: '#f59e0b', // var(--warning)
+  delivered: '#22c55e',
+  dead_lettered: '#ef4444',
+  retrying: '#a855f7',
+  dispatching: '#f59e0b',
   pending: '#3b82f6',
 };
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [recentEvents, setRecentEvents] = useState<Event[]>([]);
+  const [timeSeries, setTimeSeries] = useState<TimeSeriesPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -35,12 +47,14 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [sum, evts] = await Promise.all([
+      const [sum, evts, ts] = await Promise.all([
         api.analytics.summary(),
         api.events.list({ limit: 8 }),
+        api.analytics.timeSeries(7),
       ]);
       setSummary(sum);
       setRecentEvents(evts.data);
+      setTimeSeries(ts.data);
       setLastRefresh(new Date());
     } catch (e: any) {
       setError(e.message);
@@ -64,6 +78,11 @@ export default function DashboardPage() {
         { name: 'Pending', value: summary.pending, key: 'pending' },
       ].filter((d) => d.value > 0)
     : [];
+
+  const chartData = timeSeries.map((d) => ({
+    ...d,
+    date: format(new Date(d.date), 'MMM d'),
+  }));
 
   return (
     <div>
@@ -105,7 +124,7 @@ export default function DashboardPage() {
             marginBottom: 24,
           }}
         >
-          ⚠️ {error} — Make sure the API server is running.
+          ⚠️ {error} — Make sure the API server is running and your API key is set in <code>.env.local</code>.
         </div>
       )}
 
@@ -119,7 +138,7 @@ export default function DashboardPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
               gap: 16,
               marginBottom: 28,
             }}
@@ -163,23 +182,66 @@ export default function DashboardPage() {
             />
           </div>
 
+          {/* Time-Series Chart */}
+          <div className="glass-card" style={{ padding: 24, marginBottom: 20 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 20px', color: 'var(--text-primary)' }}>
+              7-Day Event Volume
+            </h2>
+            {chartData.length > 0 && chartData.some((d) => d.total > 0) ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorDelivered" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorFailed" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      color: 'var(--text-primary)',
+                      fontSize: 13,
+                    }}
+                  />
+                  <Area type="monotone" dataKey="delivered" stroke="#22c55e" strokeWidth={2} fill="url(#colorDelivered)" name="Delivered" />
+                  <Area type="monotone" dataKey="failed" stroke="#ef4444" strokeWidth={2} fill="url(#colorFailed)" name="Failed" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyState
+                icon={<TrendingUp size={40} />}
+                title="No data yet"
+                description="Ingest some events to see the 7-day trend"
+              />
+            )}
+          </div>
+
           {/* Chart + Recent Events */}
-          <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 20 }}>
             {/* Pie Chart */}
             <div className="glass-card" style={{ padding: 24 }}>
               <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 20px', color: 'var(--text-primary)' }}>
-                Event Distribution
+                Distribution
               </h2>
               {pieData.length > 0 ? (
                 <>
-                  <ResponsiveContainer width="100%" height={200}>
+                  <ResponsiveContainer width="100%" height={180}>
                     <PieChart>
                       <Pie
                         data={pieData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={85}
+                        innerRadius={55}
+                        outerRadius={80}
                         paddingAngle={3}
                         dataKey="value"
                       >
@@ -220,7 +282,7 @@ export default function DashboardPage() {
                 <EmptyState
                   icon={<TrendingUp size={40} />}
                   title="No data yet"
-                  description="Ingest some events to see the distribution"
+                  description="Ingest events to see the distribution"
                 />
               )}
             </div>
