@@ -2,22 +2,22 @@
 
 @layer base {
   :root {
-    --bg-base: #0a0b0f;
-    --bg-surface: #111318;
-    --bg-card: #161920;
-    --bg-elevated: #1d2128;
-    --border: #252933;
-    --border-subtle: #1a1f28;
-    --text-primary: #f0f2f5;
-    --text-secondary: #8a9ab5;
-    --text-muted: #4d5a72;
-    --accent: #6366f1;
-    --accent-hover: #818cf8;
-    --accent-glow: rgba(99, 102, 241, 0.15);
-    --success: #10b981;
+    --bg-base: #000000;
+    --bg-surface: #0a0a0a;
+    --bg-card: #0a0a0a;
+    --bg-elevated: #171717;
+    --border: #262626;
+    --border-subtle: #171717;
+    --text-primary: #ffffff;
+    --text-secondary: #a3a3a3;
+    --text-muted: #525252;
+    --accent: #a3e635;
+    --accent-hover: #bef264;
+    --accent-glow: rgba(163, 230, 53, 0.15);
+    --success: #22c55e;
     --warning: #f59e0b;
     --danger: #ef4444;
-    --retry: #8b5cf6;
+    --retry: #a855f7;
   }
 
   * {
@@ -67,7 +67,7 @@
 /* Glow pulse animation */
 @keyframes glow-pulse {
   0%, 100% { box-shadow: 0 0 8px var(--accent-glow); }
-  50% { box-shadow: 0 0 24px rgba(99, 102, 241, 0.3); }
+  50% { box-shadow: 0 0 24px rgba(163, 230, 53, 0.3); }
 }
 
 .accent-glow {

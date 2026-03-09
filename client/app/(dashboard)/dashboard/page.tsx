@@ -17,10 +17,10 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 
 const PIE_COLORS: Record<string, string> = {
-  delivered: '#10b981',
-  dead_lettered: '#ef4444',
-  retrying: '#8b5cf6',
-  dispatching: '#f59e0b',
+  delivered: '#22c55e', // var(--success)
+  dead_lettered: '#ef4444', // var(--danger)
+  retrying: '#a855f7', // var(--retry)
+  dispatching: '#f59e0b', // var(--warning)
   pending: '#3b82f6',
 };
 
@@ -127,38 +127,38 @@ export default function DashboardPage() {
             <StatCard
               label="Total Events"
               value={summary.total.toLocaleString()}
-              color="#6366f1"
+              color="var(--accent)"
               icon={<Zap size={18} />}
             />
             <StatCard
               label="Delivered"
               value={summary.delivered.toLocaleString()}
               sub={summary.success_rate}
-              color="#10b981"
+              color="var(--success)"
               icon={<CheckCircle2 size={18} />}
             />
             <StatCard
               label="Dead Lettered"
               value={summary.dead_lettered.toLocaleString()}
-              color="#ef4444"
+              color="var(--danger)"
               icon={<XCircle size={18} />}
             />
             <StatCard
               label="Retrying"
               value={summary.retrying.toLocaleString()}
-              color="#8b5cf6"
+              color="var(--retry)"
               icon={<RefreshCw size={18} />}
             />
             <StatCard
               label="Dispatching"
               value={summary.dispatching.toLocaleString()}
-              color="#f59e0b"
+              color="var(--warning)"
               icon={<Clock size={18} />}
             />
             <StatCard
               label="Success Rate"
               value={summary.total > 0 ? summary.success_rate : 'N/A'}
-              color="#10b981"
+              color="var(--success)"
               icon={<TrendingUp size={18} />}
             />
           </div>

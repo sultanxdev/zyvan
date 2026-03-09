@@ -43,11 +43,11 @@ export default function Sidebar() {
               width: 36,
               height: 36,
               borderRadius: 10,
-              background: 'linear-gradient(135deg, #6366f1, #818cf8)',
+              background: 'linear-gradient(135deg, #a3e635, #10b981)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)',
+              boxShadow: '0 0 20px rgba(163, 230, 53, 0.4)',
             }}
           >
             <Zap size={18} color="white" strokeWidth={2.5} />
@@ -77,7 +77,7 @@ export default function Sidebar() {
                 fontWeight: active ? 600 : 400,
                 color: active ? 'var(--accent-hover)' : 'var(--text-secondary)',
                 background: active ? 'var(--accent-glow)' : 'transparent',
-                border: `1px solid ${active ? 'rgba(99,102,241,0.25)' : 'transparent'}`,
+                border: `1px solid ${active ? 'rgba(163,230,53,0.25)' : 'transparent'}`,
                 transition: 'all 0.15s ease',
               }}
             >
