@@ -4,12 +4,31 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Zap, ShieldCheck, Activity, TerminalSquare, Github, ArrowRight } from 'lucide-react';
+import LightPillar from '@/components/LightPillar';
 
 export default function LandingPage() {
   return (
     <div className="bg-black text-white min-h-[100dvh] font-sans selection:bg-lime-500/30">
       {/* Dynamic Background Glow */}
       <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-lime-500/10 blur-[120px] rounded-full pointer-events-none" />
+      
+      {/* Light Pillar Background */}
+      <div className="absolute top-0 left-0 w-full h-[800px] pointer-events-none z-0 overflow-hidden">
+        <LightPillar
+          topColor="#4acf4c"
+          bottomColor="#FF9FFC"
+          intensity={1}
+          rotationSpeed={0.3}
+          glowAmount={0.002}
+          pillarWidth={3}
+          pillarHeight={0.4}
+          noiseIntensity={0.5}
+          pillarRotation={25}
+          interactive={false}
+          mixBlendMode="screen"
+          quality="high"
+        />
+      </div>
 
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/5 backdrop-blur-md backdrop-brightness-50 border-b border-white/5">
