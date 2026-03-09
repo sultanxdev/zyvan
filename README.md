@@ -1,119 +1,90 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="Zyven Logo" width="120" />
+  <img src="docs/assets/logo.svg" alt="Zyvan Logo" width="120" />
 </p>
 
-# Zyven: Distributed Reliability Middleware
-> **Eliminate Webhook Data Loss.** Zyven is a high-performance middleware that guarantees at-least-once delivery between your core services and external endpoints.
+# Zyvan: Webhook Reliability Engine
 
+> **Eliminate Webhook Data Loss.** Zyvan is a high-performance, distributed middleware that guarantees at-least-once delivery between your core services and external endpoints. Built with Node.js, PostgreSQL, Redis, and a Next.js Dashboard.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Status: Active Development](https://img.shields.io/badge/Status-Active--Development-orange)
-![Build: Passing](https://img.shields.io/badge/Build-Passing-green)
+![Status: Production Ready](https://img.shields.io/badge/Status-Production--Ready-blue)
+![Build: Dockerized](https://img.shields.io/badge/Build-Dockerized-green)
 
 ---
 
 ## 🧐 The Engineering Problem
-Calling external webhooks directly from your API creates a **tight coupling** and a **single point of failure**:
-- ❌ **Downstream Downtime**: If the receiver is down, your data is lost.
-- ❌ **Latency Spikes**: Waiting for a slow webhook response blocks your core API.
-- ❌ **Zombies**: Failed events without logs are impossible to debug.
 
-**Zyven acts as a shock absorber.** It separates **Acceptance** (Sync & Fast) from **Delivery** (Async & Reliable).
+Calling external webhooks directly from your core API creates a **tight coupling** and a **single point of failure**:
+- ❌ **Downstream Downtime**: If the receiver is down, your data is lost forever.
+- ❌ **Latency Spikes**: Waiting for a slow webhook response ties up a thread and blocks your core API.
+- ❌ **Zombies**: Failed events without observability are impossible to debug and replay.
 
----
-
-## 🏗️ System Architecture
-Zyven is built for high availability and strict security isolation.
-
-![Zyven High-Level Architecture](docs/assets/high_level_architecture.png)
+**Zyvan acts as a shock absorber.** It separates **Acceptance** (Sync & Fast) from **Delivery** (Async & Reliable).
 
 ---
 
-## 🔄 Lifecycle: The Reliability Boundary
-Once Zyven commits an event to the source-of-truth database, we take **100% ownership** of its delivery.
-
-![Zyven End-to-End Flow](docs/assets/end_to_end_flow.png)
-
----
-
-## 🚀 Key Features
-- **🛡️ Idempotency Protection**: Never process the same event twice, even if the client retries the request.
-- **🔄 Intelligent Retries**: Exponential backoff with jitter and configurable retry limits.
-- **💀 Dead Letter Queue (DLQ)**: Failed events are automatically isolated for manual inspection and bulk replay.
-- **🔐 HMAC Webhook Signing**: Every delivery includes a cryptographic signature for security validation.
-- **🔍 Full Visibility**: Audit logs for every single HTTP attempt, including response headers and body.
-
----
-
-## 📊 Data Model (ER Diagram)
-Designed for high-concurrency event tracking and observability.
-
-![Zyven Database ER Diagram](docs/assets/er_diagram.png)
-
----
-
-## 🛠 Tech Stack
-- **Engine**: Node.js + Express (TypeScript)
-- **Infrastructure**: PostgreSQL (Persistence) + Redis (Queueing)
-- **Logic**: BullMQ (Job Scheduling) + Prisma/Drizzle (ORM)
-- **Security**: Dedicated Outgoing Proxy for SSRF protection
+## 🚀 Key Architectural Features
+- **🛡️ Idempotent Ingestion**: Never process the same event twice, even if your internal client aggressively retries the request during a network blip.
+- **🔄 Intelligent Retries**: Asynchronous BullMQ workers execute exponential backoff algorithms (with jitter) and configurable target-specific retry limits.
+- **💀 Dead Letter Queue (DLQ)**: Poison messages and permanently failed events are automatically segregated for manual inspection and one-click bulk replay via the Dashboard.
+- **🔐 HMAC Payload Signing**: Every outbound delivery is signed (HMAC-SHA256) so the receiving server can verify the request's authenticity over the open internet.
+- **🛡️ SSRF Prevention**: Zyvan resolves DNS and blocks requests targeting internal IP ranges (e.g., `localhost`, AWS Metadata `169.254.x.x`).
+- **🔍 Full Visibility**: Audit logs and a modern React (Next.js) dashboard expose the exact status code, latency, and response body of every single delivery attempt.
 
 ---
 
 ## 📂 Project Structure
 
+A clean, modern Monorepo structure containing separate stacks for the backend API and frontend Dashboard.
+
 ```text
-zyven/
-├── client/           # Dashboard & Analytics (Next.js)
-├── server/           # Core Reliability Engine (Node.js)
-│   ├── src/
-│   │   ├── api/      # Routes, Controllers, Validators
-│   │   ├── core/     # Business Logic & Services
-│   │   ├── workers/  # BullMQ Dispatch Processors
-│   │   ├── models/   # DB Schemas & Persistence
-│   │   ├── middleware/# Auth & Security Filters
-│   │   └── config/   # Environment & DB Connections
-│   └── tests/        # Integration & Load Testing
-├── infra/            # Docker, K8s & Deployment Scripts
-├── docs/             # Documentation & Diagrams
+zyvan/
+├── client/           # Dashboard UI (Next.js, Tailwind CSS, Recharts)
+├── server/           # Core Reliability Engine (Node.js, Express, BullMQ, Prisma)
+├── docs/             # Diagrams & Documentation
+│   └── interview/    # 🎯 Interview Prep Docs (Resume points, ER Diagrams, Q&A)
+├── docker-compose.yml 
 └── README.md
 ```
 
+### 🎯 Interview & Tech Reference
+Looking to understand the system design in-depth for an interview or technical presentation?
+- **[System Architecture & Data Model Flows](docs/interview/architecture_explanation.md)**: View the system ER Diagrams and Sequence Flows.
+- **[Interview Q&A](docs/interview/interview_questions.md)**: 20 Advanced technical questions analyzing the scale and logic of this engine.
+- **[Technical Buzzwords](docs/interview/technical_buzzwords.md)**: A cheat-sheet of distributed system jargon (Idempotency, Backoff, SSRF) used here.
+
 ---
 
-## 🔍 Visual Deep Dives
-- [🧠 Technical Explainer & Logic Flows](docs/explainer.md): Detailed diagrams for Retries and Security.
-- [🏗️ System Architecture Theory](docs/architecture.md): Engineering deep-dive into the "Reliability Boundary".
+## 🛠 Tech Stack
+- **Engine**: Node.js v20 + Express (TypeScript)
+- **Infrastructure**: PostgreSQL 15 (Persistence) & Redis 7 (Queueing)
+- **Task Scheduling**: BullMQ (Job dispatching & delays)
+- **Database ORM**: Prisma ORM
+- **Frontend Dashboard**: Next.js 15 (App Router), React, Tailwind CSS
 
 ---
 
-## 🏃 Quick Start (Local Development)
+## 🏃 Quick Start (Dockerized)
+
+Zyvan requires zero manual setup. Simply clone and spin up the complete distributed stack (PostgreSQL, Redis, the Node.js API, and the Next.js Client) using Docker Compose.
+
 ```bash
-# 1. Clone & Install
-git clone https://github.com/sultanxdev/zyven.git
-cd zyven
-npm install
+# 1. Clone the repo
+git clone https://github.com/yourusername/zyvan.git
+cd zyvan
 
-# 2. Setup Environment
-cp .env.example .env
+# 2. Start the entire stack in detached mode
+docker compose up -d --build
 
-# 3. Spin up Infrastructure
-docker-compose up -d
+# 3. Wait 10-15 seconds for PostgreSQL & server to migrate...
 
-# 4. Start Development Server
-npm run dev
+# 4. Open the interactive Dashboard!
+# 👉 http://localhost:3001
 ```
+
+*(Note: The raw Express Ingestion API runs mapped to `http://localhost:3000`)*
 
 ---
 
 ## 📄 License
-Distributed under the MIT License. See `LICENSE` for more information.
-
----
-
-## ✉️ Contact
-**Sultan Alam** - [sultanalamdev@gmail.com](mailto:sultanalamdev@gmail.com)  
-Project Link: [https://github.com/sultanxdev/zyven](https://github.com/sultanxdev/zyven)
-
----
-*Built with ❤️ for mission-critical webhooks by Sultan*
+Distributed under the MIT License. Built for mission-critical webhooks.

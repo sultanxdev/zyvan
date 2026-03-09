@@ -51,3 +51,12 @@ prisma/migrations/
 
 # Docker
 *.env.docker
+#other files
+.interview
+architecture.md
+explainer.md
+
+
+.agents
+.interview
+interview

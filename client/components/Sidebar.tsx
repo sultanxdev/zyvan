@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const NAV = [
-  { href: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/events', icon: ListChecks, label: 'Events' },
   { href: '/dlq', icon: Skull, label: 'DLQ' },
   { href: '/endpoints', icon: Webhook, label: 'Endpoints' },
@@ -61,7 +61,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 12px', flex: 1 }}>
         {NAV.map(({ href, icon: Icon, label }) => {
-          const active = pathname === href || (href !== '/' && pathname.startsWith(href));
+          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
           return (
             <Link
               key={href}

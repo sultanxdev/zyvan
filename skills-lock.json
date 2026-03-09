@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "ui-ux-design-pro": {
+      "source": "saifyxpro/ui-ux-design-pro-skill",
+      "sourceType": "github",
+      "computedHash": "7d26b6431656036ad4c98b1e8bc1b8209cb2902ec77425c77597a19a020abc72"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "computedHash": "3ff06f0712886f7c2660d6746856c22d3127bd6568ddde29ddad8b72dbaaa226"
+    }
+  }
+}
