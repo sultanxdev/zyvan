@@ -33,7 +33,7 @@ export default function LandingPage() {
 
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/5 backdrop-blur-md backdrop-brightness-50 border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-lime-400 to-emerald-600 flex items-center justify-center shadow-[0_0_15px_rgba(163,230,53,0.3)]">
               <Zap size={16} className="text-white" strokeWidth={2.5} />
@@ -58,7 +58,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <main className="pt-40 pb-20 px-6 max-w-7xl mx-auto flex flex-col items-center text-center relative z-10">
+      <main className="pt-40 pb-20 px-6 max-w-[1200px] mx-auto flex flex-col items-center text-center relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -202,7 +202,7 @@ export default function LandingPage() {
       </main>
 
       {/* Features Grid */}
-      <section className="py-32 px-6 max-w-7xl mx-auto relative z-10 border-t border-white/5">
+      <section className="py-32 px-6 max-w-[1200px] mx-auto relative z-10 border-t border-white/5">
         <div className="mb-16 text-center">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 text-white">Engineering beyond the standard.</h2>
           <p className="text-gray-400 text-lg">Features built for mission-critical, enterprise-scale reliability.</p>
@@ -228,7 +228,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it Works Section */}
-      <section className="py-32 px-6 max-w-7xl mx-auto relative z-10 border-t border-white/5">
+      <section className="py-32 px-6 max-w-[1200px] mx-auto relative z-10 border-t border-white/5">
         <div className="mb-20 text-center max-w-3xl mx-auto">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 text-white">How Zyvan Works</h2>
           <p className="text-gray-400 text-lg">A simple 3-step integration to make your webhooks 100% reliable.</p>
@@ -271,7 +271,7 @@ export default function LandingPage() {
 
       {/* Pricing Section */}
       <section className="py-32 relative z-10 border-t border-white/5 bg-gradient-to-b from-transparent to-black">
-        <div className="max-w-7xl mx-auto px-6">
+        <div className="max-w-[1200px] mx-auto px-6">
           <div className="mb-20 text-center max-w-3xl mx-auto">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6 text-white">Transparent Pricing</h2>
             <p className="text-gray-400 text-lg">Whether you self-host or use our cloud, we have you covered.</p>
