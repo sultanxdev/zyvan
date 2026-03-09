@@ -10,6 +10,9 @@ export const config = {
     apiKeySecret: process.env.API_KEY_SECRET!,
     nodeEnv: process.env.NODE_ENV || 'development',
     isDev: process.env.NODE_ENV !== 'production',
+    corsOrigins: process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+        : ['http://localhost:3001', 'http://localhost:3000'],
 };
 
 // Fail fast — crash on startup if critical config is missing
