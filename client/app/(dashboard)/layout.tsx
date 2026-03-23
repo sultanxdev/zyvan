@@ -1,10 +1,11 @@
 import Sidebar from '@/components/Sidebar';
+import { Zap } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', width: '100%' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', width: '100%', background: 'var(--bg-base)' }}>
       <Sidebar />
-      <main style={{ flex: 1, minWidth: 0, padding: '32px', overflowY: 'auto' }}>
+      <main className="dashboard-main">
         {children}
       </main>
     </div>
