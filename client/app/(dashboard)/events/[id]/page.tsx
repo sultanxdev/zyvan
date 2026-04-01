@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api, type Event } from '@/lib/api';
 import { StatusBadge, Spinner, Button, PageHeader } from '@/components/ui';
@@ -15,21 +15,21 @@ export default function EventDetailPage() {
   const [replaying, setReplaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchEvent = async () => {
+  const fetchEvent = useCallback(async () => {
     setLoading(true);
     try {
       const evt = await api.events.get(id);
       setEvent(evt);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchEvent();
-  }, [id]);
+  }, [fetchEvent]);
 
   const handleReplay = async () => {
     if (!event) return;
@@ -37,8 +37,8 @@ export default function EventDetailPage() {
     try {
       await api.events.replay(event.id);
       await fetchEvent();
-    } catch (e: any) {
-      alert(e.message);
+    } catch (e: unknown) {
+      alert((e as Error).message);
     } finally {
       setReplaying(false);
     }

@@ -5,7 +5,7 @@ import { motion, useInView } from 'framer-motion';
 import Link from 'next/link';
 import {
   Zap, ShieldCheck, Activity, TerminalSquare, Github, ArrowRight,
-  CheckCircle2, Globe, Lock, RefreshCw, Database, Clock, Menu, X,
+  CheckCircle2, Globe, Lock, Database, Menu, X,
   ChevronDown, ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 import LightPillar from '@/components/LightPillar';
@@ -303,7 +303,7 @@ export default function LandingPage() {
                   {' { ZyvanClient } '}
                   <span className="text-lime-400">from</span>
                   {' '}
-                  <span className="text-emerald-300">'@zyvan/sdk'</span>
+                  <span className="text-emerald-300">&apos;@zyvan/sdk&apos;</span>
                   {'\n\n'}
                   <span className="text-zinc-500">{'// Initialize the client'}</span>
                   {'\n'}
@@ -321,15 +321,15 @@ export default function LandingPage() {
                   {' zyvan.events.'}
                   <span className="text-cyan-300">dispatch</span>
                   {'({\n  endpoint_id: '}
-                  <span className="text-emerald-300">'ep_9a8b7c6d'</span>
+                  <span className="text-emerald-300">&apos;ep_9a8b7c6d&apos;</span>
                   {',\n  event_type: '}
-                  <span className="text-emerald-300">'payment.succeeded'</span>
+                  <span className="text-emerald-300">&apos;payment.succeeded&apos;</span>
                   {',\n  idempotencyKey: '}
-                  <span className="text-emerald-300">'idem_xyz_123'</span>
+                  <span className="text-emerald-300">&apos;idem_xyz_123&apos;</span>
                   {',\n  payload: { amount: '}
                   <span className="text-orange-300">4900</span>
                   {', currency: '}
-                  <span className="text-emerald-300">'USD'</span>
+                  <span className="text-emerald-300">&apos;USD&apos;</span>
                   {' },\n});\n\n'}
                   <span className="text-gray-600">{'// Zyvan handles retries, backoff & DLQ automatically.'}</span>
                 </pre>

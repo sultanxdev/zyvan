@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api, type Endpoint } from '@/lib/api';
-import { Spinner, Button, PageHeader, EmptyState } from '@/components/ui';
-import { Webhook, Plus, Trash2, Copy, Check, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Spinner, PageHeader, EmptyState } from '@/components/ui';
+import { Webhook, Plus, Trash2, Copy, Check, ToggleLeft, ToggleRight, X, Globe, Shield } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function EndpointsPage() {
@@ -28,9 +28,7 @@ export default function EndpointsPage() {
     }
   }, [showAll]);
 
-  useEffect(() => {
-    fetchEndpoints();
-  }, [fetchEndpoints]);
+  useEffect(() => { fetchEndpoints(); }, [fetchEndpoints]);
 
   const handleCreate = async () => {
     if (!newUrl) return;
@@ -38,12 +36,12 @@ export default function EndpointsPage() {
     setCreateError(null);
     try {
       const ep = await api.endpoints.create({ url: newUrl, name: newName || undefined });
-      setNewSecret((ep as any).signing_secret);
+      setNewSecret((ep as Endpoint & { signing_secret: string }).signing_secret);
       setNewUrl('');
       setNewName('');
       await fetchEndpoints();
-    } catch (e: any) {
-      setCreateError(e.message);
+    } catch (e: unknown) {
+      setCreateError((e as Error).message);
     } finally {
       setCreating(false);
     }
@@ -59,9 +57,7 @@ export default function EndpointsPage() {
     try {
       await api.endpoints.update(ep.id, { is_active: !ep.is_active });
       await fetchEndpoints();
-    } catch (e: any) {
-      alert(e.message);
-    }
+    } catch (e: unknown) { alert((e as Error).message); }
   };
 
   const copySecret = () => {
@@ -76,47 +72,53 @@ export default function EndpointsPage() {
     <div>
       <PageHeader
         title="Endpoints"
-        subtitle="Manage webhook target URLs"
+        subtitle="Manage webhook target URLs and their delivery configuration"
         action={
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none' }}>
               <input
                 type="checkbox"
                 checked={showAll}
                 onChange={(e) => setShowAll(e.target.checked)}
-                style={{ accentColor: 'var(--accent)', width: 15, height: 15 }}
+                style={{ accentColor: 'var(--accent)', width: 14, height: 14 }}
               />
               Show inactive
             </label>
-            <Button onClick={() => setShowCreate(!showCreate)}>
-              <Plus size={14} /> Add Endpoint
-            </Button>
+            <button
+              onClick={() => { setShowCreate(!showCreate); setNewSecret(null); setCreateError(null); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 8,
+                background: showCreate ? 'var(--bg-elevated)' : 'var(--accent)',
+                color: showCreate ? 'var(--text-secondary)' : '#000',
+                border: `1px solid ${showCreate ? 'var(--border)' : 'var(--accent)'}`,
+                fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                transition: 'all 0.15s', fontFamily: 'inherit',
+              }}
+            >
+              {showCreate ? <X size={14} /> : <Plus size={14} />}
+              {showCreate ? 'Cancel' : 'Add Endpoint'}
+            </button>
           </div>
         }
       />
 
-      {/* Create form */}
+      {/* Create Form */}
       {showCreate && (
-        <div className="glass-card animate-fade-in" style={{ padding: 24, marginBottom: 20 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 16px', color: 'var(--text-primary)' }}>
-            Register New Endpoint
-          </h2>
+        <div className="glass-card animate-fade-in" style={{ padding: 22, marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <Globe size={16} color="var(--accent)" />
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+              Register New Endpoint
+            </h2>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <input
               type="text"
-              placeholder="Endpoint name (optional, e.g. Production)"
+              placeholder="Display name (optional, e.g. Production Payments)"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '9px 14px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--bg-elevated)',
-                color: 'var(--text-primary)',
-                fontSize: 14,
-                outline: 'none',
-              }}
+              className="input-base"
             />
             <div style={{ display: 'flex', gap: 10 }}>
               <input
@@ -125,73 +127,59 @@ export default function EndpointsPage() {
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                style={{
-                  flex: 1,
-                  padding: '9px 14px',
-                  borderRadius: 8,
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-elevated)',
-                  color: 'var(--text-primary)',
-                  fontSize: 14,
-                  outline: 'none',
-                }}
+                className="input-base"
+                style={{ flex: 1 }}
               />
-              <Button onClick={handleCreate} disabled={creating || !newUrl}>
+              <button
+                onClick={handleCreate}
+                disabled={creating || !newUrl}
+                style={{
+                  padding: '9px 20px', borderRadius: 8, border: 'none',
+                  background: 'var(--accent)', color: '#000',
+                  fontWeight: 600, fontSize: 13.5, cursor: creating || !newUrl ? 'not-allowed' : 'pointer',
+                  opacity: creating || !newUrl ? 0.6 : 1,
+                  transition: 'all 0.15s', fontFamily: 'inherit', flexShrink: 0,
+                }}
+              >
                 {creating ? 'Creating…' : 'Create'}
-              </Button>
+              </button>
             </div>
           </div>
+
           {createError && (
-            <p style={{ color: '#f87171', fontSize: 13, marginTop: 8 }}>⚠️ {createError}</p>
+            <p style={{ color: '#f87171', fontSize: 13, marginTop: 10 }}>⚠️ {createError}</p>
           )}
 
-          {/* Show signing secret once */}
           {newSecret && (
-            <div
-              style={{
-                marginTop: 16,
-                padding: 16,
-                background: 'rgba(16,185,129,0.08)',
-                border: '1px solid rgba(16,185,129,0.2)',
-                borderRadius: 8,
-              }}
-            >
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#34d399', margin: '0 0 8px' }}>
-                ✅ Endpoint created! Save your signing secret — it will not be shown again.
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <code
-                  style={{
-                    flex: 1,
-                    fontSize: 13,
-                    color: 'var(--text-primary)',
-                    background: 'var(--bg-base)',
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    border: '1px solid var(--border)',
-                    wordBreak: 'break-all',
-                  }}
-                >
+            <div style={{
+              marginTop: 16, padding: 16,
+              background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)',
+              borderRadius: 10,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <Shield size={14} color="#34d399" />
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#34d399', margin: 0 }}>
+                  Endpoint created! Save your signing secret — it will not be shown again.
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <code className="code-block" style={{ flex: 1, padding: '8px 12px', wordBreak: 'break-all', fontSize: 12 }}>
                   {newSecret}
                 </code>
                 <button
                   onClick={copySecret}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    border: '1px solid var(--border)',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '8px 14px', borderRadius: 8,
+                    border: '1px solid var(--border)', flexShrink: 0,
                     background: copied ? 'rgba(16,185,129,0.1)' : 'var(--bg-elevated)',
                     color: copied ? '#34d399' : 'var(--text-secondary)',
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    flexShrink: 0,
+                    fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                    transition: 'all 0.15s',
                   }}
                 >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                  {copied ? 'Copied' : 'Copy'}
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
+                  {copied ? 'Copied!' : 'Copy'}
                 </button>
               </div>
             </div>
@@ -199,7 +187,7 @@ export default function EndpointsPage() {
         </div>
       )}
 
-      {/* Endpoints list */}
+      {/* Endpoints Table */}
       <div className="glass-card" style={{ overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
@@ -212,37 +200,18 @@ export default function EndpointsPage() {
             description="Register a webhook endpoint to start receiving events."
           />
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="data-table">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              <tr>
                 {['Name / URL', 'Status', 'Max Retries', 'Timeout', 'Events', 'Created', 'Actions'].map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      padding: '12px 16px',
-                      textAlign: 'left',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: 'var(--text-muted)',
-                      letterSpacing: '0.05em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    {h}
-                  </th>
+                  <th key={h}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {endpoints.map((ep) => (
-                <tr
-                  key={ep.id}
-                  style={{
-                    borderBottom: '1px solid var(--border-subtle)',
-                    opacity: ep.is_active ? 1 : 0.5,
-                  }}
-                >
-                  <td style={{ padding: '14px 16px', maxWidth: 280 }}>
+                <tr key={ep.id} style={{ opacity: ep.is_active ? 1 : 0.45 }}>
+                  <td style={{ maxWidth: 280 }}>
                     {ep.name && (
                       <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: 2 }}>
                         {ep.name}
@@ -252,70 +221,57 @@ export default function EndpointsPage() {
                       {ep.url}
                     </span>
                     <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                      {ep.id.slice(0, 8)}…
+                      {ep.id.slice(0, 12)}…
                     </span>
                   </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 5,
-                        padding: '3px 10px',
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        border: '1px solid',
-                        borderColor: ep.is_active ? 'rgba(52,211,153,0.3)' : 'rgba(107,114,128,0.3)',
-                        background: ep.is_active ? 'rgba(52,211,153,0.1)' : 'rgba(107,114,128,0.1)',
-                        color: ep.is_active ? '#34d399' : '#6b7280',
-                      }}
-                    >
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} />
+                  <td>
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '3px 10px', borderRadius: 20, fontSize: 11.5, fontWeight: 500,
+                      border: '1px solid',
+                      borderColor: ep.is_active ? 'rgba(52,211,153,0.25)' : 'rgba(107,114,128,0.25)',
+                      background: ep.is_active ? 'rgba(52,211,153,0.08)' : 'rgba(107,114,128,0.08)',
+                      color: ep.is_active ? '#34d399' : '#6b7280',
+                    }}>
+                      <span style={{ width: 5.5, height: 5.5, borderRadius: '50%', background: 'currentColor', boxShadow: ep.is_active ? '0 0 6px rgba(52,211,153,0.6)' : 'none' }} />
                       {ep.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
-                    {ep.max_retries}
-                  </td>
-                  <td style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
-                    {(ep.timeout_ms / 1000).toFixed(0)}s
-                  </td>
-                  <td style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
-                    {ep.event_count}
-                  </td>
-                  <td style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+                  <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{ep.max_retries}</td>
+                  <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{(ep.timeout_ms / 1000).toFixed(0)}s</td>
+                  <td style={{ fontSize: 13, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{ep.event_count.toLocaleString()}</td>
+                  <td style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
                     {formatDistanceToNow(new Date(ep.created_at), { addSuffix: true })}
                   </td>
-                  <td style={{ padding: '14px 16px' }}>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6 }}>
                       <button
                         onClick={() => handleToggle(ep)}
-                        title={ep.is_active ? 'Deactivate' : 'Activate'}
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          padding: '5px 10px',
-                          borderRadius: 6,
-                          border: '1px solid var(--border)',
-                          background: 'transparent',
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          padding: '5px 10px', borderRadius: 6,
+                          border: '1px solid var(--border)', background: 'transparent',
                           color: ep.is_active ? 'var(--text-secondary)' : '#34d399',
-                          fontSize: 12,
-                          cursor: 'pointer',
+                          fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                          transition: 'all 0.15s',
                         }}
                       >
-                        {ep.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                        {ep.is_active ? <ToggleRight size={13} /> : <ToggleLeft size={13} />}
                         {ep.is_active ? 'Disable' : 'Enable'}
                       </button>
                       {ep.is_active && (
-                        <Button
-                          variant="danger"
-                          size="sm"
+                        <button
                           onClick={() => handleDelete(ep.id, ep.url)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            padding: '5px 10px', borderRadius: 6,
+                            border: '1px solid rgba(239,68,68,0.2)',
+                            background: 'var(--danger-bg)', color: '#f87171',
+                            fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                          }}
                         >
                           <Trash2 size={12} /> Deactivate
-                        </Button>
+                        </button>
                       )}
                     </div>
                   </td>

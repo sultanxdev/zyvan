@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api, type Event } from '@/lib/api';
-import { StatusBadge, Spinner, Button, PageHeader, EmptyState } from '@/components/ui';
-import { Skull, RefreshCw, CheckCheck } from 'lucide-react';
+import { StatusBadge, Spinner, PageHeader, EmptyState } from '@/components/ui';
+import { RefreshCw, AlertTriangle, CheckCheck } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -25,15 +25,12 @@ export default function DLQPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchDLQ();
-  }, [fetchDLQ]);
+  useEffect(() => { fetchDLQ(); }, [fetchDLQ]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
@@ -51,8 +48,8 @@ export default function DLQPage() {
       if (result.failed.length > 0) {
         alert(`Replayed ${result.replayed.length}, failed: ${result.failed.length}`);
       }
-    } catch (e: any) {
-      alert(e.message);
+    } catch (e: unknown) {
+      alert((e as Error).message);
     } finally {
       setReplaying(false);
     }
@@ -62,8 +59,8 @@ export default function DLQPage() {
     try {
       await api.events.replay(id);
       await fetchDLQ();
-    } catch (e: any) {
-      alert(e.message);
+    } catch (e: unknown) {
+      alert((e as Error).message);
     }
   };
 
@@ -71,18 +68,57 @@ export default function DLQPage() {
     <div>
       <PageHeader
         title="Dead Letter Queue"
-        subtitle={`${totalCount} events failed permanently`}
+        subtitle={`${totalCount} event${totalCount !== 1 ? 's' : ''} failed permanently and need attention`}
         action={
           <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={fetchDLQ}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px', borderRadius: 8,
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500,
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+              }}
+            >
+              <RefreshCw size={13} className={loading ? 'animate-spin-slow' : ''} />
+              Refresh
+            </button>
             {selected.size > 0 && (
-              <Button onClick={handleBulkReplay} disabled={replaying}>
-                <RefreshCw size={14} className={replaying ? 'animate-spin-slow' : ''} />
+              <button
+                onClick={handleBulkReplay}
+                disabled={replaying}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 16px', borderRadius: 8, border: 'none',
+                  background: 'var(--accent)', color: '#000',
+                  fontSize: 13, fontWeight: 600,
+                  cursor: replaying ? 'not-allowed' : 'pointer',
+                  opacity: replaying ? 0.7 : 1, fontFamily: 'inherit',
+                  transition: 'all 0.15s',
+                }}
+              >
+                <RefreshCw size={13} className={replaying ? 'animate-spin-slow' : ''} />
                 Replay {selected.size} Selected
-              </Button>
+              </button>
             )}
           </div>
         }
       />
+
+      {/* Alert Banner (when events exist) */}
+      {!loading && totalCount > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '12px 16px', borderRadius: 10, marginBottom: 18,
+          background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)',
+        }}>
+          <AlertTriangle size={16} color="#f87171" />
+          <span style={{ fontSize: 13, color: '#f87171' }}>
+            <strong>{totalCount}</strong> event{totalCount !== 1 ? 's' : ''} permanently failed after exhausting all retries. Review and replay them below.
+          </span>
+        </div>
+      )}
 
       <div className="glass-card" style={{ overflow: 'hidden' }}>
         {loading ? (
@@ -91,60 +127,44 @@ export default function DLQPage() {
           </div>
         ) : events.length === 0 ? (
           <EmptyState
-            icon={<Skull size={48} />}
-            title="DLQ is empty"
-            description="No dead-lettered events. Great job!"
+            icon={<CheckCheck size={48} />}
+            title="DLQ is empty 🎉"
+            description="No dead-lettered events. Your delivery pipeline is healthy!"
           />
         ) : (
           <>
-            {/* Bulk controls */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                padding: '12px 16px',
-                borderBottom: '1px solid var(--border)',
-                background: 'var(--bg-elevated)',
-              }}
-            >
+            {/* Bulk Controls */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '11px 20px', borderBottom: '1px solid var(--border)',
+              background: 'var(--bg-surface)',
+            }}>
               <input
                 type="checkbox"
                 checked={selected.size === events.length && events.length > 0}
                 onChange={selected.size === events.length ? clearAll : selectAll}
-                style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                style={{ width: 15, height: 15, accentColor: 'var(--accent)', cursor: 'pointer' }}
               />
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                {selected.size > 0 ? `${selected.size} selected` : 'Select all'}
+              <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                {selected.size > 0 ? `${selected.size} selected` : 'Select to bulk replay'}
               </span>
               {selected.size > 0 && (
                 <button
                   onClick={clearAll}
-                  style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit', transition: 'color 0.15s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
                 >
-                  Clear
+                  Clear selection
                 </button>
               )}
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="data-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                <tr>
                   {['', 'Status', 'Event Type', 'Failure Reason', 'Retries', 'Failed', 'Actions'].map((h, i) => (
-                    <th
-                      key={i}
-                      style={{
-                        padding: '12px 16px',
-                        textAlign: 'left',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: 'var(--text-muted)',
-                        letterSpacing: '0.05em',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {h}
-                    </th>
+                    <th key={i}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -152,69 +172,64 @@ export default function DLQPage() {
                 {events.map((evt) => (
                   <tr
                     key={evt.id}
-                    style={{
-                      borderBottom: '1px solid var(--border-subtle)',
-                      background: selected.has(evt.id) ? 'rgba(99,102,241,0.05)' : 'transparent',
-                      transition: 'background 0.1s',
-                    }}
+                    style={{ background: selected.has(evt.id) ? 'rgba(239,68,68,0.04)' : 'transparent' }}
                   >
-                    <td style={{ padding: '12px 16px', width: 40 }}>
+                    <td style={{ width: 44 }}>
                       <input
                         type="checkbox"
                         checked={selected.has(evt.id)}
                         onChange={() => toggleSelect(evt.id)}
-                        style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                        style={{ width: 15, height: 15, accentColor: 'var(--accent)', cursor: 'pointer' }}
                       />
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <StatusBadge status={evt.status} />
-                    </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: 13, color: 'var(--text-primary)' }}>
+                    <td><StatusBadge status={evt.status} /></td>
+                    <td style={{ fontFamily: 'monospace', fontSize: 12.5, color: 'var(--text-primary)' }}>
                       {evt.eventType}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#f87171', maxWidth: 240 }}>
-                      <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {evt.failureReason || '—'}
+                    <td style={{ maxWidth: 220 }}>
+                      <span style={{
+                        display: 'block', overflow: 'hidden', textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap', fontSize: 12.5, color: '#f87171',
+                        fontFamily: 'monospace', background: 'rgba(248,113,113,0.05)',
+                        padding: '2px 8px', borderRadius: 6, border: '1px solid rgba(248,113,113,0.1)',
+                      }}>
+                        {evt.failureReason || 'Unknown error'}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
-                      {evt.retryCount}
+                    <td>
+                      <span style={{
+                        fontSize: 12, color: 'var(--danger)', fontWeight: 600,
+                        background: 'var(--danger-bg)', padding: '2px 8px', borderRadius: 10,
+                        border: '1px solid rgba(239,68,68,0.2)',
+                      }}>
+                        {evt.retryCount}
+                      </span>
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+                    <td style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
                       {formatDistanceToNow(new Date(evt.updatedAt), { addSuffix: true })}
                     </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', gap: 8 }}>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
                         <button
                           onClick={() => handleSingleReplay(evt.id)}
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            padding: '4px 10px',
-                            borderRadius: 6,
-                            border: '1px solid var(--border)',
-                            background: 'transparent',
-                            color: 'var(--text-secondary)',
-                            fontSize: 12,
-                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            padding: '4px 10px', borderRadius: 6,
+                            border: '1px solid rgba(163,230,53,0.25)',
+                            background: 'var(--accent-glow)', color: 'var(--accent-hover)',
+                            fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                            transition: 'all 0.15s',
                           }}
                         >
-                          <RefreshCw size={12} /> Replay
+                          <RefreshCw size={11} /> Replay
                         </button>
                         <Link
                           href={`/events/${evt.id}`}
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            padding: '4px 10px',
-                            borderRadius: 6,
-                            border: '1px solid var(--border)',
-                            background: 'transparent',
-                            color: 'var(--text-muted)',
-                            fontSize: 12,
-                            textDecoration: 'none',
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            padding: '4px 10px', borderRadius: 6,
+                            border: '1px solid var(--border)', background: 'transparent',
+                            color: 'var(--text-muted)', fontSize: 12, textDecoration: 'none',
                           }}
                         >
                           View

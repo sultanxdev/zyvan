@@ -3,18 +3,26 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api, type Event, type EventStatus } from '@/lib/api';
 import { StatusBadge, Spinner, PageHeader, EmptyState } from '@/components/ui';
-import { ListChecks, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ListChecks, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 
 const STATUS_OPTS: { value: string; label: string }[] = [
-  { value: '', label: 'All Statuses' },
+  { value: '', label: 'All' },
   { value: 'RECEIVED', label: 'Received' },
   { value: 'DISPATCHING', label: 'Dispatching' },
   { value: 'DELIVERED', label: 'Delivered' },
-  { value: 'RETRY_SCHEDULED', label: 'Retry Scheduled' },
+  { value: 'RETRY_SCHEDULED', label: 'Retrying' },
   { value: 'DEAD_LETTERED', label: 'Dead Lettered' },
 ];
+
+const STATUS_DOT: Record<string, string> = {
+  RECEIVED: '#60a5fa',
+  DISPATCHING: '#fbbf24',
+  DELIVERED: '#34d399',
+  RETRY_SCHEDULED: '#a78bfa',
+  DEAD_LETTERED: '#f87171',
+};
 
 const PAGE_SIZE = 20;
 
@@ -44,46 +52,66 @@ export default function EventsPage() {
     fetchEvents();
   }, [fetchEvents]);
 
-  // Reset page on filter change
   useEffect(() => {
     setPage(0);
   }, [statusFilter]);
 
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const from = totalCount === 0 ? 0 : page * PAGE_SIZE + 1;
+  const to = Math.min((page + 1) * PAGE_SIZE, totalCount);
+
   return (
     <div>
-      <PageHeader title="Events" subtitle={`${totalCount} total events`} />
+      <PageHeader
+        title="Events"
+        subtitle={`${totalCount.toLocaleString()} total events`}
+      />
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        {STATUS_OPTS.map((o) => (
-          <button
-            key={o.value}
-            onClick={() => setStatusFilter(o.value)}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 20,
-              border: '1px solid',
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-              background: statusFilter === o.value ? 'var(--accent)' : 'var(--bg-card)',
-              color: statusFilter === o.value ? 'white' : 'var(--text-secondary)',
-              borderColor: statusFilter === o.value ? 'var(--accent)' : 'var(--border)',
-            }}
-          >
-            {o.label}
-          </button>
-        ))}
+      {/* Filter Bar */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Search size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+        {STATUS_OPTS.map((o) => {
+          const active = statusFilter === o.value;
+          return (
+            <button
+              key={o.value}
+              onClick={() => setStatusFilter(o.value)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '5px 14px',
+                borderRadius: 20,
+                border: '1px solid',
+                fontSize: 12.5,
+                fontWeight: active ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+                background: active ? 'var(--accent-glow)' : 'var(--bg-card)',
+                color: active ? 'var(--accent-hover)' : 'var(--text-secondary)',
+                borderColor: active ? 'rgba(163,230,53,0.3)' : 'var(--border)',
+                fontFamily: 'inherit',
+              }}
+            >
+              {o.value && (
+                <span style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: STATUS_DOT[o.value],
+                  flexShrink: 0,
+                }} />
+              )}
+              {o.label}
+            </button>
+          );
+        })}
+        {loading && <Spinner size={16} />}
       </div>
 
       {/* Table */}
       <div className="glass-card" style={{ overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-            <Spinner />
-          </div>
-        ) : events.length === 0 ? (
+        {!loading && events.length === 0 ? (
           <EmptyState
             icon={<ListChecks size={48} />}
             title="No events found"
@@ -91,123 +119,128 @@ export default function EventsPage() {
           />
         ) : (
           <>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="data-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  {['Status', 'Event Type', 'Event ID', 'Retries', 'Created'].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: '12px 16px',
-                        textAlign: 'left',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: 'var(--text-muted)',
-                        letterSpacing: '0.05em',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      {h}
-                    </th>
+                <tr>
+                  {['Status', 'Event Type', 'Endpoint', 'Retries', 'Event ID', 'Created'].map((h) => (
+                    <th key={h}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {events.map((evt) => (
-                  <tr
-                    key={evt.id}
-                    style={{
-                      borderBottom: '1px solid var(--border-subtle)',
-                      transition: 'background 0.1s',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-elevated)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <td style={{ padding: '12px 16px' }}>
-                      <StatusBadge status={evt.status as EventStatus} />
-                    </td>
-                    <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontSize: 13, color: 'var(--text-primary)' }}>
-                      {evt.eventType}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <Link
-                        href={`/events/${evt.id}`}
-                        style={{
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          color: 'var(--accent)',
-                          textDecoration: 'none',
-                        }}
-                      >
-                        {evt.id.slice(0, 8)}…
-                      </Link>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-secondary)' }}>
-                      {evt.retryCount}
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
-                      {formatDistanceToNow(new Date(evt.createdAt), { addSuffix: true })}
-                    </td>
-                  </tr>
-                ))}
+                {loading
+                  ? Array.from({ length: 8 }).map((_, i) => (
+                      <tr key={i}>
+                        {Array.from({ length: 6 }).map((_, j) => (
+                          <td key={j}>
+                            <div className="skeleton" style={{ height: 16, width: j === 0 ? 100 : j === 1 ? 140 : 80 }} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  : events.map((evt) => (
+                      <tr key={evt.id}>
+                        <td>
+                          <StatusBadge status={evt.status as EventStatus} />
+                        </td>
+                        <td style={{ fontFamily: 'monospace', fontSize: 12.5, color: 'var(--text-primary)' }}>
+                          {evt.eventType}
+                        </td>
+                        <td style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                          {evt.endpointId.slice(0, 8)}…
+                        </td>
+                        <td>
+                          {evt.retryCount > 0 ? (
+                            <span style={{
+                              fontSize: 12,
+                              color: 'var(--warning)',
+                              background: 'var(--warning-bg)',
+                              padding: '2px 8px',
+                              borderRadius: 10,
+                              border: '1px solid rgba(245,158,11,0.2)',
+                              fontWeight: 500,
+                            }}>
+                              {evt.retryCount}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          <Link
+                            href={`/events/${evt.id}`}
+                            style={{
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              color: 'var(--accent)',
+                              textDecoration: 'none',
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              background: 'var(--accent-glow)',
+                              border: '1px solid rgba(163,230,53,0.15)',
+                            }}
+                          >
+                            {evt.id.slice(0, 8)}…
+                          </Link>
+                        </td>
+                        <td style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                          {formatDistanceToNow(new Date(evt.createdAt), { addSuffix: true })}
+                        </td>
+                      </tr>
+                    ))}
               </tbody>
             </table>
 
             {/* Pagination */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 16px',
-                borderTop: '1px solid var(--border)',
-              }}
-            >
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
-              </span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={page === 0}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '5px 12px',
-                    borderRadius: 6,
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    color: 'var(--text-secondary)',
-                    fontSize: 13,
-                    cursor: page === 0 ? 'not-allowed' : 'pointer',
-                    opacity: page === 0 ? 0.4 : 1,
-                  }}
-                >
-                  <ChevronLeft size={14} /> Prev
-                </button>
-                <button
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={(page + 1) * PAGE_SIZE >= totalCount}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: '5px 12px',
-                    borderRadius: 6,
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    color: 'var(--text-secondary)',
-                    fontSize: 13,
-                    cursor: (page + 1) * PAGE_SIZE >= totalCount ? 'not-allowed' : 'pointer',
-                    opacity: (page + 1) * PAGE_SIZE >= totalCount ? 0.4 : 1,
-                  }}
-                >
-                  Next <ChevronRight size={14} />
-                </button>
+            {totalCount > PAGE_SIZE && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 20px',
+                  borderTop: '1px solid var(--border)',
+                  background: 'var(--bg-surface)',
+                }}
+              >
+                <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                  Showing <strong style={{ color: 'var(--text-secondary)' }}>{from}–{to}</strong> of <strong style={{ color: 'var(--text-secondary)' }}>{totalCount.toLocaleString()}</strong> events
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      padding: '5px 12px', borderRadius: 7,
+                      border: '1px solid var(--border)', background: 'var(--bg-card)',
+                      color: 'var(--text-secondary)', fontSize: 12.5,
+                      cursor: page === 0 ? 'not-allowed' : 'pointer',
+                      opacity: page === 0 ? 0.4 : 1, fontFamily: 'inherit',
+                    }}
+                  >
+                    <ChevronLeft size={13} /> Prev
+                  </button>
+                  <span style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '0 4px' }}>
+                    {page + 1} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={(page + 1) * PAGE_SIZE >= totalCount}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      padding: '5px 12px', borderRadius: 7,
+                      border: '1px solid var(--border)', background: 'var(--bg-card)',
+                      color: 'var(--text-secondary)', fontSize: 12.5,
+                      cursor: (page + 1) * PAGE_SIZE >= totalCount ? 'not-allowed' : 'pointer',
+                      opacity: (page + 1) * PAGE_SIZE >= totalCount ? 0.4 : 1, fontFamily: 'inherit',
+                    }}
+                  >
+                    Next <ChevronRight size={13} />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </div>

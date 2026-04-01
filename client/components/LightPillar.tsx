@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import * as THREE from 'three';
 import './LightPillar.css';
 
@@ -13,7 +14,7 @@ interface LightPillarProps {
   pillarWidth?: number;
   pillarHeight?: number;
   noiseIntensity?: number;
-  mixBlendMode?: any;
+  mixBlendMode?: CSSProperties['mixBlendMode'];
   pillarRotation?: number;
   quality?: 'low' | 'medium' | 'high';
 }
@@ -48,7 +49,8 @@ const LightPillar = ({
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     if (!gl) {
-      setWebGLSupported(false);
+      // Defer to avoid calling setState synchronously inside an effect
+      queueMicrotask(() => setWebGLSupported(false));
     }
   }, []);
 
@@ -71,7 +73,14 @@ const LightPillar = ({
     if (isLowEndDevice && quality === 'high') effectiveQuality = 'medium';
     if (isMobile && quality !== 'low') effectiveQuality = 'low';
 
-    const qualitySettings: Record<string, any> = {
+    interface QualitySetting {
+      iterations: number;
+      waveIterations: number;
+      pixelRatio: number;
+      precision: string;
+      stepMultiplier: number;
+    }
+    const qualitySettings: Record<string, QualitySetting> = {
       low: { iterations: 24, waveIterations: 1, pixelRatio: 0.5, precision: 'mediump', stepMultiplier: 1.5 },
       medium: { iterations: 40, waveIterations: 2, pixelRatio: 0.65, precision: 'mediump', stepMultiplier: 1.2 },
       high: {
@@ -95,8 +104,9 @@ const LightPillar = ({
         stencil: false,
         depth: false
       });
-    } catch (error) {
-      setWebGLSupported(false);
+    } catch {
+      // Defer to avoid calling setState synchronously inside an effect
+      queueMicrotask(() => setWebGLSupported(false));
       return;
     }
 
