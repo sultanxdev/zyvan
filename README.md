@@ -64,22 +64,7 @@ Looking to understand the system design in-depth for an interview or technical p
 
 ---
 
-## 🏃 Quick Start (Dockerized)
 
-Zyvan requires zero manual setup. Simply clone and spin up the complete distributed stack (PostgreSQL, Redis, the Node.js API, and the Next.js Client) using Docker Compose.
-
-```bash
-# 1. Clone the repo
-git clone https://github.com/yourusername/zyvan.git
-cd zyvan
-
-# 2. Start the entire stack in detached mode
-docker compose up -d --build
-
-# 3. Wait 10-15 seconds for PostgreSQL & server to migrate...
-
-# 4. Open the interactive Dashboard!
-# 👉 http://localhost:3001
 ```
 
 *(Note: The raw Express Ingestion API runs mapped to `http://localhost:3000`)*
