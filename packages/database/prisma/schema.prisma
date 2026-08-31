@@ -1,0 +1,271 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Zyvan — Prisma Schema
+// PostgreSQL is the system of record for all event/delivery state.
+// 9 core tables: projects, api_keys, tenants, destinations, events,
+//                deliveries, attempts, replays, dead_letters
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum ProjectStatus {
+  active
+  disabled
+}
+
+enum TenantStatus {
+  active
+  paused
+  disabled
+}
+
+enum EventStatus {
+  queued
+  delivering
+  retrying
+  delivered
+  dead_letter
+  expired
+  cancelled
+}
+
+enum DeliveryStatus {
+  queued
+  delivering
+  retrying
+  delivered
+  failed
+  cancelled
+}
+
+enum AttemptOutcome {
+  success
+  failed
+  timeout
+  error
+}
+
+enum ReplayStatus {
+  queued
+  delivering
+  delivered
+  failed
+}
+
+// ─── Projects ────────────────────────────────────────────────────────────────
+// The main isolation boundary. All resources belong to a project.
+
+model Project {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String        @db.VarChar(255)
+  plan      String        @default("free") @db.VarChar(50)
+  status    ProjectStatus @default(active)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  apiKeys  ApiKey[]
+  tenants  Tenant[]
+  events   Event[]
+
+  @@map("projects")
+}
+
+// ─── API Keys ────────────────────────────────────────────────────────────────
+// Machine-to-machine authentication. Key hash stored, never the raw key.
+
+model ApiKey {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String    @map("project_id") @db.Uuid
+  keyHash   String    @unique @map("key_hash") @db.VarChar(255)
+  keyPrefix String    @map("key_prefix") @db.VarChar(20) // e.g. "zyvan_live_abc" — for identification
+  name      String    @db.VarChar(255)
+  scopes    String[]  @default([]) // e.g. ["events:write", "events:read", "destinations:manage"]
+  expiresAt DateTime? @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("api_keys")
+}
+
+// ─── Tenants ─────────────────────────────────────────────────────────────────
+// Multi-tenant support within a project. Each tenant has its own concurrency
+// and rate limits to prevent noisy-neighbor problems.
+
+model Tenant {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId        String       @map("project_id") @db.Uuid
+  externalId       String       @map("external_id") @db.VarChar(255)
+  name             String       @db.VarChar(255)
+  concurrencyLimit Int          @default(5) @map("concurrency_limit")
+  rateLimit        Int          @default(100) @map("rate_limit") // events per second
+  status           TenantStatus @default(active)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  destinations Destination[]
+  events       Event[]
+
+  @@unique([projectId, externalId])
+  @@index([projectId])
+  @@map("tenants")
+}
+
+// ─── Destinations ────────────────────────────────────────────────────────────
+// Where Zyvan sends the webhook. Each destination belongs to a tenant.
+
+model Destination {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  url         String   @db.VarChar(2048)
+  secretRef   String?  @map("secret_ref") @db.Text // Encrypted signing secret
+  retryPolicy Json     @default("{}") @map("retry_policy") // { maxAttempts, baseDelay, maxDelay }
+  rateLimit   Int      @default(20) @map("rate_limit") // requests per second
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveries Delivery[]
+
+  @@index([tenantId])
+  @@map("destinations")
+}
+
+// ─── Events ──────────────────────────────────────────────────────────────────
+// The heart of Zyvan. Each event is durably stored before acknowledgement.
+// Idempotency is enforced via UNIQUE(project_id, idempotency_key).
+
+model Event {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId      String      @map("project_id") @db.Uuid
+  tenantId       String      @map("tenant_id") @db.Uuid
+  eventType      String      @map("event_type") @db.VarChar(255) // e.g. "invoice.paid"
+  idempotencyKey String      @map("idempotency_key") @db.VarChar(255)
+  payload        Json        @default("{}")
+  headers        Json        @default("{}")
+  status         EventStatus @default(queued)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveries  Delivery[]
+  replays     Replay[]
+  deadLetters DeadLetter[]
+
+  @@unique([projectId, idempotencyKey])
+  @@index([projectId])
+  @@index([tenantId])
+  @@index([eventType])
+  @@index([status])
+  @@index([createdAt])
+  @@map("events")
+}
+
+// ─── Deliveries ──────────────────────────────────────────────────────────────
+// One Event can produce one or more Deliveries (one per destination).
+// Event ≠ Delivery — this distinction is critical.
+
+model Delivery {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId        String         @map("event_id") @db.Uuid
+  destinationId  String         @map("destination_id") @db.Uuid
+  status         DeliveryStatus @default(queued)
+  attemptCount   Int            @default(0) @map("attempt_count")
+  nextRetryAt    DateTime?      @map("next_retry_at")
+  lastStatusCode Int?           @map("last_status_code")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  destination Destination  @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  attempts    Attempt[]
+  replay      Replay?
+  deadLetter  DeadLetter?
+
+  @@index([eventId])
+  @@index([destinationId])
+  @@index([status])
+  @@index([nextRetryAt])
+  @@map("deliveries")
+}
+
+// ─── Attempts ────────────────────────────────────────────────────────────────
+// Every HTTP delivery creates an immutable Attempt record.
+// This is the debugging backbone — engineers reconstruct incidents from attempts.
+
+model Attempt {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deliveryId   String         @map("delivery_id") @db.Uuid
+  attemptNo    Int            @map("attempt_no")
+  startedAt    DateTime       @default(now()) @map("started_at")
+  endedAt      DateTime?      @map("ended_at")
+  response     Json?          // Truncated response body
+  statusCode   Int?           @map("status_code")
+  latencyMs    Int?           @map("latency_ms")
+  outcome      AttemptOutcome
+  errorMessage String?        @map("error_message") @db.Text
+
+  // Relations
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@map("attempts")
+}
+
+// ─── Replays ─────────────────────────────────────────────────────────────────
+// Replay creates a NEW delivery/attempt lineage.
+// Original attempt history is NEVER modified.
+
+model Replay {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId    String       @map("event_id") @db.Uuid
+  deliveryId String       @unique @map("delivery_id") @db.Uuid
+  status     ReplayStatus @default(queued)
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("replays")
+}
+
+// ─── Dead Letters ────────────────────────────────────────────────────────────
+// When retry attempts are exhausted, the delivery enters a recoverable
+// terminal state. Complete attempt history is preserved.
+
+model DeadLetter {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId    String   @map("event_id") @db.Uuid
+  deliveryId String   @unique @map("delivery_id") @db.Uuid
+  reason     String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("dead_letters")
+}
