@@ -94,7 +94,7 @@ app.use(errorHandler);
 
 // ─── Start Server ────────────────────────────────────────────
 
-const server = app.listen(config.port, () => {
+const server = app.listen(config.port, async () => {
   logger.info(
     {
       port: config.port,
@@ -102,6 +102,15 @@ const server = app.listen(config.port, () => {
     },
     `🚀 Zyvan API running on port ${config.port} [${config.env}]`
   );
+
+  // Initialize database connection (non-blocking — API serves health even without DB)
+  try {
+    const prisma = getPrismaClient();
+    await prisma.$queryRaw`SELECT 1`;
+    logger.info('✅ Database connected');
+  } catch (err) {
+    logger.warn({ err }, '⚠️  Database not available — start PostgreSQL and retry');
+  }
 });
 
 // ─── Graceful Shutdown ───────────────────────────────────────
@@ -136,8 +145,5 @@ async function gracefulShutdown(signal: string): Promise<void> {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-// Initialize Prisma connection
-getPrismaClient();
 
 export { app };
