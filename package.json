@@ -1,0 +1,38 @@
+{
+  "name": "zyvan",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zyvan — Reliable Webhook & Event Delivery Infrastructure",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:worker": "npm run dev --workspace=apps/worker",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:worker": "npm run build --workspace=apps/worker",
+    "build:web": "npm run build --workspace=apps/web",
+    "build": "npm run build --workspaces",
+    "db:generate": "npx prisma generate --schema=packages/database/prisma/schema.prisma",
+    "db:migrate": "npx prisma migrate dev --schema=packages/database/prisma/schema.prisma",
+    "db:migrate:prod": "npx prisma migrate deploy --schema=packages/database/prisma/schema.prisma",
+    "db:push": "npx prisma db push --schema=packages/database/prisma/schema.prisma",
+    "db:studio": "npx prisma studio --schema=packages/database/prisma/schema.prisma",
+    "db:seed": "npx ts-node packages/database/prisma/seed.ts",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:unit": "npm run test:unit --workspaces --if-present",
+    "test:integration": "npm run test:integration --workspaces --if-present",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "clean": "rimraf node_modules apps/*/node_modules packages/*/node_modules apps/*/dist packages/*/dist"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "author": "Zyvan",
+  "license": "MIT"
+}
