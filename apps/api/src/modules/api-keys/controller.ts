@@ -59,7 +59,7 @@ export async function listApiKeys(req: Request, res: Response, next: NextFunctio
  */
 export async function revokeApiKey(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const revoked = await apiKeyService.revokeApiKey(req.params.id, req.auth!.projectId);
+    const revoked = await apiKeyService.revokeApiKey(req.params.id as string, req.auth!.projectId);
 
     if (!revoked) {
       res.status(404).json({

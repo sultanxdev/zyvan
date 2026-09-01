@@ -42,7 +42,7 @@ export async function listProjects(req: Request, res: Response, next: NextFuncti
  */
 export async function getProject(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const project = await projectService.getProject(req.params.id, req.auth!.projectId);
+    const project = await projectService.getProject(req.params.id as string, req.auth!.projectId);
 
     if (!project) {
       res.status(404).json({
@@ -67,7 +67,7 @@ export async function getProject(req: Request, res: Response, next: NextFunction
 export async function updateProject(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const parsed = UpdateProjectSchema.parse(req.body);
-    const project = await projectService.updateProject(req.params.id, req.auth!.projectId, parsed);
+    const project = await projectService.updateProject(req.params.id as string, req.auth!.projectId, parsed);
 
     if (!project) {
       res.status(404).json({
