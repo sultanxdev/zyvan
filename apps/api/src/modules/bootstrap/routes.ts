@@ -40,7 +40,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction): Promis
     const keyHash = hashApiKey(key, config.apiKeyPepper);
 
     // Create project + API key in a single transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => {
       const project = await tx.project.create({
         data: {
           name: projectName,
