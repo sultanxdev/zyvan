@@ -16,7 +16,13 @@ import { config, validateConfig } from './config';
 import { logger } from './lib/logger';
 import { requestIdMiddleware } from './middleware/request-id';
 import { errorHandler } from './middleware/error-handler';
+import { authenticate } from './middleware/authenticate';
 import { healthRoutes } from './routes/health';
+import { bootstrapRoutes } from './modules/bootstrap/routes';
+import { apiKeyRoutes } from './modules/api-keys/routes';
+import { projectRoutes } from './modules/projects/routes';
+import { tenantRoutes } from './modules/tenants/routes';
+import { destinationRoutes } from './modules/destinations/routes';
 import { getPrismaClient, disconnectPrisma } from '@zyvan/database';
 
 // ─── Validate Config ─────────────────────────────────────────
@@ -61,15 +67,10 @@ app.use((req, res, next) => {
 // Health & readiness (no auth required)
 app.use('/', healthRoutes);
 
-// API v1 routes (will be added in Phase 2+)
-// app.use('/v1/projects', projectRoutes);
-// app.use('/v1/api-keys', apiKeyRoutes);
-// app.use('/v1/tenants', tenantRoutes);
-// app.use('/v1/destinations', destinationRoutes);
-// app.use('/v1/events', eventRoutes);
-// app.use('/v1/usage', usageRoutes);
+// Bootstrap (no auth — only works when zero projects exist)
+app.use('/v1/bootstrap', bootstrapRoutes);
 
-// API root info
+// API root info (no auth)
 app.get('/v1', (_req, res) => {
   res.json({
     name: 'Zyvan API',
@@ -77,6 +78,18 @@ app.get('/v1', (_req, res) => {
     description: 'Reliable Webhook & Event Delivery Infrastructure',
   });
 });
+
+// ─── Authenticated API v1 Routes ─────────────────────────────
+// All routes below require a valid API key (Bearer token).
+
+app.use('/v1/api-keys', authenticate, apiKeyRoutes);
+app.use('/v1/projects', authenticate, projectRoutes);
+app.use('/v1/tenants', authenticate, tenantRoutes);
+app.use('/v1/destinations', authenticate, destinationRoutes);
+
+// Events & Usage routes (Phase 5+)
+// app.use('/v1/events', authenticate, eventRoutes);
+// app.use('/v1/usage', authenticate, usageRoutes);
 
 // 404 handler
 app.use((_req, res) => {
@@ -129,7 +142,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
       logger.error({ err }, 'Error closing database connection');
     }
 
-    // Close Redis connection (Phase 2+)
+    // Close Redis connection (Phase 5+)
     // Close RabbitMQ connection (Phase 5+)
 
     logger.info('Graceful shutdown complete');
