@@ -59,7 +59,7 @@ export async function listTenants(req: Request, res: Response, next: NextFunctio
  */
 export async function getTenant(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const tenant = await tenantService.getTenant(req.params.id, req.auth!.projectId);
+    const tenant = await tenantService.getTenant(req.params.id as string, req.auth!.projectId);
 
     if (!tenant) {
       res.status(404).json({
@@ -84,7 +84,7 @@ export async function getTenant(req: Request, res: Response, next: NextFunction)
 export async function updateTenant(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const parsed = UpdateTenantSchema.parse(req.body);
-    const tenant = await tenantService.updateTenant(req.params.id, req.auth!.projectId, parsed);
+    const tenant = await tenantService.updateTenant(req.params.id as string, req.auth!.projectId, parsed);
 
     if (!tenant) {
       res.status(404).json({

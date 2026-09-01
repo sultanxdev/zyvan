@@ -68,7 +68,7 @@ export async function listDestinations(req: Request, res: Response, next: NextFu
  */
 export async function getDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const destination = await destinationService.getDestination(req.params.id, req.auth!.projectId);
+    const destination = await destinationService.getDestination(req.params.id as string, req.auth!.projectId);
 
     if (!destination) {
       res.status(404).json({
@@ -94,7 +94,7 @@ export async function updateDestination(req: Request, res: Response, next: NextF
   try {
     const parsed = UpdateDestinationSchema.parse(req.body);
     const destination = await destinationService.updateDestination(
-      req.params.id,
+      req.params.id as string,
       req.auth!.projectId,
       parsed
     );
@@ -130,7 +130,7 @@ export async function updateDestination(req: Request, res: Response, next: NextF
  */
 export async function pauseDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const destination = await destinationService.pauseDestination(req.params.id, req.auth!.projectId);
+    const destination = await destinationService.pauseDestination(req.params.id as string, req.auth!.projectId);
 
     if (!destination) {
       res.status(404).json({
@@ -154,7 +154,7 @@ export async function pauseDestination(req: Request, res: Response, next: NextFu
  */
 export async function resumeDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const destination = await destinationService.resumeDestination(req.params.id, req.auth!.projectId);
+    const destination = await destinationService.resumeDestination(req.params.id as string, req.auth!.projectId);
 
     if (!destination) {
       res.status(404).json({
@@ -178,7 +178,7 @@ export async function resumeDestination(req: Request, res: Response, next: NextF
  */
 export async function testDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await destinationService.testDestination(req.params.id, req.auth!.projectId);
+    const result = await destinationService.testDestination(req.params.id as string, req.auth!.projectId);
     res.json({ data: result });
   } catch (err: any) {
     if (err.code === 'not_found') {
