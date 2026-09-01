@@ -6,20 +6,19 @@
 
 import { getPrismaClient } from '@zyvan/database';
 import type { Destination } from '@zyvan/database';
-import type { Prisma } from '@prisma/client';
 
 export interface CreateDestinationData {
   tenantId: string;
   url: string;
   secretRef?: string | null;
-  retryPolicy?: Prisma.InputJsonValue;
+  retryPolicy?: any;
   rateLimit?: number;
 }
 
 export interface UpdateDestinationData {
   url?: string;
   secretRef?: string | null;
-  retryPolicy?: Prisma.InputJsonValue;
+  retryPolicy?: any;
   rateLimit?: number;
 }
 

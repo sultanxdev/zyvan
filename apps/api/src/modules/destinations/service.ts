@@ -8,7 +8,6 @@ import { validateUrl, encrypt } from '@zyvan/crypto';
 import { config } from '../../config';
 import * as destRepo from './repository';
 import * as tenantRepo from '../tenants/repository';
-import type { Destination } from '@zyvan/database';
 
 /** Destination representation safe for API responses (secret masked) */
 export interface SafeDestination {
