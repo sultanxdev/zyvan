@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { getPrismaClient } from '@zyvan/database';
+import { getPrismaClient, PrismaClient } from '@zyvan/database';
 import { generateApiKey, hashApiKey } from '@zyvan/crypto';
 import { config } from '../../config';
 import { logger } from '../../lib/logger';
