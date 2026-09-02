@@ -10,8 +10,8 @@ import {
 export function FeaturesGrid() {
   return (
     <section id="features" className="py-20 sm:py-24 relative overflow-hidden">
-      {/* Aligned with Navbar Width: max-w-[840px] */}
-      <div className="mx-auto max-w-[840px] px-4 sm:px-6">
+      {/* Aligned with Navbar Width: max-w-[1040px] */}
+      <div className="mx-auto max-w-[1040px] px-4 sm:px-6">
         {/* Editorial Section Header */}
         <div className="text-center max-w-xl mx-auto mb-12 sm:mb-14">
           <h2
@@ -25,7 +25,7 @@ export function FeaturesGrid() {
           </p>
         </div>
 
-        {/* Bento Grid: 7 Calm Pastel Cards aligned inside 840px */}
+        {/* Bento Grid: 7 Calm Pastel Cards aligned inside 1040px */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-stretch">
           {/* ============================================================ */}
           {/* CARD 1: From incoming event to guaranteed delivery (5 cols) */}

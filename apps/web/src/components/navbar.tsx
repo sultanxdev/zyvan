@@ -116,7 +116,7 @@ export function Navbar() {
 
       {/* Mobile Drawer Dropdown */}
       {mobileMenuOpen && (
-        <div className="pointer-events-auto mt-2 w-full max-w-[840px] rounded-2xl border border-black/[0.08] bg-white/95 p-4 shadow-xl backdrop-blur-xl md:hidden">
+        <div className="pointer-events-auto mt-2 w-full max-w-[1040px] rounded-2xl border border-black/[0.08] bg-white/95 p-4 shadow-xl backdrop-blur-xl md:hidden">
           <div className="flex flex-col gap-2.5 text-sm font-medium text-zinc-700">
             <Link
               href="/#features"

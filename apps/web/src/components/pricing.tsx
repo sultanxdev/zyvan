@@ -64,7 +64,7 @@ const plans = [
 export function Pricing() {
   return (
     <section id="pricing" className="py-20 sm:py-24 relative">
-      <div className="mx-auto max-w-[840px] px-4 sm:px-6">
+      <div className="mx-auto max-w-[1040px] px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <Badge variant="pill" className="mb-3">
             Predictable Pricing

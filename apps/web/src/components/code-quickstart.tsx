@@ -100,7 +100,7 @@ export function CodeQuickstart() {
 
   return (
     <section id="quickstart" className="py-20 sm:py-24 bg-secondary/30 relative">
-      <div className="mx-auto max-w-[840px] px-4 sm:px-6">
+      <div className="mx-auto max-w-[1040px] px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <Badge variant="pill" className="mb-3">
             Developer Quickstart

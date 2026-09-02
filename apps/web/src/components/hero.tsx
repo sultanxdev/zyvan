@@ -41,7 +41,7 @@ export function Hero() {
       {/* Subtle Glow Backdrop */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-b from-[#00DC5A]/10 via-zinc-400/5 to-transparent blur-3xl pointer-events-none -z-10" />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1040px] px-4 sm:px-6">
         <div className="flex flex-col items-center text-center gap-6 max-w-4xl mx-auto">
           {/* Version / Launch Pill */}
           <div className="inline-flex items-center gap-2 rounded-full border border-zinc-300 bg-white/90 px-3.5 py-1.5 text-xs font-medium text-zinc-800 shadow-xs animate-fade-in">
@@ -102,7 +102,7 @@ export function Hero() {
         </div>
 
         {/* Hero Interactive Terminal / Visualizer */}
-        <div className="mt-14 max-w-[840px] mx-auto rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
+        <div className="mt-14 max-w-[1040px] mx-auto rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
           {/* Terminal Window Chrome */}
           <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/90 px-4 py-3">
             <div className="flex items-center gap-2">
