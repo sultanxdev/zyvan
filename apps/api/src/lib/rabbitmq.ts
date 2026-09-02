@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import amqplib from 'amqplib';
-import type { Connection, Channel } from 'amqplib';
+import type { ChannelModel, Channel } from 'amqplib';
 import { config } from '../config';
 import { logger } from './logger';
 
@@ -24,7 +24,7 @@ export const ROUTING_KEY_DELIVERY = 'delivery.process';
 
 // ─── Singleton State ─────────────────────────────────────────
 
-let connection: Connection | null = null;
+let connection: ChannelModel | null = null;
 let channel: Channel | null = null;
 
 // ─── Connect & Assert Topology ───────────────────────────────
@@ -38,14 +38,17 @@ export async function connectRabbitMQ(): Promise<void> {
 
   logger.info({ url: config.rabbitmqUrl.replace(/\/\/.*@/, '//***@') }, 'Connecting to RabbitMQ...');
 
-  connection = await amqplib.connect(config.rabbitmqUrl);
-  channel = await connection.createChannel();
+  const conn = await amqplib.connect(config.rabbitmqUrl);
+  const ch = await conn.createChannel();
+
+  connection = conn;
+  channel = ch;
 
   // Handle unexpected connection close
-  connection.on('error', (err) => {
+  conn.on('error', (err: any) => {
     logger.error({ err }, 'RabbitMQ connection error');
   });
-  connection.on('close', () => {
+  conn.on('close', () => {
     logger.warn('RabbitMQ connection closed');
     connection = null;
     channel = null;
@@ -53,24 +56,24 @@ export async function connectRabbitMQ(): Promise<void> {
 
   // ─── Assert Exchange: zyvan.events ─────────────────────
   // Main exchange — API publishes delivery jobs here
-  await channel.assertExchange(EXCHANGE_EVENTS, 'topic', {
+  await ch.assertExchange(EXCHANGE_EVENTS, 'topic', {
     durable: true,
   });
 
   // ─── Assert Queue: zyvan.delivery ──────────────────────
   // Main delivery queue — consumed by workers
-  await channel.assertQueue(QUEUE_DELIVERY, {
+  await ch.assertQueue(QUEUE_DELIVERY, {
     durable: true,
     arguments: {},
   });
 
   // Bind delivery queue to exchange
-  await channel.bindQueue(QUEUE_DELIVERY, EXCHANGE_EVENTS, ROUTING_KEY_DELIVERY);
+  await ch.bindQueue(QUEUE_DELIVERY, EXCHANGE_EVENTS, ROUTING_KEY_DELIVERY);
 
   // ─── Assert Queue: zyvan.delivery.retry ────────────────
   // Retry queue — messages sit here until their per-message TTL expires,
   // then RabbitMQ routes them back to zyvan.events via DLX
-  await channel.assertQueue(QUEUE_RETRY, {
+  await ch.assertQueue(QUEUE_RETRY, {
     durable: true,
     arguments: {
       'x-dead-letter-exchange': EXCHANGE_EVENTS,

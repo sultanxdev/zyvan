@@ -26,7 +26,7 @@ router.get(
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
 
       const result = await deliveryRepo.listByDestination(
-        destinationId,
+        destinationId as string,
         req.auth!.projectId,
         cursor,
         Math.min(Math.max(limit, 1), 100)

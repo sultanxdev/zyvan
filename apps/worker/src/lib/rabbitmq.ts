@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import amqplib from 'amqplib';
-import type { Connection, Channel } from 'amqplib';
+import type { ChannelModel, Channel } from 'amqplib';
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ export const DELIVERY_ROUTING_KEY = 'delivery.process';
 
 // ─── Singleton State ─────────────────────────────────────────
 
-let connection: Connection | null = null;
+let connection: ChannelModel | null = null;
 let channel: Channel | null = null;
 
 // ─── Connect ─────────────────────────────────────────────────

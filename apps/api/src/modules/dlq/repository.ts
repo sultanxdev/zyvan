@@ -6,7 +6,6 @@
 // ─────────────────────────────────────────────────────────────
 
 import { getPrismaClient } from '@zyvan/database';
-import type { DeadLetter } from '@zyvan/database';
 
 export interface DLQFilters {
   projectId: string;
