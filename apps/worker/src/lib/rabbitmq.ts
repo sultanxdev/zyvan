@@ -4,7 +4,8 @@
 // delivery queue instead of publishing.
 // ─────────────────────────────────────────────────────────────
 
-import amqp from 'amqplib';
+import amqplib from 'amqplib';
+import type { Connection, Channel } from 'amqplib';
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -15,8 +16,8 @@ export const DELIVERY_ROUTING_KEY = 'delivery.process';
 
 // ─── Singleton State ─────────────────────────────────────────
 
-let connection: amqp.Connection | null = null;
-let channel: amqp.Channel | null = null;
+let connection: Connection | null = null;
+let channel: Channel | null = null;
 
 // ─── Connect ─────────────────────────────────────────────────
 
@@ -25,23 +26,26 @@ export async function connectRabbitMQ(
   prefetch: number = 5,
   logger: any
 ): Promise<void> {
-  connection = await amqp.connect(rabbitmqUrl);
-  channel = await connection.createChannel();
+  const conn = await amqplib.connect(rabbitmqUrl);
+  const ch = await conn.createChannel();
+
+  connection = conn;
+  channel = ch;
 
   // Prefetch controls worker concurrency
-  await channel.prefetch(prefetch);
+  await ch.prefetch(prefetch);
 
   // Assert topology (same as API — idempotent)
-  await channel.assertExchange(EXCHANGE_NAME, 'topic', { durable: true });
+  await ch.assertExchange(EXCHANGE_NAME, 'topic', { durable: true });
 
-  await channel.assertQueue(DELIVERY_QUEUE, {
+  await ch.assertQueue(DELIVERY_QUEUE, {
     durable: true,
     arguments: {},
   });
 
-  await channel.bindQueue(DELIVERY_QUEUE, EXCHANGE_NAME, DELIVERY_ROUTING_KEY);
+  await ch.bindQueue(DELIVERY_QUEUE, EXCHANGE_NAME, DELIVERY_ROUTING_KEY);
 
-  await channel.assertQueue(RETRY_QUEUE, {
+  await ch.assertQueue(RETRY_QUEUE, {
     durable: true,
     arguments: {
       'x-dead-letter-exchange': EXCHANGE_NAME,
@@ -50,13 +54,13 @@ export async function connectRabbitMQ(
   });
 
   // Handle connection errors
-  connection.on('error', (err) => {
+  conn.on('error', (err) => {
     logger.error({ err }, 'RabbitMQ connection error');
     connection = null;
     channel = null;
   });
 
-  connection.on('close', () => {
+  conn.on('close', () => {
     logger.warn('RabbitMQ connection closed');
     connection = null;
     channel = null;
@@ -67,7 +71,7 @@ export async function connectRabbitMQ(
 
 // ─── Get Channel ─────────────────────────────────────────────
 
-export function getChannel(): amqp.Channel {
+export function getChannel(): Channel {
   if (!channel) {
     throw new Error('RabbitMQ channel not available');
   }

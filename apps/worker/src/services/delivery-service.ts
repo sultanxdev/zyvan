@@ -151,7 +151,7 @@ export async function processDelivery(
 
   // ❌ FAILURE — classify and decide
   const retryPolicy = parseRetryPolicy(destination.retryPolicy);
-  const failureClass = classifyFailure(result.outcome, result.statusCode);
+  const failureClass = classifyFailure(result.outcome as 'failed' | 'timeout' | 'error', result.statusCode);
 
   if (failureClass === 'terminal') {
     // Terminal failure (4xx) — go directly to DLQ

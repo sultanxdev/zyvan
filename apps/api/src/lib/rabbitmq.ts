@@ -18,7 +18,6 @@ import { logger } from './logger';
 // ─── Constants ───────────────────────────────────────────────
 
 export const EXCHANGE_EVENTS = 'zyvan.events';
-export const EXCHANGE_RETRY = 'zyvan.retry.exchange';
 export const QUEUE_DELIVERY = 'zyvan.delivery';
 export const QUEUE_RETRY = 'zyvan.delivery.retry';
 export const ROUTING_KEY_DELIVERY = 'delivery.process';
@@ -58,34 +57,23 @@ export async function connectRabbitMQ(): Promise<void> {
     durable: true,
   });
 
-  // ─── Assert Exchange: zyvan.retry.exchange ─────────────
-  // Retry messages go here after TTL expires in the retry queue
-  // DLX on the retry queue routes expired messages back to zyvan.events
-  await channel.assertExchange(EXCHANGE_RETRY, 'topic', {
-    durable: true,
-  });
-
   // ─── Assert Queue: zyvan.delivery ──────────────────────
   // Main delivery queue — consumed by workers
   await channel.assertQueue(QUEUE_DELIVERY, {
     durable: true,
-    arguments: {
-      // No DLX on the main queue — the worker handles retry/DLQ logic
-    },
+    arguments: {},
   });
 
-  // Bind delivery queue to both exchanges so retried messages
-  // also arrive here
+  // Bind delivery queue to exchange
   await channel.bindQueue(QUEUE_DELIVERY, EXCHANGE_EVENTS, ROUTING_KEY_DELIVERY);
-  await channel.bindQueue(QUEUE_DELIVERY, EXCHANGE_RETRY, ROUTING_KEY_DELIVERY);
 
   // ─── Assert Queue: zyvan.delivery.retry ────────────────
   // Retry queue — messages sit here until their per-message TTL expires,
-  // then RabbitMQ routes them back to the delivery queue via DLX
+  // then RabbitMQ routes them back to zyvan.events via DLX
   await channel.assertQueue(QUEUE_RETRY, {
     durable: true,
     arguments: {
-      'x-dead-letter-exchange': EXCHANGE_RETRY,
+      'x-dead-letter-exchange': EXCHANGE_EVENTS,
       'x-dead-letter-routing-key': ROUTING_KEY_DELIVERY,
     },
   });
