@@ -52,6 +52,16 @@ curl http://localhost:4000/ready
 curl http://localhost:4000/v1
 ```
 
+## Documentation
+
+Comprehensive guides, diagrams, and specifications are located in the [`docs/`](docs/README.md) directory:
+
+- [System Architecture](docs/architecture.md) — High-level design, RabbitMQ TTL + DLX delayed retry flow.
+- [Entity-Relationship (ER) Diagram](docs/er-diagram.md) — PostgreSQL models, constraints, and tables.
+- [Class & Sequence Diagrams](docs/class-and-sequence.md) — Ingestion, delivery, retry, and replay lifecycles.
+- [Technology Stack & Rationale](docs/tech-stack.md) — Technical justifications and trade-offs.
+- [API Reference](docs/api.md) — Complete endpoint documentation and request/response contracts.
+
 ## Architecture
 
 ```
