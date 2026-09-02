@@ -24,6 +24,7 @@ import { projectRoutes } from './modules/projects/routes';
 import { tenantRoutes } from './modules/tenants/routes';
 import { destinationRoutes } from './modules/destinations/routes';
 import { getPrismaClient, disconnectPrisma } from '@zyvan/database';
+import { connectRabbitMQ, disconnectRabbitMQ } from './lib/rabbitmq';
 
 // ─── Validate Config ─────────────────────────────────────────
 
@@ -124,6 +125,13 @@ const server = app.listen(config.port, async () => {
   } catch (err) {
     logger.warn({ err }, '⚠️  Database not available — start PostgreSQL and retry');
   }
+
+  // Initialize RabbitMQ connection
+  try {
+    await connectRabbitMQ();
+  } catch (err) {
+    logger.warn({ err }, '⚠️  RabbitMQ not available — start RabbitMQ and retry');
+  }
 });
 
 // ─── Graceful Shutdown ───────────────────────────────────────
@@ -142,8 +150,11 @@ async function gracefulShutdown(signal: string): Promise<void> {
       logger.error({ err }, 'Error closing database connection');
     }
 
-    // Close Redis connection (Phase 5+)
-    // Close RabbitMQ connection (Phase 5+)
+    try {
+      await disconnectRabbitMQ();
+    } catch (err) {
+      logger.error({ err }, 'Error closing RabbitMQ connection');
+    }
 
     logger.info('Graceful shutdown complete');
     process.exit(0);
