@@ -13,7 +13,11 @@ import {
   FlashIcon,
 } from '@hugeicons/core-free-icons';
 
+import { useAuth } from '@/lib/auth-context';
+
 export function Navbar() {
+  const { user } = useAuth();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/85 backdrop-blur-xl transition-all">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -75,18 +79,26 @@ export function Navbar() {
             <Icon icon={GithubIcon} size={18} />
           </a>
 
-          <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
-            <Link href="#quickstart">
-              Documentation
-            </Link>
-          </Button>
-
-          <Button variant="glow" size="sm" asChild>
-            <Link href="#simulator" className="flex items-center gap-1.5">
-              <span>Try Simulator</span>
-              <Icon icon={FlashIcon} size={16} />
-            </Link>
-          </Button>
+          {user ? (
+            <Button variant="glow" size="sm" asChild>
+              <Link href="/dashboard" className="flex items-center gap-2">
+                <img src={user.avatar} alt={user.name} className="size-4 rounded-full" />
+                <span>Dashboard</span>
+              </Link>
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" asChild className="text-xs">
+                <Link href="/login">Sign In</Link>
+              </Button>
+              <Button variant="glow" size="sm" asChild>
+                <Link href="/dashboard" className="flex items-center gap-1.5">
+                  <span>Dashboard</span>
+                  <Icon icon={FlashIcon} size={16} />
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </header>
