@@ -1,512 +1,680 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, Suspense } from 'react';
 import Link from 'next/link';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import {
+  Search01Icon,
   CopyIcon,
   Tick01Icon,
-  FlashIcon,
+  ArrowRight01Icon,
+  ArrowLeft01Icon,
+  GithubIcon,
+  Menu01Icon,
+  Cancel01Icon,
+  SparklesIcon,
   ShieldCheckIcon,
-  ServerIcon,
-  Database01Icon,
-  RotateRight01Icon,
-  PlayIcon,
   Alert01Icon,
   CheckmarkCircle02Icon,
-  Key01Icon,
-  ArrowRight01Icon,
+  Book01Icon,
+  CodeCircleIcon,
+  Layers01Icon,
+  Database01Icon,
+  ServerIcon,
+  FlashIcon,
 } from '@hugeicons/core-free-icons';
 
-export default function DocsPage() {
-  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
-  const [quickstartTab, setQuickstartTab] = useState<'curl' | 'node' | 'python' | 'go'>('curl');
-  const [verifyTab, setVerifyTab] = useState<'node' | 'python' | 'go'>('node');
+import { DOCS_NAVIGATION, DOCS_DATA, DocItem } from '@/lib/docs-content';
 
-  const copyCode = (key: string, code: string) => {
-    navigator.clipboard.writeText(code);
-    setCopiedSnippet(key);
-    setTimeout(() => setCopiedSnippet(null), 2000);
-  };
+function DocsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const currentDocId = searchParams.get('doc') || 'introduction';
 
-  const quickstartSnippets = {
-    curl: `curl -X POST https://api.zyvan.dev/v1/events \\
-  -H "Authorization: Bearer zyvan_live_e891c01b2a98f128c94e09f872" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "type": "invoice.payment_succeeded",
-    "tenant_id": "cust_tenant_9921",
-    "idempotency_key": "inv_pay_882910_99182",
-    "data": {
-      "invoice_id": "inv_882910",
-      "amount": 14900,
-      "currency": "USD",
-      "customer_email": "finance@acmecorp.com"
-    }
-  }'`,
-    node: `import { Zyvan } from '@zyvan/sdk';
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCodeLang, setActiveCodeLang] = useState<'curl' | 'node' | 'python' | 'go'>('curl');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    'GET STARTED': true,
+    GUIDES: true,
+    WEBHOOKS: true,
+    'API REFERENCE': true,
+    CONCEPTS: true,
+    SDKs: true,
+    RESOURCES: true,
+  });
 
-const zyvan = new Zyvan({
-  apiKey: process.env.ZYVAN_API_KEY!,
-});
+  // Current doc or fallback
+  const currentDoc: DocItem = DOCS_DATA[currentDocId] || DOCS_DATA['introduction'];
 
-// Durable ingestion returns in < 15ms
-const event = await zyvan.events.create({
-  type: 'invoice.payment_succeeded',
-  tenantId: 'cust_tenant_9921',
-  idempotencyKey: 'inv_pay_882910_99182',
-  data: {
-    invoiceId: 'inv_882910',
-    amount: 14900,
-    currency: 'USD',
-  },
-});
-
-console.log('Committed event ID:', event.id);`,
-    python: `import os
-from zyvan import Zyvan
-
-zyvan = Zyvan(api_key=os.environ.get("ZYVAN_API_KEY"))
-
-# Durable event publish
-event = zyvan.events.create(
-    type="invoice.payment_succeeded",
-    tenant_id="cust_tenant_9921",
-    idempotency_key="inv_pay_882910_99182",
-    data={
-        "invoice_id": "inv_882910",
-        "amount": 14900,
-        "currency": "USD",
-    }
-)
-
-print(f"Event published to RabbitMQ pipeline: {event.id}")`,
-    go: `package main
-
-import (
-    "context"
-    "fmt"
-    "os"
-    "github.com/zyvan/zyvan-go"
-)
-
-func main() {
-    client := zyvan.NewClient(os.Getenv("ZYVAN_API_KEY"))
-
-    event, err := client.Events.Create(context.Background(), &zyvan.CreateEventParams{
-        Type:           "invoice.payment_succeeded",
-        TenantID:       "cust_tenant_9921",
-        IdempotencyKey: "inv_pay_882910_99182",
-        Data: map[string]any{
-            "invoice_id": "inv_882910",
-            "amount":     14900,
-        },
-    })
-    if err != nil {
-        panic(err)
-    }
-
-    fmt.Printf("Queued in RabbitMQ: %s\\n", event.ID)
-}`,
-  };
-
-  const verificationSnippets = {
-    node: `import crypto from 'crypto';
-import express from 'express';
-
-const app = express();
-// IMPORTANT: Zyvan HMAC verification requires the raw unparsed request body!
-app.use(express.raw({ type: 'application/json' }));
-
-function verifyZyvanWebhook(payload: Buffer, signatureHeader: string, secret: string): boolean {
-  // Header format: t=1725278400,v1=5d41402abc4b2a76b9719d911017c592...
-  const parts = Object.fromEntries(
-    signatureHeader.split(',').map((p) => p.split('='))
-  );
-
-  const timestamp = parts.t;
-  const signature = parts.v1;
-  if (!timestamp || !signature) return false;
-
-  // Replay Attack Tolerance: reject events older than 5 minutes
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - parseInt(timestamp, 10)) > 300) {
-    return false;
-  }
-
-  // Compute HMAC-SHA256 of: timestamp + "." + raw_payload
-  const signedPayload = \`\${timestamp}.\${payload.toString('utf8')}\`;
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(signedPayload)
-    .digest('hex');
-
-  return crypto.timingSafeEqual(
-    Buffer.from(signature, 'hex'),
-    Buffer.from(expectedSignature, 'hex')
-  );
-}
-
-app.post('/webhook', (req, res) => {
-  const sig = req.headers['zyvan-signature'] as string;
-  const isValid = verifyZyvanWebhook(req.body, sig, process.env.ZYVAN_SIGNING_SECRET!);
-
-  if (!isValid) {
-    return res.status(401).send('Invalid Zyvan HMAC signature');
-  }
-
-  const event = JSON.parse(req.body.toString('utf8'));
-  console.log('Verified event:', event.type);
-  res.status(200).json({ received: true });
-});`,
-    python: `import hmac
-import hashlib
-import time
-from fastapi import FastAPI, Request, HTTPException
-
-app = FastAPI()
-
-def verify_zyvan_webhook(raw_body: bytes, signature_header: str, secret: str) -> bool:
-    # Header format: t=1725278400,v1=5d41402abc...
-    elements = dict(item.split("=") for item in signature_header.split(","))
-    timestamp = elements.get("t")
-    signature = elements.get("v1")
-
-    if not timestamp or not signature:
-        return False
-
-    # Prevent replay attacks (> 5 minutes old)
-    if abs(time.time() - int(timestamp)) > 300:
-        return False
-
-    signed_payload = f"{timestamp}.{raw_body.decode('utf-8')}".encode('utf-8')
-    expected = hmac.new(secret.encode('utf-8'), signed_payload, hashlib.sha256).hexdigest()
-
-    return hmac.compare_digest(signature, expected)
-
-@app.post("/webhook")
-async def handle_webhook(request: Request):
-    raw_body = await request.body()
-    sig_header = request.headers.get("zyvan-signature", "")
-    secret = "whsec_e891c01b2a98f128c94e09f872"
-
-    if not verify_zyvan_webhook(raw_body, sig_header, secret):
-        raise HTTPException(status_code=401, detail="Invalid HMAC signature")
-
-    return {"status": "ok"}`,
-    go: `package main
-
-import (
-    "crypto/hmac"
-    "crypto/sha256"
-    "encoding/hex"
-    "fmt"
-    "io"
-    "net/http"
-    "strconv"
-    "strings"
-    "time"
-)
-
-func verifyZyvanWebhook(body []byte, sigHeader, secret string) bool {
-    var timestamp, signature string
-    for _, part := range strings.Split(sigHeader, ",") {
-        kv := strings.SplitN(part, "=", 2)
-        if len(kv) == 2 {
-            if kv[0] == "t" {
-                timestamp = kv[1]
-            } else if kv[0] == "v1" {
-                signature = kv[1]
-            }
+  // Flattened navigation list for previous/next pagination
+  const flatDocList = useMemo(() => {
+    const list: { id: string; title: string; category: string }[] = [];
+    DOCS_NAVIGATION.forEach((cat) => {
+      cat.items.forEach((item) => {
+        if (item.subItems) {
+          item.subItems.forEach((sub) => {
+            list.push({ id: sub.id, title: sub.title, category: cat.title });
+          });
+        } else {
+          list.push({ id: item.id, title: item.title, category: cat.title });
         }
-    }
-    if timestamp == "" || signature == "" {
-        return false
-    }
+      });
+    });
+    return list;
+  }, []);
 
-    t, err := strconv.ParseInt(timestamp, 10, 64)
-    if err != nil || time.Now().Unix()-t > 300 {
-        return false // Replay protection
-    }
+  const currentIndex = flatDocList.findIndex((item) => item.id === currentDoc.id);
+  const prevDoc = currentIndex > 0 ? flatDocList[currentIndex - 1] : null;
+  const nextDoc = currentIndex < flatDocList.length - 1 ? flatDocList[currentIndex + 1] : null;
 
-    mac := hmac.New(sha256.New, []byte(secret))
-    mac.Write([]byte(fmt.Sprintf("%s.%s", timestamp, string(body))))
-    expected := hex.EncodeToString(mac.Sum(nil))
+  // Search filtering
+  const filteredNav = useMemo(() => {
+    if (!searchQuery.trim()) return DOCS_NAVIGATION;
+    const q = searchQuery.toLowerCase();
 
-    return hmac.Equal([]byte(signature), []byte(expected))
-}`,
+    return DOCS_NAVIGATION.map((cat) => {
+      const filteredItems = cat.items
+        .map((item) => {
+          if (item.subItems) {
+            const matchedSubs = item.subItems.filter(
+              (sub) =>
+                sub.title.toLowerCase().includes(q) ||
+                DOCS_DATA[sub.id]?.description?.toLowerCase().includes(q)
+            );
+            if (matchedSubs.length > 0) {
+              return { ...item, subItems: matchedSubs };
+            }
+          }
+          if (
+            item.title.toLowerCase().includes(q) ||
+            DOCS_DATA[item.id]?.description?.toLowerCase().includes(q)
+          ) {
+            return item;
+          }
+          return null;
+        })
+        .filter(Boolean) as typeof cat.items;
+
+      return {
+        ...cat,
+        items: filteredItems,
+      };
+    }).filter((cat) => cat.items.length > 0);
+  }, [searchQuery]);
+
+  const selectDoc = (id: string) => {
+    router.push(`/docs?doc=${id}`);
+    setMobileSidebarOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const copyCode = (key: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const toggleCategory = (title: string) => {
+    setExpandedCategories((prev) => ({
+      ...prev,
+      [title]: !prev[title],
+    }));
   };
 
   return (
-    <div className="space-y-12 text-sm leading-relaxed">
-      {/* ─── Header ────────────────────────────────────────────── */}
-      <div className="space-y-3 pb-6 border-b border-border/80">
-        <Badge variant="pill" className="text-xs px-2.5 py-0.5 font-mono">
-          Developer Documentation
-        </Badge>
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
-          Zyvan Infrastructure Documentation
-        </h1>
-        <p className="text-base text-muted-foreground leading-relaxed max-w-3xl">
-          Everything you need to durably ingest events in &lt;15ms, route webhooks through RabbitMQ, authenticate using machine tokens, and verify HMAC-SHA256 signatures.
-        </p>
-      </div>
+    <div className="flex flex-col min-h-screen bg-white">
+      {/* ============================================================ */}
+      {/* TOP HEADER (Mintlify Style)                                   */}
+      {/* ============================================================ */}
+      <header className="sticky top-0 z-40 w-full border-b border-zinc-200/80 bg-white/90 backdrop-blur-md px-4 sm:px-8 py-3 transition-all">
+        <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-4">
+          {/* Brand & Breadcrumbs */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+              className="lg:hidden p-1.5 rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100"
+              aria-label="Open Sidebar"
+            >
+              <Icon icon={mobileSidebarOpen ? Cancel01Icon : Menu01Icon} size={18} />
+            </button>
 
-      {/* ─── 1. Overview & Architecture ────────────────────────── */}
-      <section id="overview" className="space-y-4 scroll-mt-24">
-        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground font-mono flex items-center gap-2">
-          <span>01. Overview &amp; Architecture</span>
-        </h2>
-        <p className="text-zinc-600">
-          Zyvan decouples ingestion from delivery. When your backend receives an event, Zyvan immediately stores it in PostgreSQL and queues it in RabbitMQ before returning HTTP 202 Accepted.
-        </p>
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="size-7 rounded-full bg-black flex items-center justify-center overflow-hidden">
+                <img src="/logo.png" alt="Zyvan" className="w-full h-full object-cover" />
+              </div>
+              <span className="font-semibold text-lg tracking-tight lowercase">zyvan</span>
+            </Link>
 
-        {/* Architecture flow card */}
-        <div className="p-5 rounded-2xl border border-border bg-white shadow-xs space-y-4 font-mono text-xs">
-          <strong className="text-zinc-950 font-bold block">The 4 Invariants of Zyvan:</strong>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="p-3.5 rounded-xl bg-secondary/40 border border-border/60 space-y-1">
-              <span className="text-[#00DC5A] font-bold">1. At-Least-Once Delivery</span>
-              <p className="text-zinc-600">Events are never acknowledged to producers until durably fsynced to PostgreSQL.</p>
-            </div>
-            <div className="p-3.5 rounded-xl bg-secondary/40 border border-border/60 space-y-1">
-              <span className="text-zinc-950 font-bold">2. Idempotency Boundary</span>
-              <p className="text-zinc-600">Enforced via <code className="text-zinc-900 font-bold">UNIQUE(project_id, idempotency_key)</code>. Re-sent events return the existing ID.</p>
-            </div>
-            <div className="p-3.5 rounded-xl bg-secondary/40 border border-border/60 space-y-1">
-              <span className="text-zinc-950 font-bold">3. Zero-Overwrite DLQ</span>
-              <p className="text-zinc-600">Exhausted retries preserve all historical attempt timestamps and latency. Replays create new delivery lineages.</p>
-            </div>
-            <div className="p-3.5 rounded-xl bg-secondary/40 border border-border/60 space-y-1">
-              <span className="text-zinc-950 font-bold">4. SSRF Protected</span>
-              <p className="text-zinc-600">Target webhook URLs are resolved against DNS rebind filters; private 10.x, 192.168.x, and 127.x IP ranges are blocked.</p>
+            <span className="hidden sm:inline text-zinc-300">/</span>
+
+            {/* Breadcrumb path */}
+            <div className="hidden sm:flex items-center gap-2 text-xs font-medium text-zinc-500">
+              <Link href="/docs" className="hover:text-zinc-900 transition-colors">
+                Docs
+              </Link>
+              <span>›</span>
+              <span className="text-zinc-400">{currentDoc.category}</span>
+              <span>›</span>
+              <span className="text-zinc-900 font-semibold">{currentDoc.title}</span>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ─── 2. Quickstart ─────────────────────────────────────── */}
-      <section id="quickstart" className="space-y-4 scroll-mt-24">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground font-mono">
-            02. 5-Minute Quickstart
-          </h2>
-          <div className="flex items-center rounded-lg border border-border bg-white p-0.5 text-xs font-mono">
-            {(['curl', 'node', 'python', 'go'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setQuickstartTab(tab)}
-                className={`px-3 py-1 rounded-md transition-all uppercase cursor-pointer ${
-                  quickstartTab === tab ? 'bg-zinc-950 text-white font-bold' : 'text-zinc-600 hover:text-foreground'
-                }`}
-              >
-                {tab}
-              </button>
+          {/* Right Header Navigation & Actions */}
+          <div className="flex items-center gap-3">
+            <div className="relative hidden md:block w-64">
+              <Icon
+                icon={Search01Icon}
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+              />
+              <input
+                type="text"
+                placeholder="Quick search docs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-full border border-zinc-200/80 bg-zinc-50 py-1.5 pl-8 pr-8 text-xs text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition-all font-sans"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <a
+              href="https://github.com/sultanxdev/zyvan"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center size-8 rounded-full border border-zinc-200 text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 transition-colors"
+              title="GitHub Repository"
+            >
+              <Icon icon={GithubIcon} size={15} />
+            </a>
+
+            <Button
+              size="sm"
+              asChild
+              className="rounded-full bg-zinc-950 text-white hover:bg-zinc-800 text-xs px-3.5 h-8 font-medium shadow-xs"
+            >
+              <Link href="/dashboard" className="flex items-center gap-1.5">
+                <span>Dashboard</span>
+                <Icon icon={ArrowRight01Icon} size={13} />
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* ============================================================ */}
+      {/* 3-COLUMN MINTLIFY LAYOUT                                     */}
+      {/* ============================================================ */}
+      <div className="max-w-[1440px] mx-auto w-full flex-1 flex px-4 sm:px-8">
+        {/* ============================================================ */}
+        {/* LEFT SIDEBAR: DOCUMENTATION TREE (Mintlify Accordion)         */}
+        {/* ============================================================ */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-30 w-72 transform bg-white border-r border-zinc-200/80 p-5 pt-20 transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 lg:p-4 lg:pt-6 lg:w-64 shrink-0 overflow-y-auto ${
+            mobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
+          }`}
+        >
+          {/* Mobile search input */}
+          <div className="mb-4 lg:hidden">
+            <input
+              type="text"
+              placeholder="Search docs..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-900"
+            />
+          </div>
+
+          <div className="space-y-6 text-[13px]">
+            {filteredNav.map((cat) => (
+              <div key={cat.title}>
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(cat.title)}
+                  className="flex items-center justify-between w-full font-bold text-[11px] uppercase tracking-wider text-zinc-400 hover:text-zinc-700 py-1 mb-1 font-mono"
+                >
+                  <span>{cat.title}</span>
+                  <span className="text-[10px] text-zinc-400">
+                    {expandedCategories[cat.title] !== false ? '▾' : '▸'}
+                  </span>
+                </button>
+
+                {expandedCategories[cat.title] !== false && (
+                  <ul className="space-y-1 mt-1 border-l border-zinc-100 pl-2">
+                    {cat.items.map((item) => {
+                      if (item.subItems) {
+                        return (
+                          <li key={item.id} className="pt-1">
+                            <span className="block px-2 py-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">
+                              {item.title}
+                            </span>
+                            <ul className="space-y-0.5 ml-2 border-l border-zinc-100 pl-2">
+                              {item.subItems.map((sub) => {
+                                const isActive = currentDoc.id === sub.id;
+                                return (
+                                  <li key={sub.id}>
+                                    <button
+                                      onClick={() => selectDoc(sub.id)}
+                                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all flex items-center justify-between ${
+                                        isActive
+                                          ? 'bg-emerald-500/10 text-emerald-800 font-semibold border-l-2 border-emerald-500'
+                                          : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-50'
+                                      }`}
+                                    >
+                                      <span className="truncate">{sub.title}</span>
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </li>
+                        );
+                      }
+
+                      const isActive = currentDoc.id === item.id;
+                      return (
+                        <li key={item.id}>
+                          <button
+                            onClick={() => selectDoc(item.id)}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs transition-all flex items-center justify-between ${
+                              isActive
+                                ? 'bg-emerald-500/10 text-emerald-800 font-semibold border-l-2 border-emerald-500'
+                                : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-50'
+                            }`}
+                          >
+                            <span className="truncate">{item.title}</span>
+                            {item.apiMethod && (
+                              <span
+                                className={`text-[9px] font-mono px-1.5 py-0.2 rounded-md font-bold uppercase ${
+                                  item.apiMethod === 'POST'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-sky-100 text-sky-700'
+                                }`}
+                              >
+                                {item.apiMethod}
+                              </span>
+                            )}
+                            {item.badge && (
+                              <span className="text-[10px] font-mono bg-zinc-100 text-zinc-600 px-1.5 py-0.5 rounded-md">
+                                {item.badge}
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             ))}
           </div>
-        </div>
+        </aside>
 
-        <div className="relative rounded-2xl bg-zinc-950 border border-zinc-800 p-5 font-mono text-xs text-zinc-100 overflow-x-auto shadow-xl">
-          <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-800 text-zinc-400">
-            <span className="text-[11px]">POST /v1/events — Event Ingestion</span>
-            <button
-              onClick={() => copyCode('qs', quickstartSnippets[quickstartTab])}
-              className="flex items-center gap-1 hover:text-white cursor-pointer"
-            >
-              <Icon icon={copiedSnippet === 'qs' ? Tick01Icon : CopyIcon} size={14} className={copiedSnippet === 'qs' ? 'text-[#00DC5A]' : ''} />
-              <span>{copiedSnippet === 'qs' ? 'Copied' : 'Copy'}</span>
-            </button>
-          </div>
-          <pre className="leading-relaxed whitespace-pre font-mono">
-            {quickstartSnippets[quickstartTab]}
-          </pre>
-        </div>
+        {/* Backdrop for mobile */}
+        {mobileSidebarOpen && (
+          <div
+            onClick={() => setMobileSidebarOpen(false)}
+            className="fixed inset-0 z-20 bg-black/20 backdrop-blur-xs lg:hidden"
+          />
+        )}
 
-        <div className="p-4 rounded-xl border border-border bg-white text-xs space-y-1 font-mono">
-          <div className="flex items-center gap-2 text-emerald-800 font-bold">
-            <Icon icon={CheckmarkCircle02Icon} size={16} className="text-[#00DC5A]" />
-            <span>Response: HTTP 202 Accepted</span>
-          </div>
-          <p className="text-zinc-600 font-sans">
-            Zyvan confirms durable receipt in ~14ms. Delivery workers will execute delivery to all registered tenant destinations asynchronously.
-          </p>
-        </div>
-      </section>
+        {/* ============================================================ */}
+        {/* CENTER CONTENT: MINTLIFY MDX ARTICLE                         */}
+        {/* ============================================================ */}
+        <main className="flex-1 min-w-0 py-8 lg:px-12 max-w-3xl mx-auto">
+          {/* Document Header */}
+          <div className="mb-8 pb-6 border-b border-zinc-100">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="outline" className="text-[10px] font-mono font-semibold text-emerald-700 bg-emerald-50 border-emerald-200">
+                {currentDoc.category}
+              </Badge>
+              <span className="text-zinc-300">•</span>
+              <span className="text-xs text-zinc-400 font-medium">{currentDoc.readTime}</span>
+              <span className="text-zinc-300">•</span>
+              <span className="text-xs text-zinc-400 font-mono">v0.1</span>
+            </div>
 
-      {/* ─── 3. Webhook Signature Verification ─────────────────── */}
-      <section id="signature-verification" className="space-y-4 scroll-mt-24">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground font-mono">
-              03. HMAC-SHA256 Webhook Verification
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              Verify the <code className="font-mono text-zinc-950">zyvan-signature</code> header to ensure webhooks genuinely originate from Zyvan.
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 leading-tight">
+              {currentDoc.title}
+            </h1>
+
+            <p className="mt-3 text-base text-zinc-600 leading-relaxed">
+              {currentDoc.description}
             </p>
+
+            {/* If this document has an API endpoint specification */}
+            {currentDoc.apiMethod && currentDoc.apiPath && (
+              <div className="mt-4 inline-flex items-center gap-2.5 rounded-xl border border-zinc-200 bg-zinc-50/80 px-3.5 py-2 font-mono text-xs text-zinc-900 shadow-2xs">
+                <span
+                  className={`font-bold px-2 py-0.5 rounded-md text-[10px] ${
+                    currentDoc.apiMethod === 'POST'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-sky-600 text-white'
+                  }`}
+                >
+                  {currentDoc.apiMethod}
+                </span>
+                <span className="font-semibold text-zinc-800">{currentDoc.apiPath}</span>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center rounded-lg border border-border bg-white p-0.5 text-xs font-mono">
-            {(['node', 'python', 'go'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setVerifyTab(tab)}
-                className={`px-3 py-1 rounded-md transition-all uppercase cursor-pointer ${
-                  verifyTab === tab ? 'bg-zinc-950 text-white font-bold' : 'text-zinc-600 hover:text-foreground'
+          {/* Document Body Intro */}
+          <div className="prose prose-zinc max-w-none text-zinc-700 leading-relaxed text-[15px] space-y-6">
+            <p>{currentDoc.content.intro}</p>
+
+            {/* Mintlify Callout Alerts */}
+            {currentDoc.content.callout && (
+              <div
+                className={`my-6 rounded-2xl p-4 sm:p-5 border text-sm leading-relaxed ${
+                  currentDoc.content.callout.type === 'tip'
+                    ? 'bg-emerald-50/60 border-emerald-200/80 text-emerald-950'
+                    : currentDoc.content.callout.type === 'warning'
+                    ? 'bg-amber-50/60 border-amber-200/80 text-amber-950'
+                    : currentDoc.content.callout.type === 'security'
+                    ? 'bg-purple-50/60 border-purple-200/80 text-purple-950'
+                    : 'bg-sky-50/60 border-sky-200/80 text-sky-950'
                 }`}
               >
-                {tab}
-              </button>
+                <div className="flex items-center gap-2 font-semibold mb-1 text-xs uppercase tracking-wider">
+                  <Icon
+                    icon={
+                      currentDoc.content.callout.type === 'security'
+                        ? ShieldCheckIcon
+                        : currentDoc.content.callout.type === 'warning'
+                        ? Alert01Icon
+                        : currentDoc.content.callout.type === 'tip'
+                        ? SparklesIcon
+                        : CheckmarkCircle02Icon
+                    }
+                    size={16}
+                  />
+                  <span>{currentDoc.content.callout.title}</span>
+                </div>
+                <p className="text-[13.5px] mt-1 text-zinc-700">
+                  {currentDoc.content.callout.text}
+                </p>
+              </div>
+            )}
+
+            {/* Mintlify Interactive Code Tabs */}
+            {currentDoc.content.codeSnippets && (
+              <div className="my-6 rounded-2xl border border-zinc-800 bg-zinc-950 shadow-lg overflow-hidden font-mono text-xs text-white">
+                <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/90 px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    {(['curl', 'node', 'python', 'go'] as const).map((lang) => {
+                      if (!currentDoc.content.codeSnippets?.[lang]) return null;
+                      return (
+                        <button
+                          key={lang}
+                          onClick={() => setActiveCodeLang(lang)}
+                          className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors uppercase ${
+                            activeCodeLang === lang
+                              ? 'bg-zinc-800 text-white shadow-2xs font-semibold'
+                              : 'text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          {lang === 'node' ? 'Node.js' : lang}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() =>
+                      copyCode(
+                        'main-snippet',
+                        currentDoc.content.codeSnippets?.[activeCodeLang] ||
+                          currentDoc.content.codeSnippets?.curl ||
+                          ''
+                      )
+                    }
+                    className="flex items-center gap-1 text-zinc-400 hover:text-white transition-colors text-[11px]"
+                  >
+                    <Icon icon={copiedKey === 'main-snippet' ? Tick01Icon : CopyIcon} size={13} />
+                    <span>{copiedKey === 'main-snippet' ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <pre className="p-4 overflow-x-auto text-[12px] text-zinc-200 leading-relaxed">
+                  <code>
+                    {currentDoc.content.codeSnippets[activeCodeLang] ||
+                      currentDoc.content.codeSnippets.curl}
+                  </code>
+                </pre>
+              </div>
+            )}
+
+            {/* Mintlify Request Parameters Table */}
+            {currentDoc.content.parameters && currentDoc.content.parameters.length > 0 && (
+              <div className="my-8">
+                <h3 className="text-base font-bold text-zinc-900 mb-3">Request Parameters</h3>
+                <div className="rounded-xl border border-zinc-200 overflow-hidden shadow-2xs">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-zinc-50 border-b border-zinc-200 font-mono text-zinc-600">
+                      <tr>
+                        <th className="p-3">Field</th>
+                        <th className="p-3">Type</th>
+                        <th className="p-3">Requirement</th>
+                        <th className="p-3">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                      {currentDoc.content.parameters.map((param) => (
+                        <tr key={param.name} className="hover:bg-zinc-50/50">
+                          <td className="p-3 font-mono font-semibold text-zinc-900">{param.name}</td>
+                          <td className="p-3 font-mono text-purple-700 font-medium">{param.type}</td>
+                          <td className="p-3">
+                            {param.required ? (
+                              <span className="rounded-md bg-red-50 text-red-700 px-2 py-0.5 font-mono text-[10px] font-bold">
+                                required
+                              </span>
+                            ) : (
+                              <span className="text-zinc-400 font-mono text-[10px]">optional</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-zinc-600">{param.description}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Mintlify Response Preview */}
+            {currentDoc.content.responsePreview && (
+              <div className="my-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-base font-bold text-zinc-900">Response</h3>
+                  <span className="text-xs font-mono font-semibold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                    HTTP {currentDoc.content.responsePreview.status}
+                  </span>
+                </div>
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs text-emerald-400 overflow-x-auto shadow-sm">
+                  <pre>
+                    <code>{currentDoc.content.responsePreview.body}</code>
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {/* Custom Content Sections / Steps */}
+            {currentDoc.content.sections?.map((sec, i) => (
+              <div key={i} className="my-8">
+                <h2 className="text-xl font-bold text-zinc-900 mb-3 tracking-tight">
+                  {sec.title}
+                </h2>
+                <p className="whitespace-pre-line leading-relaxed text-zinc-700 mb-4">
+                  {sec.body}
+                </p>
+                {sec.steps && (
+                  <div className="space-y-3 mt-4">
+                    {sec.steps.map((step, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-start gap-3 rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-3.5 text-xs text-zinc-800 shadow-2xs"
+                      >
+                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white font-bold text-[10px]">
+                          {idx + 1}
+                        </span>
+                        <p className="leading-relaxed">{step}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
+
+            {/* Mintlify Related Docs Cards */}
+            {currentDoc.content.relatedDocs && (
+              <div className="mt-10 pt-6 border-t border-zinc-200">
+                <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-bold mb-4">
+                  Next Steps & Related Topics
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {currentDoc.content.relatedDocs.map((rel) => (
+                    <button
+                      key={rel.id}
+                      onClick={() => selectDoc(rel.id)}
+                      className="text-left rounded-xl border border-zinc-200 p-4 hover:border-emerald-500 hover:shadow-xs transition-all group bg-white"
+                    >
+                      <div className="flex items-center justify-between text-sm font-semibold text-zinc-900 group-hover:text-emerald-700">
+                        <span>{rel.title}</span>
+                        <Icon icon={ArrowRight01Icon} size={14} className="transition-transform group-hover:translate-x-1" />
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-500 leading-relaxed">{rel.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
 
-        <div className="relative rounded-2xl bg-zinc-950 border border-zinc-800 p-5 font-mono text-xs text-zinc-100 overflow-x-auto shadow-xl">
-          <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-800 text-zinc-400">
-            <span className="text-[11px]">HMAC-SHA256 Verification Implementation</span>
-            <button
-              onClick={() => copyCode('ver', verificationSnippets[verifyTab])}
-              className="flex items-center gap-1 hover:text-white cursor-pointer"
-            >
-              <Icon icon={copiedSnippet === 'ver' ? Tick01Icon : CopyIcon} size={14} className={copiedSnippet === 'ver' ? 'text-[#00DC5A]' : ''} />
-              <span>{copiedSnippet === 'ver' ? 'Copied' : 'Copy'}</span>
-            </button>
+          {/* ============================================================ */}
+          {/* BOTTOM PAGINATION: PREVIOUS / NEXT CARDS                     */}
+          {/* ============================================================ */}
+          <div className="mt-12 pt-6 border-t border-zinc-200 flex items-center justify-between gap-4">
+            {prevDoc ? (
+              <button
+                onClick={() => selectDoc(prevDoc.id)}
+                className="flex flex-col items-start rounded-xl border border-zinc-200 p-3.5 text-left hover:border-zinc-400 hover:bg-zinc-50 transition-all w-1/2 group"
+              >
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1 group-hover:text-zinc-700">
+                  <Icon icon={ArrowLeft01Icon} size={11} /> Previous
+                </span>
+                <span className="text-xs font-semibold text-zinc-800 mt-1 truncate max-w-full">
+                  {prevDoc.title}
+                </span>
+              </button>
+            ) : (
+              <div className="w-1/2" />
+            )}
+
+            {nextDoc ? (
+              <button
+                onClick={() => selectDoc(nextDoc.id)}
+                className="flex flex-col items-end rounded-xl border border-zinc-200 p-3.5 text-right hover:border-zinc-400 hover:bg-zinc-50 transition-all w-1/2 group"
+              >
+                <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1 group-hover:text-zinc-700">
+                  Next <Icon icon={ArrowRight01Icon} size={11} />
+                </span>
+                <span className="text-xs font-semibold text-zinc-800 mt-1 truncate max-w-full">
+                  {nextDoc.title}
+                </span>
+              </button>
+            ) : (
+              <div className="w-1/2" />
+            )}
           </div>
-          <pre className="leading-relaxed whitespace-pre font-mono">
-            {verificationSnippets[verifyTab]}
-          </pre>
-        </div>
-      </section>
+        </main>
 
-      {/* ─── 4. REST API Reference ─────────────────────────────── */}
-      <section id="api-post-events" className="space-y-6 scroll-mt-24">
-        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground font-mono">
-          04. Complete REST API Reference
-        </h2>
-
-        {/* POST /v1/events */}
-        <Card className="bg-white border-border shadow-xs overflow-hidden">
-          <CardHeader className="p-5 pb-3 border-b border-border/70 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="px-2.5 py-1 rounded bg-zinc-950 text-white font-mono font-bold text-xs">POST</span>
-              <span className="font-mono font-bold text-sm text-foreground">/v1/events</span>
+        {/* ============================================================ */}
+        {/* RIGHT SIDEBAR: ON THIS PAGE (Mintlify Style)                 */}
+        {/* ============================================================ */}
+        <aside className="hidden xl:block w-60 shrink-0 py-8 pl-8 text-xs">
+          <div className="sticky top-20 space-y-5">
+            <div>
+              <span className="font-bold text-[11px] uppercase tracking-wider text-zinc-400 font-mono">
+                On this page
+              </span>
+              <ul className="mt-2 space-y-2 border-l border-zinc-200 pl-3 text-zinc-600">
+                <li>
+                  <a href="#overview" className="hover:text-zinc-950 transition-colors block">
+                    Overview
+                  </a>
+                </li>
+                {currentDoc.content.sections?.map((sec, idx) => (
+                  <li key={idx}>
+                    <span className="text-zinc-500 hover:text-zinc-950 transition-colors block cursor-pointer">
+                      {sec.title}
+                    </span>
+                  </li>
+                ))}
+                {currentDoc.content.parameters && (
+                  <li>
+                    <span className="text-zinc-500 hover:text-zinc-950 transition-colors block cursor-pointer">
+                      Request Parameters
+                    </span>
+                  </li>
+                )}
+                {currentDoc.content.responsePreview && (
+                  <li>
+                    <span className="text-zinc-500 hover:text-zinc-950 transition-colors block cursor-pointer">
+                      Response Preview
+                    </span>
+                  </li>
+                )}
+              </ul>
             </div>
-            <Badge variant="pill" className="text-[10px] font-mono">events:write</Badge>
-          </CardHeader>
-          <CardContent className="p-5 space-y-4 font-mono text-xs">
-            <p className="text-zinc-700 font-sans text-xs">
-              Durably stores an incoming event and dispatches delivery jobs into RabbitMQ.
-            </p>
 
-            <table className="w-full text-left text-xs border border-border rounded-lg overflow-hidden">
-              <thead className="bg-secondary/50 border-b border-border text-zinc-700">
-                <tr>
-                  <th className="p-2.5">Field</th>
-                  <th className="p-2.5">Type</th>
-                  <th className="p-2.5">Required</th>
-                  <th className="p-2.5">Description</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                <tr>
-                  <td className="p-2.5 font-bold">type</td>
-                  <td className="p-2.5 text-zinc-500">string</td>
-                  <td className="p-2.5 text-emerald-600 font-bold">Yes</td>
-                  <td className="p-2.5 text-zinc-700 font-sans">Event type (e.g. <code>invoice.paid</code>)</td>
-                </tr>
-                <tr>
-                  <td className="p-2.5 font-bold">tenant_id</td>
-                  <td className="p-2.5 text-zinc-500">string</td>
-                  <td className="p-2.5 text-emerald-600 font-bold">Yes</td>
-                  <td className="p-2.5 text-zinc-700 font-sans">Tenant isolation boundary</td>
-                </tr>
-                <tr>
-                  <td className="p-2.5 font-bold">idempotency_key</td>
-                  <td className="p-2.5 text-zinc-500">string</td>
-                  <td className="p-2.5 text-emerald-600 font-bold">Yes</td>
-                  <td className="p-2.5 text-zinc-700 font-sans">Client unique key preventing duplicate processing</td>
-                </tr>
-                <tr>
-                  <td className="p-2.5 font-bold">data</td>
-                  <td className="p-2.5 text-zinc-500">object</td>
-                  <td className="p-2.5 text-emerald-600 font-bold">Yes</td>
-                  <td className="p-2.5 text-zinc-700 font-sans">Custom JSON event payload</td>
-                </tr>
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-
-        {/* POST /v1/destinations */}
-        <Card id="api-destinations" className="bg-white border-border shadow-xs overflow-hidden scroll-mt-24">
-          <CardHeader className="p-5 pb-3 border-b border-border/70 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="px-2.5 py-1 rounded bg-zinc-950 text-white font-mono font-bold text-xs">POST</span>
-              <span className="font-mono font-bold text-sm text-foreground">/v1/destinations</span>
+            <div className="pt-4 border-t border-zinc-100">
+              <span className="font-bold text-[11px] uppercase tracking-wider text-zinc-400 font-mono">
+                Community & Help
+              </span>
+              <ul className="mt-2 space-y-2 text-zinc-600">
+                <li>
+                  <a
+                    href="https://github.com/sultanxdev/zyvan"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-zinc-950 transition-colors flex items-center gap-1.5"
+                  >
+                    <Icon icon={GithubIcon} size={13} />
+                    <span>GitHub Issues</span>
+                  </a>
+                </li>
+                <li>
+                  <button
+                    onClick={() => selectDoc('resources-status')}
+                    className="hover:text-zinc-950 transition-colors flex items-center gap-1.5"
+                  >
+                    <span className="size-1.5 rounded-full bg-emerald-500" />
+                    <span>System Status</span>
+                  </button>
+                </li>
+              </ul>
             </div>
-            <Badge variant="pill" className="text-[10px] font-mono">destinations:manage</Badge>
-          </CardHeader>
-          <CardContent className="p-5 space-y-4 font-mono text-xs">
-            <p className="text-zinc-700 font-sans text-xs">
-              Registers an HTTPS webhook endpoint. Generates a secure AES-256 HMAC signing secret for the endpoint.
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* POST /v1/events/:id/replay */}
-        <Card id="api-replay" className="bg-white border-border shadow-xs overflow-hidden scroll-mt-24">
-          <CardHeader className="p-5 pb-3 border-b border-border/70 flex flex-row items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="px-2.5 py-1 rounded bg-zinc-950 text-white font-mono font-bold text-xs">POST</span>
-              <span className="font-mono font-bold text-sm text-foreground">/v1/events/:id/replay</span>
-            </div>
-            <Badge variant="pill" className="text-[10px] font-mono">events:write</Badge>
-          </CardHeader>
-          <CardContent className="p-5 space-y-4 font-mono text-xs">
-            <p className="text-zinc-700 font-sans text-xs">
-              Schedules a non-destructive replay for a dead-lettered event. Creates a fresh delivery lineage without modifying original attempt histories.
-            </p>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* ─── 5. Queue Mechanics & Exponential Backoff ──────────── */}
-      <section id="backoff-jitter" className="space-y-4 scroll-mt-24">
-        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground font-mono">
-          05. Queue Mechanics &amp; Exponential Backoff
-        </h2>
-        <p className="text-zinc-600">
-          Zyvan uses delayed RabbitMQ TTL queues with Dead-Letter Exchange (DLX) routing to avoid worker sleep blocking.
-        </p>
-
-        <div className="p-5 rounded-2xl border border-border bg-white shadow-xs space-y-3 font-mono text-xs">
-          <strong className="text-zinc-950 block font-bold font-sans">Exponential Backoff with Full Jitter Formula:</strong>
-          <div className="p-3.5 rounded-xl bg-zinc-950 text-zinc-100 text-sm">
-            <code>T = min(BaseDelay * 2^attempt + Jitter, MaxDelay)</code>
           </div>
-          <p className="text-muted-foreground text-xs font-sans">
-            Random jitter prevents thundering-herd spikes on receiving customer servers when large upstream outages recover.
-          </p>
-        </div>
-      </section>
-
-      {/* ─── Next Steps Callout ─────────────────────────────────── */}
-      <div className="p-6 rounded-2xl border border-zinc-900 bg-zinc-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-base font-bold">Ready to test Zyvan in action?</h3>
-          <p className="text-xs text-zinc-400 mt-0.5">Explore the live simulator or view your active infrastructure metrics.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" asChild className="border-zinc-700 bg-zinc-900 text-white hover:bg-zinc-800">
-            <Link href="/dashboard/simulator">Launch Simulator</Link>
-          </Button>
-          <Button size="sm" asChild className="bg-white text-zinc-950 hover:bg-zinc-100 font-semibold">
-            <Link href="/dashboard">Go to Dashboard</Link>
-          </Button>
-        </div>
+        </aside>
       </div>
     </div>
+  );
+}
+
+export default function DocsPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center text-zinc-400 font-mono text-sm">Loading documentation...</div>}>
+      <DocsContent />
+    </Suspense>
   );
 }

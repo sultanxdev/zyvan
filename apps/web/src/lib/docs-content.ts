@@ -50,6 +50,7 @@ export interface DocCategory {
     title: string;
     badge?: string;
     apiMethod?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+    apiPath?: string;
     subItems?: { id: string; title: string }[];
   }[];
 }
