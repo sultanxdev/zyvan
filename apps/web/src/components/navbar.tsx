@@ -42,15 +42,12 @@ export function Navbar() {
         </div>
 
         {/* Desktop Nav Links (Centering inspired by make.design) */}
-        <div className="hidden md:flex items-center gap-5 lg:gap-6 text-[13.5px] font-medium text-zinc-600">
+        <div className="hidden md:flex items-center gap-6 lg:gap-7 text-[13.5px] font-medium text-zinc-600">
           <Link href="/#how-it-works" className="hover:text-zinc-950 transition-colors">
             How it works
           </Link>
           <Link href="/#features" className="hover:text-zinc-950 transition-colors">
             Features
-          </Link>
-          <Link href="/#quickstart" className="hover:text-zinc-950 transition-colors">
-            Quickstart
           </Link>
           <Link href="/docs" className="hover:text-zinc-950 transition-colors font-medium text-zinc-900">
             Docs
@@ -134,13 +131,6 @@ export function Navbar() {
               className="px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
             >
               Features
-            </Link>
-            <Link
-              href="/#quickstart"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
-            >
-              Quickstart
             </Link>
             <Link
               href="/docs"

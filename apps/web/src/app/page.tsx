@@ -1,9 +1,7 @@
 import { Navbar } from '@/components/navbar';
 import { Hero } from '@/components/hero';
-import { MetricsBar } from '@/components/metrics-bar';
 import { HowItWorks } from '@/components/how-it-works';
 import { FeaturesGrid } from '@/components/features-grid';
-import { CodeQuickstart } from '@/components/code-quickstart';
 import { Pricing } from '@/components/pricing';
 import { FAQ } from '@/components/faq';
 import { CtaBanner } from '@/components/cta-banner';
@@ -15,10 +13,8 @@ export default function Home() {
       <Navbar />
       <main className="flex-1">
         <Hero />
-        <MetricsBar />
         <HowItWorks />
         <FeaturesGrid />
-        <CodeQuickstart />
         <Pricing />
         <FAQ />
         <CtaBanner />
