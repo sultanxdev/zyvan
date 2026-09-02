@@ -37,13 +37,13 @@ export function FAQ() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="py-24 sm:py-32 bg-secondary/20 relative">
+    <section id="faq" className="py-24 sm:py-32 bg-secondary/30 relative">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <Badge variant="pill" className="mb-4">
             Technical FAQ
           </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             Frequently Asked Questions
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground">
@@ -57,13 +57,13 @@ export function FAQ() {
             return (
               <Card
                 key={idx}
-                className="border-border/80 bg-card/70 overflow-hidden transition-all"
+                className="border-border bg-white overflow-hidden transition-all shadow-xs"
               >
                 <button
                   onClick={() => setOpenIdx(isOpen ? null : idx)}
-                  className="w-full flex items-center justify-between p-5 text-left cursor-pointer hover:bg-secondary/40 transition-colors"
+                  className="w-full flex items-center justify-between p-5 text-left cursor-pointer hover:bg-secondary/50 transition-colors"
                 >
-                  <span className="font-semibold text-sm sm:text-base text-white pr-4">
+                  <span className="font-semibold text-sm sm:text-base text-foreground pr-4">
                     {faq.q}
                   </span>
                   <span className="text-muted-foreground shrink-0">
@@ -71,7 +71,7 @@ export function FAQ() {
                   </span>
                 </button>
                 {isOpen && (
-                  <CardContent className="px-5 pb-5 pt-1 text-sm text-zinc-300 leading-relaxed border-t border-border/40">
+                  <CardContent className="px-5 pb-5 pt-1 text-sm text-muted-foreground leading-relaxed border-t border-border/60">
                     {faq.a}
                   </CardContent>
                 )}

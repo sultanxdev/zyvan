@@ -5,30 +5,34 @@ import { ServerIcon, GithubIcon } from '@hugeicons/core-free-icons';
 
 export function Footer() {
   return (
-    <footer className="border-t border-border/80 bg-black/60 backdrop-blur-xl">
+    <footer className="border-t border-border/80 bg-white/70 backdrop-blur-xl">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Col */}
           <div className="md:col-span-2 space-y-4">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-[0_0_15px_-3px_rgba(99,102,241,0.6)]">
-                <Icon icon={ServerIcon} size={18} className="text-white" />
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <div className="relative size-8 rounded-xl overflow-hidden shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center bg-black">
+                <img
+                  src="/logo.png"
+                  alt="Zyvan logo"
+                  className="w-full h-full object-cover rounded-lg"
+                />
               </div>
-              <span className="font-bold text-lg tracking-tight text-white">Zyvan</span>
+              <span className="font-bold text-xl tracking-tight text-foreground lowercase">zyvan</span>
             </Link>
             <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
               Multi-tenant webhook reliability engine built on PostgreSQL, RabbitMQ, and Node.js.
               Durably accept events, asynchronously deliver with retries, and preserve full audit history.
             </p>
             <div className="flex items-center gap-2 pt-2">
-              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-mono text-zinc-400">All Systems Operational (99.99%)</span>
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-mono text-zinc-600">All Systems Operational (99.99%)</span>
             </div>
           </div>
 
           {/* Product Links */}
           <div className="space-y-3">
-            <div className="font-semibold text-xs text-white uppercase tracking-wider font-mono">
+            <div className="font-semibold text-xs text-foreground uppercase tracking-wider font-mono">
               Product
             </div>
             <ul className="space-y-2 text-xs text-muted-foreground">
@@ -57,7 +61,7 @@ export function Footer() {
 
           {/* Resources & Docs */}
           <div className="space-y-3">
-            <div className="font-semibold text-xs text-white uppercase tracking-wider font-mono">
+            <div className="font-semibold text-xs text-foreground uppercase tracking-wider font-mono">
               Resources
             </div>
             <ul className="space-y-2 text-xs text-muted-foreground">
@@ -83,13 +87,13 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <span className="text-zinc-500">API Status</span>
+                <span className="text-zinc-400">API Status</span>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-12 pt-8 border-t border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground font-mono">
+        <div className="mt-12 pt-8 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground font-mono">
           <div>
             &copy; {new Date().getFullYear()} Zyvan Infrastructure. Open source under MIT License.
           </div>

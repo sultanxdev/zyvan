@@ -99,13 +99,13 @@ export function CodeQuickstart() {
   };
 
   return (
-    <section id="quickstart" className="py-24 sm:py-32 bg-secondary/20 relative">
+    <section id="quickstart" className="py-24 sm:py-32 bg-secondary/30 relative">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <Badge variant="pill" className="mb-4">
             Developer Quickstart
           </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             Integrate in minutes with any language
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground">
@@ -115,9 +115,9 @@ export function CodeQuickstart() {
 
         <div className="max-w-4xl mx-auto">
           {/* Card Container */}
-          <div className="rounded-2xl border border-border/80 bg-black/80 backdrop-blur-xl shadow-2xl overflow-hidden font-mono text-xs">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden font-mono text-xs text-white">
             {/* Header Tabs */}
-            <div className="flex items-center justify-between border-b border-border/60 bg-secondary/30 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/90 px-4 py-3">
               <div className="flex items-center gap-2">
                 {(['curl', 'node', 'python'] as Language[]).map((lang) => (
                   <button
@@ -125,8 +125,8 @@ export function CodeQuickstart() {
                     onClick={() => setActiveLang(lang)}
                     className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                       activeLang === lang
-                        ? 'bg-indigo-600 text-white font-semibold shadow-sm'
-                        : 'text-muted-foreground hover:text-white hover:bg-secondary/60'
+                        ? 'bg-zinc-800 text-white font-semibold border border-zinc-700 shadow-xs'
+                        : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
                     }`}
                   >
                     {snippets[lang].label}
@@ -136,12 +136,12 @@ export function CodeQuickstart() {
 
               <button
                 onClick={copyCode}
-                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:text-white hover:bg-secondary transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 {copied ? (
                   <>
-                    <Icon icon={Tick01Icon} size={14} className="text-emerald-400" />
-                    <span className="text-emerald-400">Copied!</span>
+                    <Icon icon={Tick01Icon} size={14} className="text-[#00DC5A]" />
+                    <span className="text-[#00DC5A]">Copied!</span>
                   </>
                 ) : (
                   <>

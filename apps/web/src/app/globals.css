@@ -26,33 +26,33 @@
 }
 
 :root {
-  --background: #09090b;
-  --foreground: #fafafa;
+  --background: #FAF8F5;
+  --foreground: #111113;
 
-  --card: #111114;
-  --card-foreground: #fafafa;
+  --card: #FFFFFF;
+  --card-foreground: #111113;
 
-  --popover: #111114;
-  --popover-foreground: #fafafa;
+  --popover: #FFFFFF;
+  --popover-foreground: #111113;
 
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
+  --primary: #0F0F12;
+  --primary-foreground: #FFFFFF;
 
-  --secondary: #1e1e24;
-  --secondary-foreground: #fafafa;
+  --secondary: #F3EFE8;
+  --secondary-foreground: #111113;
 
-  --muted: #1e1e24;
-  --muted-foreground: #a1a1aa;
+  --muted: #F3EFE8;
+  --muted-foreground: #5C5C66;
 
-  --accent: #272730;
-  --accent-foreground: #fafafa;
+  --accent: #ECE6DC;
+  --accent-foreground: #111113;
 
-  --destructive: #ef4444;
-  --destructive-foreground: #fafafa;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.12);
-  --ring: #6366f1;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.12);
+  --ring: #0F0F12;
 
   --radius: 0.625rem;
 }
@@ -65,29 +65,29 @@ html, body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), sans-serif;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 code, kbd, samp, pre {
   font-family: var(--font-geist-mono), monospace;
 }
 
-/* 21st.dev Style Ambient Grid & Glows */
+/* Ambient Subtle Cream Grid Pattern */
 .bg-grid-pattern {
   background-size: 32px 32px;
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
 }
 
 .bg-radial-gradient {
-  background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 60%);
+  background: radial-gradient(circle at 50% 0%, rgba(0, 220, 90, 0.08) 0%, transparent 60%);
 }
 
 .glass-card {
-  background: rgba(18, 18, 22, 0.75);
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .glass-card-hover {
@@ -95,7 +95,7 @@ code, kbd, samp, pre {
 }
 
 .glass-card-hover:hover {
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px -10px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.08);
 }

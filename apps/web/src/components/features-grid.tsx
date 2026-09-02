@@ -87,7 +87,7 @@ export function FeaturesGrid() {
           <Badge variant="pill" className="mb-4">
             Reliability Capabilities
           </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             Built for engineering teams with zero tolerance for dropped events
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground">
@@ -100,21 +100,21 @@ export function FeaturesGrid() {
           {features.map((feature, i) => (
             <Card
               key={i}
-              className={`${feature.colSpan} glass-card glass-card-hover relative flex flex-col justify-between overflow-hidden`}
+              className={`${feature.colSpan} bg-white border border-border hover:border-zinc-400 hover:shadow-md transition-all relative flex flex-col justify-between overflow-hidden shadow-xs`}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-secondary/80 border border-border">
-                    <Icon icon={feature.icon} size={20} className={feature.accent} />
+                  <div className="flex size-10 items-center justify-center rounded-lg bg-secondary border border-border">
+                    <Icon icon={feature.icon} size={20} className="text-zinc-900" />
                   </div>
-                  <Badge variant="outline" className="text-[10px] font-mono">
+                  <Badge variant="outline" className="text-[10px] font-mono bg-white">
                     {feature.badge}
                   </Badge>
                 </div>
-                <CardTitle className="text-lg text-white">{feature.title}</CardTitle>
+                <CardTitle className="text-lg text-foreground font-semibold">{feature.title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <CardDescription className="text-sm text-zinc-300 leading-relaxed">
+                <CardDescription className="text-sm text-muted-foreground leading-relaxed">
                   {feature.description}
                 </CardDescription>
               </CardContent>

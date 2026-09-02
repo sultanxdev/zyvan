@@ -69,7 +69,7 @@ export function Pricing() {
           <Badge variant="pill" className="mb-4">
             Predictable Pricing
           </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             Start free. Scale with total confidence.
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground">
@@ -83,22 +83,22 @@ export function Pricing() {
               key={plan.name}
               className={`flex flex-col justify-between relative transition-all ${
                 plan.popular
-                  ? 'border-indigo-500 bg-card/90 shadow-[0_0_35px_-10px_rgba(99,102,241,0.3)] scale-[1.02]'
-                  : 'border-border/80 bg-card/50'
+                  ? 'border-zinc-950 bg-white shadow-xl ring-1 ring-zinc-950 scale-[1.02]'
+                  : 'border-border bg-white shadow-xs'
               }`}
             >
               {plan.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge variant="pill" className="bg-indigo-600 text-white border-transparent px-3 py-0.5 text-[11px] font-semibold">
+                  <Badge variant="pill" className="bg-zinc-950 text-white border-transparent px-3 py-0.5 text-[11px] font-semibold shadow-sm">
                     Most Popular
                   </Badge>
                 </div>
               )}
 
               <CardHeader className="pb-6">
-                <CardTitle className="text-xl">{plan.name}</CardTitle>
+                <CardTitle className="text-xl text-foreground">{plan.name}</CardTitle>
                 <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-4xl font-bold font-mono tracking-tight text-white">{plan.price}</span>
+                  <span className="text-4xl font-bold font-mono tracking-tight text-foreground">{plan.price}</span>
                   <span className="text-xs text-muted-foreground">/{plan.period}</span>
                 </div>
                 <CardDescription className="pt-2 text-xs leading-relaxed">
@@ -107,13 +107,13 @@ export function Pricing() {
               </CardHeader>
 
               <CardContent className="flex-1">
-                <div className="space-y-3 border-t border-border/50 pt-4">
-                  <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider font-mono">
+                <div className="space-y-3 border-t border-border/80 pt-4">
+                  <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider font-mono">
                     Features Included:
                   </div>
                   {plan.features.map((feature, i) => (
-                    <div key={i} className="flex items-start gap-2.5 text-xs text-zinc-300">
-                      <Icon icon={CheckmarkCircle02Icon} size={16} className="text-emerald-400 mt-0.5 shrink-0" />
+                    <div key={i} className="flex items-start gap-2.5 text-xs text-zinc-700">
+                      <Icon icon={CheckmarkCircle02Icon} size={16} className="text-[#00DC5A] mt-0.5 shrink-0" />
                       <span>{feature}</span>
                     </div>
                   ))}

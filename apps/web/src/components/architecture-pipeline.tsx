@@ -102,13 +102,13 @@ export function ArchitecturePipeline() {
   const current = steps[activeStep];
 
   return (
-    <section id="architecture" className="py-24 sm:py-32 bg-secondary/20 relative">
+    <section id="architecture" className="py-24 sm:py-32 bg-secondary/30 relative">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <Badge variant="pill" className="mb-4">
             Reliability Pipeline
           </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             How Zyvan guarantees zero dropped events
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground">
@@ -126,53 +126,53 @@ export function ArchitecturePipeline() {
                 onClick={() => setActiveStep(idx)}
                 className={`flex flex-col items-start p-3.5 rounded-xl text-left border transition-all cursor-pointer ${
                   isSelected
-                    ? 'border-indigo-500 bg-indigo-500/10 shadow-[0_0_20px_-5px_rgba(99,102,241,0.4)]'
-                    : 'border-border/60 bg-card/60 hover:bg-secondary/70 hover:border-border'
+                    ? 'border-zinc-950 bg-zinc-950 text-white shadow-md'
+                    : 'border-border bg-white text-zinc-900 hover:bg-secondary/70'
                 }`}
               >
                 <div className="flex items-center justify-between w-full mb-2">
                   <div
                     className={`flex size-8 items-center justify-center rounded-lg ${
-                      isSelected ? 'bg-indigo-600 text-white' : 'bg-secondary text-muted-foreground'
+                      isSelected ? 'bg-zinc-800 text-[#00DC5A]' : 'bg-secondary text-zinc-700'
                     }`}
                   >
                     <Icon icon={step.icon} size={16} />
                   </div>
-                  <span className="text-[10px] font-mono text-muted-foreground">0{step.id}</span>
+                  <span className={`text-[10px] font-mono ${isSelected ? 'text-zinc-400' : 'text-muted-foreground'}`}>0{step.id}</span>
                 </div>
-                <div className="font-semibold text-xs text-white truncate w-full">{step.title}</div>
-                <div className="text-[11px] text-muted-foreground truncate w-full">{step.short}</div>
+                <div className={`font-semibold text-xs truncate w-full ${isSelected ? 'text-white' : 'text-foreground'}`}>{step.title}</div>
+                <div className={`text-[11px] truncate w-full ${isSelected ? 'text-zinc-300' : 'text-muted-foreground'}`}>{step.short}</div>
               </button>
             );
           })}
         </div>
 
         {/* Active Stage Detail Panel */}
-        <Card className="border-indigo-500/30 bg-card/80 backdrop-blur-xl overflow-hidden shadow-xl">
-          <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-border/60">
+        <Card className="border-border bg-white overflow-hidden shadow-lg">
+          <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-border/80">
             {/* Left Narrative Column */}
-            <div className="p-6 lg:p-8 lg:col-span-5 flex flex-col justify-between">
+            <div className="p-6 lg:p-8 lg:col-span-5 flex flex-col justify-between bg-white">
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Badge variant="pill">{current.badge}</Badge>
-                  <span className="font-mono text-xs text-zinc-400">{current.tag}</span>
+                  <span className="font-mono text-xs text-zinc-500">{current.tag}</span>
                 </div>
-                <h3 className="text-2xl font-bold text-white tracking-tight">{current.title}</h3>
-                <p className="text-sm text-zinc-300 leading-relaxed">{current.summary}</p>
+                <h3 className="text-2xl font-bold text-foreground tracking-tight">{current.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{current.summary}</p>
               </div>
 
               <div className="pt-8 flex items-center justify-between">
                 <button
                   disabled={activeStep === 0}
                   onClick={() => setActiveStep((prev) => Math.max(0, prev - 1))}
-                  className="text-xs font-mono text-muted-foreground hover:text-white disabled:opacity-30 cursor-pointer"
+                  className="text-xs font-mono text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                 >
                   ← Previous Step
                 </button>
                 <button
                   disabled={activeStep === steps.length - 1}
                   onClick={() => setActiveStep((prev) => Math.min(steps.length - 1, prev + 1))}
-                  className="text-xs font-mono text-indigo-400 hover:text-indigo-300 disabled:opacity-30 cursor-pointer flex items-center gap-1"
+                  className="text-xs font-mono text-zinc-950 hover:text-black font-semibold disabled:opacity-30 cursor-pointer flex items-center gap-1"
                 >
                   <span>Next Step</span>
                   <Icon icon={ArrowRight01Icon} size={14} />
@@ -181,19 +181,19 @@ export function ArchitecturePipeline() {
             </div>
 
             {/* Right Code Invariant Column */}
-            <div className="p-6 lg:p-8 lg:col-span-7 bg-black/40 font-mono text-xs flex flex-col justify-between">
+            <div className="p-6 lg:p-8 lg:col-span-7 bg-zinc-950 font-mono text-xs flex flex-col justify-between text-white">
               <div>
-                <div className="flex items-center justify-between pb-3 mb-3 border-b border-border/40 text-muted-foreground">
-                  <span className="text-zinc-400 font-semibold">Engine Code Snippet</span>
-                  <Badge variant="outline" className="text-[10px]">TypeScript / Invariant</Badge>
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-800 text-zinc-400">
+                  <span className="text-zinc-300 font-semibold">Engine Code Snippet</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">TypeScript / Invariant</span>
                 </div>
-                <pre className="text-zinc-300 leading-relaxed overflow-x-auto whitespace-pre-wrap">
+                <pre className="text-zinc-200 leading-relaxed overflow-x-auto whitespace-pre-wrap">
                   {current.code}
                 </pre>
               </div>
-              <div className="mt-4 pt-3 border-t border-border/30 text-[11px] text-muted-foreground flex items-center justify-between">
+              <div className="mt-4 pt-3 border-t border-zinc-800 text-[11px] text-zinc-400 flex items-center justify-between">
                 <span>Atomic Invariant Enforced</span>
-                <span className="text-emerald-400">At-Least-Once Delivery</span>
+                <span className="text-[#00DC5A]">At-Least-Once Delivery</span>
               </div>
             </div>
           </div>

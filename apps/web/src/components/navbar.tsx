@@ -15,19 +15,21 @@ import {
 
 export function Navbar() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/80 backdrop-blur-xl transition-all">
+    <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/85 backdrop-blur-xl transition-all">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Brand Logo */}
+        {/* Complete Brand Logo (Logo Mark + zyvan) */}
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-600 to-indigo-400 text-white shadow-[0_0_20px_-3px_rgba(99,102,241,0.6)] group-hover:scale-105 transition-transform">
-              <Icon icon={ServerIcon} size={20} className="text-white" />
+            <div className="relative size-8 sm:size-9 rounded-xl overflow-hidden shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center bg-black">
+              <img
+                src="/logo.png"
+                alt="Zyvan logo"
+                className="w-full h-full object-cover rounded-lg"
+              />
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-lg tracking-tight text-white">Zyvan</span>
-                <Badge variant="pill" className="text-[10px] px-1.5 py-0 uppercase">v0.1</Badge>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-xl tracking-tight text-foreground lowercase">zyvan</span>
+              <Badge variant="pill" className="text-[10px] px-1.5 py-0 uppercase">v0.1</Badge>
             </div>
           </Link>
 
@@ -41,7 +43,7 @@ export function Navbar() {
             </Link>
             <Link href="#simulator" className="flex items-center gap-1.5 hover:text-foreground transition-colors">
               <span>Simulator</span>
-              <span className="size-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              <span className="size-1.5 rounded-full bg-[#00DC5A] animate-pulse" />
             </Link>
             <Link href="#quickstart" className="hover:text-foreground transition-colors">
               Quickstart
@@ -58,8 +60,8 @@ export function Navbar() {
         {/* Right Actions */}
         <div className="flex items-center gap-3">
           {/* System Status Pill */}
-          <div className="hidden lg:flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-mono text-emerald-400">
-            <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
+          <div className="hidden lg:flex items-center gap-2 rounded-full border border-emerald-600/20 bg-emerald-500/10 px-3 py-1 text-xs font-mono text-emerald-700">
+            <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
             <span>Operational</span>
           </div>
 
@@ -67,7 +69,7 @@ export function Navbar() {
             href="https://github.com/sultanxdev/zyvan"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center size-9 rounded-lg border border-border bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            className="inline-flex items-center justify-center size-9 rounded-lg border border-border bg-white text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             title="View on GitHub"
           >
             <Icon icon={GithubIcon} size={18} />

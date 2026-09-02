@@ -146,7 +146,7 @@ export function WebhookSimulator() {
           <Badge variant="pill" className="mb-4">
             Interactive Testbed
           </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
             Live Webhook Delivery Simulator
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground">
@@ -156,9 +156,9 @@ export function WebhookSimulator() {
 
         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Controls Configuration Column */}
-          <Card className="lg:col-span-5 border-border bg-card/90 backdrop-blur-xl">
+          <Card className="lg:col-span-5 border-border bg-white shadow-md">
             <CardHeader>
-              <CardTitle className="text-lg">Configure Test Scenario</CardTitle>
+              <CardTitle className="text-lg text-foreground">Configure Test Scenario</CardTitle>
               <CardDescription>
                 Choose an event payload and simulated target endpoint response.
               </CardDescription>
@@ -166,7 +166,7 @@ export function WebhookSimulator() {
             <CardContent className="space-y-6">
               {/* Event Type */}
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-2 font-mono">
+                <label className="text-xs font-semibold text-zinc-900 block mb-2 font-mono">
                   EVENT TYPE
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -177,8 +177,8 @@ export function WebhookSimulator() {
                       onClick={() => setEventType(type)}
                       className={`text-xs font-mono px-3 py-2 rounded-lg border text-left cursor-pointer transition-all ${
                         eventType === type
-                          ? 'border-indigo-500 bg-indigo-500/10 text-indigo-300'
-                          : 'border-border/60 bg-secondary/50 text-muted-foreground hover:bg-secondary'
+                          ? 'border-zinc-950 bg-zinc-950 text-white shadow-xs'
+                          : 'border-border bg-secondary/50 text-zinc-700 hover:bg-secondary'
                       }`}
                     >
                       {type}
@@ -189,7 +189,7 @@ export function WebhookSimulator() {
 
               {/* Destination Response Behavior */}
               <div>
-                <label className="text-xs font-semibold text-zinc-300 block mb-2 font-mono">
+                <label className="text-xs font-semibold text-zinc-900 block mb-2 font-mono">
                   DESTINATION RESPONSE
                 </label>
                 <div className="space-y-2">
@@ -205,15 +205,15 @@ export function WebhookSimulator() {
                       onClick={() => setScenario(s.id as Scenario)}
                       className={`w-full flex items-center justify-between text-left p-3 rounded-lg border cursor-pointer transition-all ${
                         scenario === s.id
-                          ? 'border-indigo-500 bg-indigo-500/10'
-                          : 'border-border/60 bg-secondary/30 hover:bg-secondary/60'
+                          ? 'border-zinc-950 bg-zinc-100/90 shadow-xs'
+                          : 'border-border bg-white hover:bg-zinc-50'
                       }`}
                     >
                       <div>
-                        <div className="text-xs font-semibold text-white font-mono">{s.label}</div>
+                        <div className={`text-xs font-semibold font-mono ${scenario === s.id ? 'text-zinc-950' : 'text-zinc-800'}`}>{s.label}</div>
                         <div className="text-[11px] text-muted-foreground">{s.desc}</div>
                       </div>
-                      <span className={`size-3 rounded-full border ${scenario === s.id ? 'border-indigo-500 bg-indigo-500' : 'border-border'}`} />
+                      <span className={`size-3 rounded-full border ${scenario === s.id ? 'border-zinc-950 bg-zinc-950' : 'border-zinc-300'}`} />
                     </button>
                   ))}
                 </div>
@@ -242,17 +242,17 @@ export function WebhookSimulator() {
           </Card>
 
           {/* Right Live Execution Window Column */}
-          <Card className="lg:col-span-7 border-indigo-500/30 bg-black/60 shadow-2xl overflow-hidden font-mono">
+          <Card className="lg:col-span-7 border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden font-mono text-white">
             {/* Monitor Header */}
-            <div className="flex items-center justify-between border-b border-border/60 px-4 py-3 bg-secondary/30">
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3 bg-zinc-900/90">
               <div className="flex items-center gap-2 text-xs">
-                <span className="text-muted-foreground">Delivery ID:</span>
-                <span className="text-indigo-400 font-semibold">{deliveryId}</span>
+                <span className="text-zinc-400">Delivery ID:</span>
+                <span className="text-[#00DC5A] font-semibold">{deliveryId}</span>
               </div>
               <div>
-                {status === 'idle' && <Badge variant="outline">Idle — Ready</Badge>}
-                {status === 'queued' && <Badge variant="secondary">Queued in RabbitMQ</Badge>}
-                {status === 'delivering' && <Badge variant="default" className="bg-indigo-600">Dispatching HTTP Call</Badge>}
+                {status === 'idle' && <Badge variant="outline" className="bg-zinc-900 border-zinc-700 text-zinc-300">Idle — Ready</Badge>}
+                {status === 'queued' && <Badge variant="secondary" className="bg-zinc-800 text-white">Queued in RabbitMQ</Badge>}
+                {status === 'delivering' && <Badge variant="default" className="bg-zinc-800 text-white">Dispatching HTTP Call</Badge>}
                 {status === 'retrying' && <Badge variant="warning">Retrying in AMQP TTL Queue</Badge>}
                 {status === 'delivered' && <Badge variant="success">Delivered (2xx OK)</Badge>}
                 {status === 'dead_letter' && <Badge variant="destructive">Moved to DLQ</Badge>}
@@ -263,9 +263,9 @@ export function WebhookSimulator() {
             <div className="p-5 space-y-4 text-xs min-h-[360px] flex flex-col justify-between">
               <div className="space-y-3">
                 {/* Status Timeline */}
-                <div className="p-3 rounded-lg bg-card/60 border border-border/60 flex items-center justify-between text-muted-foreground">
+                <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-between text-zinc-400">
                   <span className="flex items-center gap-2 text-zinc-300">
-                    <Icon icon={ServerIcon} size={16} className="text-indigo-400" />
+                    <Icon icon={ServerIcon} size={16} className="text-[#00DC5A]" />
                     Target: https://api.client.com/webhooks
                   </span>
                   <span className="text-[11px] text-zinc-400">HMAC-SHA256 Signed</span>

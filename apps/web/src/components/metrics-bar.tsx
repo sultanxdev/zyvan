@@ -40,19 +40,19 @@ const metrics = [
 
 export function MetricsBar() {
   return (
-    <section className="border-y border-border/70 bg-card/40 backdrop-blur-md py-12">
+    <section className="border-y border-border/80 bg-white/75 backdrop-blur-md py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric, i) => (
             <div
               key={i}
-              className="flex flex-col gap-2 rounded-xl p-4 transition-colors hover:bg-secondary/40"
+              className="flex flex-col gap-2 rounded-xl p-4 transition-colors hover:bg-secondary/50"
             >
               <div className="flex items-center gap-3">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-secondary/80 border border-border">
-                  <Icon icon={metric.icon} size={20} className={metric.color} />
+                <div className="flex size-10 items-center justify-center rounded-lg bg-white border border-border shadow-2xs">
+                  <Icon icon={metric.icon} size={20} className="text-zinc-900" />
                 </div>
-                <div className="text-2xl font-bold tracking-tight text-white font-mono">
+                <div className="text-2xl font-bold tracking-tight text-foreground font-mono">
                   {metric.value}
                 </div>
               </div>

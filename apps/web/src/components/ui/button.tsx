@@ -8,16 +8,16 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 shadow-[0_0_20px_-5px_rgba(99,102,241,0.5)]',
+          'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.15)]',
         destructive:
           'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
         outline:
-          'border border-border bg-card/60 hover:bg-accent hover:text-accent-foreground backdrop-blur-sm',
+          'border border-border bg-white text-foreground hover:bg-secondary hover:text-foreground shadow-xs',
         secondary:
           'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
-        glow: 'relative bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[0_0_25px_-5px_rgba(99,102,241,0.6)] hover:shadow-[0_0_35px_-5px_rgba(99,102,241,0.8)] hover:brightness-110',
+        glow: 'relative bg-zinc-950 text-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.35)] hover:bg-zinc-800 hover:shadow-[0_6px_25px_-4px_rgba(0,0,0,0.45)] hover:brightness-105 border border-zinc-900',
       },
       size: {
         default: 'h-9 px-4 py-2',

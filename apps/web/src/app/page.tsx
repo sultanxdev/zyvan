@@ -13,7 +13,7 @@ import { Footer } from '@/components/footer';
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
+    <div className="flex min-h-screen flex-col bg-background text-foreground antialiased selection:bg-zinc-950 selection:text-white">
       <Navbar />
       <main className="flex-1">
         <Hero />
