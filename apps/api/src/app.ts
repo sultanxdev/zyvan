@@ -124,31 +124,35 @@ app.use(errorHandler);
 
 // ─── Start Server ────────────────────────────────────────────
 
-const server = app.listen(config.port, async () => {
-  logger.info(
-    {
-      port: config.port,
-      env: config.env,
-    },
-    `🚀 Zyvan API running on port ${config.port} [${config.env}]`
-  );
+let server: any;
 
-  // Initialize database connection (non-blocking — API serves health even without DB)
-  try {
-    const prisma = getPrismaClient();
-    await prisma.$queryRaw`SELECT 1`;
-    logger.info('✅ Database connected');
-  } catch (err) {
-    logger.warn({ err }, '⚠️  Database not available — start PostgreSQL and retry');
-  }
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(config.port, async () => {
+    logger.info(
+      {
+        port: config.port,
+        env: config.env,
+      },
+      `🚀 Zyvan API running on port ${config.port} [${config.env}]`
+    );
 
-  // Initialize RabbitMQ connection (non-blocking — API serves health even without MQ)
-  try {
-    await connectRabbitMQ();
-  } catch (err) {
-    logger.warn({ err }, '⚠️  RabbitMQ not available — start RabbitMQ and retry');
-  }
-});
+    // Initialize database connection (non-blocking — API serves health even without DB)
+    try {
+      const prisma = getPrismaClient();
+      await prisma.$queryRaw`SELECT 1`;
+      logger.info('✅ Database connected');
+    } catch (err) {
+      logger.warn({ err }, '⚠️  Database not available — start PostgreSQL and retry');
+    }
+
+    // Initialize RabbitMQ connection (non-blocking — API serves health even without MQ)
+    try {
+      await connectRabbitMQ();
+    } catch (err) {
+      logger.warn({ err }, '⚠️  RabbitMQ not available — start RabbitMQ and retry');
+    }
+  });
+}
 
 // ─── Graceful Shutdown ───────────────────────────────────────
 // Stop accepting new requests → finish active → close DB pool → exit
@@ -156,7 +160,15 @@ const server = app.listen(config.port, async () => {
 async function gracefulShutdown(signal: string): Promise<void> {
   logger.info({ signal }, 'Received shutdown signal, starting graceful shutdown...');
 
-  server.close(async () => {
+  const closeServer = (cb: () => void) => {
+    if (server) {
+      server.close(cb);
+    } else {
+      cb();
+    }
+  };
+
+  closeServer(async () => {
     logger.info('HTTP server closed');
 
     try {
