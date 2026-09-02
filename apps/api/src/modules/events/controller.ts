@@ -10,32 +10,28 @@ import * as eventService from './service';
 
 /**
  * POST /v1/events
- * Ingest a new event → 202 Accepted.
- * The API does NOT wait for the webhook HTTP request to complete.
+ * Ingest a new event. Returns 202 Accepted.
+ *
+ * The API does NOT wait for delivery to complete —
+ * events are durably stored and queued for async processing.
  */
 export async function createEvent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const parsed = CreateEventSchema.parse(req.body);
 
-    const { event, duplicate } = await eventService.createEvent(req.auth!.projectId, parsed);
+    const result = await eventService.ingestEvent(
+      req.auth!.projectId,
+      parsed.tenant_id,
+      parsed.type,
+      parsed.idempotency_key,
+      parsed.data,
+      parsed.headers
+    );
 
-    if (duplicate) {
-      // Return existing event with 200 (idempotent response)
-      res.status(200).json({
-        event_id: event.id,
-        status: event.status,
-        created_at: event.createdAt,
-        duplicate: true,
-      });
-      return;
-    }
+    // 202 for new events, 200 for idempotent duplicates
+    const statusCode = result.duplicate ? 200 : 202;
 
-    // 202 Accepted — event is durably stored, delivery is queued
-    res.status(202).json({
-      event_id: event.id,
-      status: 'queued',
-      created_at: event.createdAt,
-    });
+    res.status(statusCode).json(result);
   } catch (err: any) {
     if (err.code === 'not_found') {
       res.status(404).json({
@@ -55,67 +51,30 @@ export async function createEvent(req: Request, res: Response, next: NextFunctio
       });
       return;
     }
-    if (err.code === 'invalid_request') {
-      res.status(400).json({
-        code: 'invalid_request',
-        message: err.message,
-        request_id: req.requestId || 'unknown',
-        details: {},
-      });
-      return;
-    }
-    // Handle Prisma unique constraint violation (idempotency race condition)
-    if (err.code === 'P2002') {
-      // Concurrent request with same idempotency key — find and return existing
-      try {
-        const parsed = CreateEventSchema.parse(req.body);
-        const existing = await eventService.getEvent(err.meta?.target?.[0] || '', req.auth!.projectId);
-        if (existing) {
-          res.status(200).json({
-            event_id: existing.id,
-            status: existing.status,
-            created_at: existing.createdAt,
-            duplicate: true,
-          });
-          return;
-        }
-      } catch {
-        // Fall through to generic error
-      }
-      res.status(409).json({
-        code: 'duplicate_idempotency_key',
-        message: 'An event already exists for this idempotency key',
-        request_id: req.requestId || 'unknown',
-        details: {},
-      });
-      return;
-    }
     next(err);
   }
 }
 
 /**
  * GET /v1/events
- * List events with filters and cursor pagination.
+ * List events with filters and cursor-based pagination.
  */
 export async function listEvents(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const filters = EventFilterSchema.parse({
       eventType: req.query.eventType,
       tenantId: req.query.tenantId,
+      destinationId: req.query.destinationId,
       status: req.query.status,
       from: req.query.from,
       to: req.query.to,
+      search: req.query.search,
       cursor: req.query.cursor,
-      limit: req.query.limit ? Number(req.query.limit) : undefined,
+      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
     });
 
-    const { events, nextCursor } = await eventService.listEvents(req.auth!.projectId, filters);
-
-    res.json({
-      data: events,
-      next_cursor: nextCursor,
-    });
+    const result = await eventService.listEvents(req.auth!.projectId, filters);
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -123,7 +82,7 @@ export async function listEvents(req: Request, res: Response, next: NextFunction
 
 /**
  * GET /v1/events/:id
- * Get event detail with full delivery timeline and attempt history.
+ * Get a single event with full delivery/attempt timeline.
  */
 export async function getEvent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Event Routes
-// POST /v1/events         — Ingest event (202 Accepted)
-// GET  /v1/events         — List events (paginated + filtered)
-// GET  /v1/events/:id     — Event detail with delivery timeline
+// POST   /v1/events       — Ingest event (202 Accepted)
+// GET    /v1/events       — List events with filters
+// GET    /v1/events/:id   — Event detail with delivery timeline
 // ─────────────────────────────────────────────────────────────
 
 import { Router } from 'express';

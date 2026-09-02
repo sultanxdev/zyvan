@@ -1,33 +1,63 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Event Repository
 // Data access layer for the events table.
-// Events are the heart of Zyvan — durably stored before ack.
+// Events are durably stored before acknowledgement.
+// Idempotency is enforced via UNIQUE(project_id, idempotency_key).
 // ─────────────────────────────────────────────────────────────
 
 import { getPrismaClient } from '@zyvan/database';
-import type { Event, EventStatus, Prisma } from '@prisma/client';
+import type { Event, EventStatus, Delivery } from '@zyvan/database';
+
+export interface CreateEventData {
+  projectId: string;
+  tenantId: string;
+  eventType: string;
+  idempotencyKey: string;
+  payload: any;
+  headers: any;
+}
+
+export interface EventFilters {
+  projectId: string;
+  eventType?: string;
+  tenantId?: string;
+  status?: EventStatus;
+  from?: Date;
+  to?: Date;
+  search?: string;
+  cursor?: string;
+  limit: number;
+}
+
+export interface EventWithDeliveries extends Event {
+  deliveries: (Delivery & {
+    destination: { id: string; url: string };
+    attempts: Array<{
+      id: string;
+      attemptNo: number;
+      startedAt: Date;
+      endedAt: Date | null;
+      statusCode: number | null;
+      latencyMs: number | null;
+      outcome: string;
+      errorMessage: string | null;
+    }>;
+  })[];
+}
 
 /**
- * Create an event and its delivery records in a single transaction.
- * This is the critical transaction — PostgreSQL COMMIT = durable acceptance.
- *
- * @returns The created event with delivery records
+ * Create a new event with delivery records in a single transaction.
+ * Returns the created event and deliveries.
  */
 export async function createWithDeliveries(
-  data: {
-    projectId: string;
-    tenantId: string;
-    eventType: string;
-    idempotencyKey: string;
-    payload: any;
-    headers: any;
-  },
+  data: CreateEventData,
   destinationIds: string[]
-): Promise<Event & { deliveries: { id: string; destinationId: string }[] }> {
+): Promise<{ event: Event; deliveries: Delivery[] }> {
   const prisma = getPrismaClient();
 
   return prisma.$transaction(async (tx) => {
-    // 1. Insert the event
+    // Insert event — the UNIQUE constraint on (projectId, idempotencyKey)
+    // will throw a Prisma P2002 error if a duplicate exists
     const event = await tx.event.create({
       data: {
         projectId: data.projectId,
@@ -40,25 +70,26 @@ export async function createWithDeliveries(
       },
     });
 
-    // 2. Create delivery records — one per destination
-    const deliveries: { id: string; destinationId: string }[] = [];
+    // Create one Delivery per active destination
+    const deliveries: Delivery[] = [];
     for (const destId of destinationIds) {
       const delivery = await tx.delivery.create({
         data: {
           eventId: event.id,
           destinationId: destId,
           status: 'queued',
+          attemptCount: 0,
         },
       });
-      deliveries.push({ id: delivery.id, destinationId: destId });
+      deliveries.push(delivery);
     }
 
-    return { ...event, deliveries };
+    return { event, deliveries };
   });
 }
 
 /**
- * Find an existing event by project + idempotency key.
+ * Find an event by its idempotency key within a project.
  * Used for duplicate detection.
  */
 export async function findByIdempotencyKey(
@@ -77,96 +108,83 @@ export async function findByIdempotencyKey(
 }
 
 /**
- * Find an event by ID with full delivery + attempt timeline.
+ * Find an event by ID with project ownership check.
+ * Includes deliveries with attempts for the timeline view.
  */
-export async function findByIdWithTimeline(
+export async function findById(
   id: string,
   projectId: string
-): Promise<any | null> {
+): Promise<EventWithDeliveries | null> {
   const prisma = getPrismaClient();
   return prisma.event.findFirst({
     where: { id, projectId },
     include: {
-      tenant: { select: { id: true, name: true, externalId: true } },
       deliveries: {
         include: {
-          destination: { select: { id: true, url: true, active: true } },
+          destination: { select: { id: true, url: true } },
           attempts: {
             orderBy: { attemptNo: 'asc' },
+            select: {
+              id: true,
+              attemptNo: true,
+              startedAt: true,
+              endedAt: true,
+              statusCode: true,
+              latencyMs: true,
+              outcome: true,
+              errorMessage: true,
+            },
           },
         },
         orderBy: { createdAt: 'asc' },
       },
-      replays: {
-        orderBy: { createdAt: 'desc' },
-      },
-      deadLetters: true,
     },
-  });
+  }) as unknown as EventWithDeliveries | null;
 }
 
 /**
- * List events with cursor pagination and filters.
+ * List events with cursor-based pagination and filters.
  */
-export async function listWithFilters(
-  projectId: string,
-  filters: {
-    eventType?: string;
-    tenantId?: string;
-    status?: EventStatus;
-    from?: string;
-    to?: string;
-    cursor?: string;
-    limit?: number;
-  }
-): Promise<{ events: Event[]; nextCursor: string | null }> {
+export async function listWithFilters(filters: EventFilters): Promise<{ events: Event[]; nextCursor: string | null }> {
   const prisma = getPrismaClient();
-  const limit = filters.limit || 50;
 
-  const where: Prisma.EventWhereInput = {
-    projectId,
-    ...(filters.eventType && { eventType: filters.eventType }),
-    ...(filters.tenantId && { tenantId: filters.tenantId }),
-    ...(filters.status && { status: filters.status }),
-    ...(filters.from || filters.to
-      ? {
-          createdAt: {
-            ...(filters.from && { gte: new Date(filters.from) }),
-            ...(filters.to && { lte: new Date(filters.to) }),
-          },
-        }
-      : {}),
-  };
+  const where: any = { projectId: filters.projectId };
+  if (filters.eventType) where.eventType = filters.eventType;
+  if (filters.tenantId) where.tenantId = filters.tenantId;
+  if (filters.status) where.status = filters.status;
+  if (filters.from || filters.to) {
+    where.createdAt = {};
+    if (filters.from) where.createdAt.gte = filters.from;
+    if (filters.to) where.createdAt.lte = filters.to;
+  }
+  if (filters.search) {
+    where.OR = [
+      { id: { contains: filters.search } },
+      { eventType: { contains: filters.search, mode: 'insensitive' } },
+      { idempotencyKey: { contains: filters.search, mode: 'insensitive' } },
+    ];
+  }
+
+  const take = filters.limit + 1; // Fetch one extra to check if there's a next page
 
   const events = await prisma.event.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    take: limit + 1, // Fetch one extra to determine if there's a next page
-    ...(filters.cursor
-      ? {
-          cursor: { id: filters.cursor },
-          skip: 1, // Skip the cursor itself
-        }
-      : {}),
-    include: {
-      tenant: { select: { id: true, name: true, externalId: true } },
-      deliveries: {
-        select: { id: true, status: true, destinationId: true },
-      },
-    },
+    take,
+    ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
   });
 
-  const hasNext = events.length > limit;
-  if (hasNext) events.pop(); // Remove the extra item
+  const hasNextPage = events.length > filters.limit;
+  if (hasNextPage) events.pop(); // Remove the extra record
 
   return {
     events,
-    nextCursor: hasNext && events.length > 0 ? events[events.length - 1].id : null,
+    nextCursor: hasNextPage ? events[events.length - 1].id : null,
   };
 }
 
 /**
- * Update event status.
+ * Update the status of an event.
  */
 export async function updateStatus(id: string, status: EventStatus): Promise<Event> {
   const prisma = getPrismaClient();

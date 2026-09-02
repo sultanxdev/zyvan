@@ -1,11 +1,11 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Delivery Repository
 // Data access layer for the deliveries table.
-// One Event → multiple Deliveries (one per Destination).
+// One Event → many Deliveries (one per destination).
 // ─────────────────────────────────────────────────────────────
 
 import { getPrismaClient } from '@zyvan/database';
-import type { Delivery, DeliveryStatus } from '@prisma/client';
+import type { Delivery, DeliveryStatus } from '@zyvan/database';
 
 /**
  * Find a delivery by ID.
@@ -14,18 +14,22 @@ export async function findById(id: string): Promise<Delivery | null> {
   const prisma = getPrismaClient();
   return prisma.delivery.findUnique({
     where: { id },
+    include: {
+      event: { select: { id: true, projectId: true, tenantId: true, eventType: true, payload: true, headers: true } },
+      destination: true,
+    },
   });
 }
 
 /**
- * List deliveries for a specific event.
+ * List all deliveries for an event.
  */
 export async function listByEvent(eventId: string): Promise<Delivery[]> {
   const prisma = getPrismaClient();
   return prisma.delivery.findMany({
     where: { eventId },
     include: {
-      destination: { select: { id: true, url: true, active: true } },
+      destination: { select: { id: true, url: true } },
       attempts: {
         orderBy: { attemptNo: 'asc' },
       },
@@ -35,82 +39,71 @@ export async function listByEvent(eventId: string): Promise<Delivery[]> {
 }
 
 /**
- * List deliveries for a specific destination (with cursor pagination).
+ * List deliveries for a destination with cursor-based pagination.
+ * Enforces project ownership via the destination → tenant → project chain.
  */
 export async function listByDestination(
   destinationId: string,
   projectId: string,
-  options: { cursor?: string; limit?: number }
-): Promise<{ deliveries: any[]; nextCursor: string | null }> {
+  cursor?: string,
+  limit: number = 50
+): Promise<{ deliveries: Delivery[]; nextCursor: string | null }> {
   const prisma = getPrismaClient();
-  const limit = options.limit || 50;
+
+  const take = limit + 1;
 
   const deliveries = await prisma.delivery.findMany({
     where: {
       destinationId,
-      event: { projectId },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit + 1,
-    ...(options.cursor
-      ? {
-          cursor: { id: options.cursor },
-          skip: 1,
-        }
-      : {}),
-    include: {
-      event: {
-        select: { id: true, eventType: true, tenantId: true, status: true },
+      destination: {
+        tenant: { projectId },
       },
+    },
+    include: {
+      event: { select: { id: true, eventType: true, status: true, createdAt: true } },
       attempts: {
         orderBy: { attemptNo: 'desc' },
-        take: 1, // Latest attempt only for list view
+        take: 1, // Only the latest attempt for list view
       },
     },
+    orderBy: { createdAt: 'desc' },
+    take,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  const hasNext = deliveries.length > limit;
-  if (hasNext) deliveries.pop();
+  const hasNextPage = deliveries.length > limit;
+  if (hasNextPage) deliveries.pop();
 
   return {
     deliveries,
-    nextCursor: hasNext && deliveries.length > 0 ? deliveries[deliveries.length - 1].id : null,
+    nextCursor: hasNextPage ? deliveries[deliveries.length - 1].id : null,
   };
 }
 
 /**
- * Update delivery status and attempt metadata.
+ * Update the status of a delivery.
  */
-export async function updateStatus(
-  id: string,
-  data: {
-    status: DeliveryStatus;
-    attemptCount?: number;
-    lastStatusCode?: number | null;
-    nextRetryAt?: Date | null;
-  }
-): Promise<Delivery> {
+export async function updateStatus(id: string, status: DeliveryStatus, data?: { lastStatusCode?: number; nextRetryAt?: Date | null }): Promise<Delivery> {
   const prisma = getPrismaClient();
   return prisma.delivery.update({
     where: { id },
-    data,
+    data: {
+      status,
+      ...(data?.lastStatusCode !== undefined ? { lastStatusCode: data.lastStatusCode } : {}),
+      ...(data?.nextRetryAt !== undefined ? { nextRetryAt: data.nextRetryAt } : {}),
+    },
   });
 }
 
 /**
- * Create a new delivery record (used by replay).
+ * Increment the attempt count for a delivery.
  */
-export async function create(data: {
-  eventId: string;
-  destinationId: string;
-  status?: DeliveryStatus;
-}): Promise<Delivery> {
+export async function incrementAttemptCount(id: string): Promise<Delivery> {
   const prisma = getPrismaClient();
-  return prisma.delivery.create({
+  return prisma.delivery.update({
+    where: { id },
     data: {
-      eventId: data.eventId,
-      destinationId: data.destinationId,
-      status: data.status || 'queued',
+      attemptCount: { increment: 1 },
     },
   });
 }
