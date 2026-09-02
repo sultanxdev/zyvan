@@ -99,21 +99,21 @@ export function CodeQuickstart() {
   };
 
   return (
-    <section id="quickstart" className="py-24 sm:py-32 bg-secondary/30 relative">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <Badge variant="pill" className="mb-4">
+    <section id="quickstart" className="py-20 sm:py-24 bg-secondary/30 relative">
+      <div className="mx-auto max-w-[840px] px-4 sm:px-6">
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <Badge variant="pill" className="mb-3">
             Developer Quickstart
           </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
             Integrate in minutes with any language
           </h2>
-          <p className="mt-4 text-base sm:text-lg text-muted-foreground">
+          <p className="mt-3 text-sm sm:text-base text-muted-foreground">
             Simple HTTP semantics for ingestion and standard HMAC-SHA256 signature verification on receipt.
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto">
+        <div className="w-full mx-auto">
           {/* Card Container */}
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden font-mono text-xs text-white">
             {/* Header Tabs */}

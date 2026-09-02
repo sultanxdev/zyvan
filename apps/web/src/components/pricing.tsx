@@ -63,14 +63,14 @@ const plans = [
 
 export function Pricing() {
   return (
-    <section id="pricing" className="py-24 sm:py-32 relative">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <Badge variant="pill" className="mb-4">
+    <section id="pricing" className="py-20 sm:py-24 relative">
+      <div className="mx-auto max-w-[840px] px-4 sm:px-6">
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <Badge variant="pill" className="mb-3">
             Predictable Pricing
           </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
-            Start free. Scale with total confidence.
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            Scale without surprise webhook bills
           </h2>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground">
             Transparent pricing based on successful event throughput. No hidden fees or lock-ins.

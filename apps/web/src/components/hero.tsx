@@ -37,7 +37,7 @@ export function Hero() {
   };
 
   return (
-    <section className="relative overflow-hidden pt-20 pb-24 md:pt-28 md:pb-32 bg-grid-pattern">
+    <section className="relative overflow-hidden pt-28 pb-24 sm:pt-36 md:pt-40 md:pb-32 bg-grid-pattern">
       {/* Subtle Glow Backdrop */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-b from-[#00DC5A]/10 via-zinc-400/5 to-transparent blur-3xl pointer-events-none -z-10" />
 
@@ -67,17 +67,17 @@ export function Hero() {
           </p>
 
           {/* Dual Action CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-            <Button variant="glow" size="lg" asChild className="text-base px-8 h-12">
-              <Link href="#simulator" className="flex items-center gap-2">
-                <span>Test Live Simulator</span>
-                <Icon icon={PlayIcon} size={18} />
+          <div className="flex flex-wrap items-center justify-center gap-3.5 pt-4">
+            <Button size="lg" asChild className="rounded-full bg-zinc-950 text-white hover:bg-zinc-800 text-sm px-6 h-11 shadow-sm font-medium">
+              <Link href="/#features" className="flex items-center gap-2">
+                <span>Explore Features</span>
+                <Icon icon={ArrowRight01Icon} size={16} />
               </Link>
             </Button>
-            <Button variant="outline" size="lg" asChild className="text-base px-6 h-12">
-              <Link href="#architecture" className="flex items-center gap-2">
-                <span>View Architecture</span>
-                <Icon icon={ArrowRight01Icon} size={18} />
+            <Button variant="outline" size="lg" asChild className="rounded-full border-black/[0.1] bg-white text-zinc-800 hover:bg-zinc-50 text-sm px-6 h-11 font-medium shadow-xs">
+              <Link href="/docs" className="flex items-center gap-2">
+                <span>Documentation</span>
+                <Icon icon={PlayIcon} size={15} className="text-emerald-600" />
               </Link>
             </Button>
           </div>
@@ -102,7 +102,7 @@ export function Hero() {
         </div>
 
         {/* Hero Interactive Terminal / Visualizer */}
-        <div className="mt-14 max-w-4xl mx-auto rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
+        <div className="mt-14 max-w-[840px] mx-auto rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
           {/* Terminal Window Chrome */}
           <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/90 px-4 py-3">
             <div className="flex items-center gap-2">

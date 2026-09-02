@@ -1,9 +1,6 @@
 import { Navbar } from '@/components/navbar';
 import { Hero } from '@/components/hero';
 import { MetricsBar } from '@/components/metrics-bar';
-import { ProblemSolution } from '@/components/problem-solution';
-import { ArchitecturePipeline } from '@/components/architecture-pipeline';
-import { WebhookSimulator } from '@/components/webhook-simulator';
 import { FeaturesGrid } from '@/components/features-grid';
 import { CodeQuickstart } from '@/components/code-quickstart';
 import { Pricing } from '@/components/pricing';
@@ -18,9 +15,6 @@ export default function Home() {
       <main className="flex-1">
         <Hero />
         <MetricsBar />
-        <ProblemSolution />
-        <ArchitecturePipeline />
-        <WebhookSimulator />
         <FeaturesGrid />
         <CodeQuickstart />
         <Pricing />
