@@ -33,8 +33,14 @@ router.get('/ready', async (_req: Request, res: Response) => {
     logger.error({ err }, 'Database readiness check failed');
   }
 
+  // Check Redis (placeholder — will be connected in Phase 2+)
+  checks.redis = 'ok';
+
   // Check RabbitMQ
   checks.rabbitmq = isRabbitMQConnected() ? 'ok' : 'error';
+  if (checks.rabbitmq === 'error') {
+    logger.warn('RabbitMQ readiness check failed — not connected');
+  }
 
   const allOk = Object.values(checks).every((v) => v === 'ok');
 
@@ -45,4 +51,3 @@ router.get('/ready', async (_req: Request, res: Response) => {
 });
 
 export { router as healthRoutes };
-

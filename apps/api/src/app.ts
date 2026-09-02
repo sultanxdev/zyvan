@@ -14,6 +14,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { config, validateConfig } from './config';
 import { logger } from './lib/logger';
+import { connectRabbitMQ, disconnectRabbitMQ } from './lib/rabbitmq';
 import { requestIdMiddleware } from './middleware/request-id';
 import { errorHandler } from './middleware/error-handler';
 import { authenticate } from './middleware/authenticate';
@@ -23,8 +24,12 @@ import { apiKeyRoutes } from './modules/api-keys/routes';
 import { projectRoutes } from './modules/projects/routes';
 import { tenantRoutes } from './modules/tenants/routes';
 import { destinationRoutes } from './modules/destinations/routes';
+import { eventRoutes } from './modules/events/routes';
+import { deliveryRoutes } from './modules/deliveries/routes';
+import { dlqRoutes } from './modules/dlq/routes';
+import { replayRoutes } from './modules/replay/routes';
+import { usageRoutes } from './modules/usage/routes';
 import { getPrismaClient, disconnectPrisma } from '@zyvan/database';
-import { connectRabbitMQ, disconnectRabbitMQ } from './lib/rabbitmq';
 
 // ─── Validate Config ─────────────────────────────────────────
 
@@ -88,9 +93,20 @@ app.use('/v1/projects', authenticate, projectRoutes);
 app.use('/v1/tenants', authenticate, tenantRoutes);
 app.use('/v1/destinations', authenticate, destinationRoutes);
 
-// Events & Usage routes (Phase 5+)
-// app.use('/v1/events', authenticate, eventRoutes);
-// app.use('/v1/usage', authenticate, usageRoutes);
+// Event ingestion & query
+app.use('/v1/events', authenticate, eventRoutes);
+
+// Delivery listing (nested under destinations)
+app.use('/v1/destinations', authenticate, deliveryRoutes);
+
+// Dead Letter Queue
+app.use('/v1/dead-letters', authenticate, dlqRoutes);
+
+// Replay
+app.use('/v1/events', authenticate, replayRoutes);
+
+// Usage metrics
+app.use('/v1/usage', authenticate, usageRoutes);
 
 // 404 handler
 app.use((_req, res) => {
@@ -126,7 +142,7 @@ const server = app.listen(config.port, async () => {
     logger.warn({ err }, '⚠️  Database not available — start PostgreSQL and retry');
   }
 
-  // Initialize RabbitMQ connection
+  // Initialize RabbitMQ connection (non-blocking — API serves health even without MQ)
   try {
     await connectRabbitMQ();
   } catch (err) {
@@ -150,6 +166,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
       logger.error({ err }, 'Error closing database connection');
     }
 
+    // Close RabbitMQ connection
     try {
       await disconnectRabbitMQ();
     } catch (err) {
