@@ -1,0 +1,164 @@
+'use client';
+
+import React, { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
+import { CopyIcon, Tick01Icon, CodeIcon } from '@hugeicons/core-free-icons';
+
+type Language = 'curl' | 'node' | 'python';
+
+const snippets: Record<Language, { label: string; code: string }> = {
+  curl: {
+    label: 'cURL',
+    code: `# 1. Ingest an event (Idempotent, commits to PostgreSQL in < 15ms)
+curl -X POST https://api.zyvan.dev/v1/events \\
+  -H "Authorization: Bearer zyvan_live_e891c..." \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "type": "invoice.payment_succeeded",
+    "tenant_id": "cust_store_9921",
+    "idempotency_key": "inv_checkout_8819",
+    "data": {
+      "invoice_id": "inv_8819",
+      "amount": 25000,
+      "currency": "USD"
+    }
+  }'
+
+# Response: HTTP 202 Accepted
+# { "event_id": "7fa1bc82-019e...", "status": "queued", "duplicate": false }`,
+  },
+  node: {
+    label: 'Node.js (TypeScript)',
+    code: `import crypto from 'node:crypto';
+
+// Verifying Zyvan HMAC-SHA256 Signature in your Express/Next.js handler
+export function verifyWebhook(
+  rawBody: string,
+  signatureHeader: string,
+  timestampHeader: string,
+  signingSecret: string
+): boolean {
+  // Prevent replay attacks (reject timestamps older than 5 minutes)
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - Number(timestampHeader)) > 300) {
+    return false;
+  }
+
+  const signedPayload = \`\${timestampHeader}.\${rawBody}\`;
+  const expectedSignature = \`v1=\${crypto
+    .createHmac('sha256', signingSecret)
+    .update(signedPayload)
+    .digest('hex')}\`;
+
+  // Use timingSafeEqual to prevent timing attacks
+  return crypto.timingSafeEqual(
+    Buffer.from(signatureHeader),
+    Buffer.from(expectedSignature)
+  );
+}`,
+  },
+  python: {
+    label: 'Python (FastAPI / Flask)',
+    code: `import hmac
+import hashlib
+import time
+
+def verify_zyvan_webhook(
+    raw_body: bytes,
+    signature_header: str,
+    timestamp_header: str,
+    signing_secret: str
+) -> bool:
+    # Reject webhooks older than 5 minutes
+    current_time = int(time.time())
+    if abs(current_time - int(timestamp_header)) > 300:
+        return False
+
+    signed_content = f"{timestamp_header}.".encode("utf-8") + raw_body
+    computed_signature = "v1=" + hmac.new(
+        signing_secret.encode("utf-8"),
+        signed_content,
+        hashlib.sha256
+    ).hexdigest()
+
+    return hmac.compare_digest(signature_header, computed_signature)`,
+  },
+};
+
+export function CodeQuickstart() {
+  const [activeLang, setActiveLang] = useState<Language>('curl');
+  const [copied, setCopied] = useState(false);
+
+  const copyCode = () => {
+    navigator.clipboard.writeText(snippets[activeLang].code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <section id="quickstart" className="py-24 sm:py-32 bg-secondary/20 relative">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-3xl mx-auto mb-16">
+          <Badge variant="pill" className="mb-4">
+            Developer Quickstart
+          </Badge>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+            Integrate in minutes with any language
+          </h2>
+          <p className="mt-4 text-base sm:text-lg text-muted-foreground">
+            Simple HTTP semantics for ingestion and standard HMAC-SHA256 signature verification on receipt.
+          </p>
+        </div>
+
+        <div className="max-w-4xl mx-auto">
+          {/* Card Container */}
+          <div className="rounded-2xl border border-border/80 bg-black/80 backdrop-blur-xl shadow-2xl overflow-hidden font-mono text-xs">
+            {/* Header Tabs */}
+            <div className="flex items-center justify-between border-b border-border/60 bg-secondary/30 px-4 py-3">
+              <div className="flex items-center gap-2">
+                {(['curl', 'node', 'python'] as Language[]).map((lang) => (
+                  <button
+                    key={lang}
+                    onClick={() => setActiveLang(lang)}
+                    className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                      activeLang === lang
+                        ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                        : 'text-muted-foreground hover:text-white hover:bg-secondary/60'
+                    }`}
+                  >
+                    {snippets[lang].label}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={copyCode}
+                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:text-white hover:bg-secondary transition-colors cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Icon icon={Tick01Icon} size={14} className="text-emerald-400" />
+                    <span className="text-emerald-400">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Icon icon={CopyIcon} size={14} />
+                    <span>Copy Snippet</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Code Body */}
+            <div className="p-6 overflow-x-auto text-zinc-300 leading-relaxed">
+              <pre className="whitespace-pre-wrap">{snippets[activeLang].code}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
