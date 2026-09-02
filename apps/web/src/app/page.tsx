@@ -1,6 +1,7 @@
 import { Navbar } from '@/components/navbar';
 import { Hero } from '@/components/hero';
 import { MetricsBar } from '@/components/metrics-bar';
+import { HowItWorks } from '@/components/how-it-works';
 import { FeaturesGrid } from '@/components/features-grid';
 import { CodeQuickstart } from '@/components/code-quickstart';
 import { Pricing } from '@/components/pricing';
@@ -15,6 +16,7 @@ export default function Home() {
       <main className="flex-1">
         <Hero />
         <MetricsBar />
+        <HowItWorks />
         <FeaturesGrid />
         <CodeQuickstart />
         <Pricing />
