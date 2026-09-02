@@ -12,7 +12,7 @@ import {
   CheckmarkCircle02Icon,
   Alert01Icon,
   Clock01Icon,
-  ShieldSecurityIcon,
+  ShieldCheckIcon,
   ServerIcon,
   FlashIcon,
 } from '@hugeicons/core-free-icons';

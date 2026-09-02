@@ -6,7 +6,7 @@ import {
   Cancel01Icon,
   CheckmarkCircle02Icon,
   Alert01Icon,
-  ShieldSecurityIcon,
+  ShieldCheckIcon,
   ServerIcon,
   RotateRight01Icon,
 } from '@hugeicons/core-free-icons';
@@ -94,7 +94,7 @@ export function ProblemSolution() {
                 <Badge variant="pill" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
                   With Zyvan
                 </Badge>
-                <Icon icon={ShieldSecurityIcon} size={18} className="text-indigo-400" />
+                <Icon icon={ShieldCheckIcon} size={18} className="text-indigo-400" />
               </div>
               <CardTitle className="text-xl pt-2">Engineered Webhook Reliability Core</CardTitle>
               <CardDescription>
