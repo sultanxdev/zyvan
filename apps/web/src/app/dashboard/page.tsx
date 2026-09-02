@@ -22,10 +22,14 @@ import {
   Clock01Icon,
 } from '@hugeicons/core-free-icons';
 
+import { DeliveryChart } from '@/components/dashboard/delivery-chart';
+import { LatencyChart } from '@/components/dashboard/latency-chart';
+
 export default function DashboardOverviewPage() {
   const { user, project } = useAuth();
   const [events, setEvents] = useState<WebhookEvent[]>([]);
   const [destinations, setDestinations] = useState<WebhookDestination[]>([]);
+  const [range, setRange] = useState<'24h' | '7d'>('24h');
   const [loading, setLoading] = useState(true);
   const [dispatching, setDispatching] = useState(false);
   const [dispatchedSuccess, setDispatchedSuccess] = useState(false);
@@ -214,6 +218,20 @@ export default function DashboardOverviewPage() {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* ─── Real-Time Analytics & Graphs ───────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="lg:col-span-8">
+          <DeliveryChart
+            data={apiClient.getThroughputData(range)}
+            range={range}
+            onRangeChange={setRange}
+          />
+        </div>
+        <div className="lg:col-span-4">
+          <LatencyChart metrics={apiClient.getLatencyMetrics()} />
+        </div>
       </div>
 
       {/* ─── Recent Events Ledger ──────────────────────────────── */}

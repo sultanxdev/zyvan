@@ -22,6 +22,7 @@ import {
   RefreshIcon,
   CheckmarkCircle02Icon,
   Cancel01Icon,
+  Book01Icon,
 } from '@hugeicons/core-free-icons';
 
 const navItems = [
@@ -31,6 +32,7 @@ const navItems = [
   { href: '/dashboard/api-keys', label: 'API Keys', icon: Key01Icon },
   { href: '/dashboard/dlq', label: 'Dead-Letter Queue', icon: Alert01Icon },
   { href: '/dashboard/simulator', label: 'Live Simulator', icon: PlayIcon },
+  { href: '/docs', label: 'Documentation', icon: Book01Icon },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings01Icon },
 ];
 

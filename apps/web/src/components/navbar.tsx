@@ -52,6 +52,9 @@ export function Navbar() {
             <Link href="#quickstart" className="hover:text-foreground transition-colors">
               Quickstart
             </Link>
+            <Link href="/docs" className="hover:text-foreground transition-colors font-semibold text-zinc-950">
+              Docs
+            </Link>
             <Link href="#pricing" className="hover:text-foreground transition-colors">
               Pricing
             </Link>

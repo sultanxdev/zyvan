@@ -2,7 +2,8 @@
 // Zyvan Web — API Client
 // Connects the frontend to the Express backend (port 4000),
 // PostgreSQL, and RabbitMQ message broker.
-// Includes offline resilience with automatic live sync.
+// Includes offline resilience with automatic live sync and
+// rich analytical throughput & latency data generation.
 // ─────────────────────────────────────────────────────────────
 
 export interface SystemHealth {
@@ -85,13 +86,29 @@ export interface WebhookDeadLetter {
   createdAt: string;
 }
 
+export interface ThroughputPoint {
+  timeLabel: string;
+  timestamp: string;
+  delivered: number;
+  retrying: number;
+  failed: number;
+  total: number;
+}
+
+export interface LatencyMetric {
+  p50: number;
+  p95: number;
+  p99: number;
+  avg: number;
+  history: { time: string; value: number }[];
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-// Initial seed data for immediate interactivity & offline resilience
 const SEED_DESTINATIONS: WebhookDestination[] = [
   {
     id: 'dest_01J98FA001',
-    name: 'Stripe Billing Webhook',
+    name: 'Stripe Billing Webhook Receiver',
     url: 'https://api.merchant.com/v1/webhooks/billing',
     secretRef: 'whsec_e891c01b2a98f128c94e09f872',
     rateLimit: 50,
@@ -101,7 +118,7 @@ const SEED_DESTINATIONS: WebhookDestination[] = [
   },
   {
     id: 'dest_01J98FA002',
-    name: 'Shopify Order Ingestion',
+    name: 'Shopify Order Ingestion Queue',
     url: 'https://orders.customer-hub.io/events/shopify',
     secretRef: 'whsec_a8b9c0d1e2f3a4b5c6d7e8f9a0',
     rateLimit: 25,
@@ -111,13 +128,23 @@ const SEED_DESTINATIONS: WebhookDestination[] = [
   },
   {
     id: 'dest_01J98FA003',
-    name: 'Customer CRM Sync',
+    name: 'Enterprise CRM Sync',
     url: 'https://crm-receiver.internal.net/hooks/sync',
     secretRef: 'whsec_778899aabbccddeeff00112233',
     rateLimit: 10,
     active: true,
     createdAt: new Date(Date.now() - 86400000).toISOString(),
     retryPolicy: { maxAttempts: 4, baseDelay: 1500, maxDelay: 45000 },
+  },
+  {
+    id: 'dest_01J98FA004',
+    name: 'Twilio Communication Log Stream',
+    url: 'https://logs.telecom-gateway.com/webhooks/sms',
+    secretRef: 'whsec_ff00112233445566778899aabb',
+    rateLimit: 100,
+    active: true,
+    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+    retryPolicy: { maxAttempts: 5, baseDelay: 1000, maxDelay: 60000 },
   },
 ];
 
@@ -136,32 +163,38 @@ const SEED_API_KEYS: WebhookApiKey[] = [
     scopes: ['events:write', 'events:read'],
     createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
   },
+  {
+    id: 'key_01J98KEY003',
+    name: 'Read-Only Audit Monitor',
+    keyPrefix: 'zyvan_live_7729a',
+    scopes: ['events:read'],
+    createdAt: new Date(Date.now() - 86400000 * 20).toISOString(),
+  },
 ];
 
+// Rich, diverse realistic dataset of 28 real-world events
 const SEED_EVENTS: WebhookEvent[] = [
   {
-    id: 'evt_01J98FA88102',
+    id: 'evt_01J98FA88101',
     projectId: '0198fa72-91bc-7123-8819-0012891fa120',
-    tenantId: 'cust_tenant_9921',
-    eventType: 'invoice.payment_succeeded',
-    idempotencyKey: 'inv_pay_882910_99182',
+    tenantId: 'tenant_stripe_main',
+    eventType: 'payment_intent.succeeded',
+    idempotencyKey: 'pi_3MtwBwLkdIwHu7ix28A3Vq68_succ',
     status: 'delivered',
-    createdAt: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
     payload: {
-      invoice_id: 'inv_882910',
-      amount: 14900,
-      currency: 'USD',
-      customer_id: 'cus_99120',
-      status: 'paid',
+      id: 'pi_3MtwBwLkdIwHu7ix28A3Vq68',
+      amount: 49900,
+      currency: 'usd',
+      customer: 'cus_N8pQ93b1X2',
+      payment_method_types: ['card'],
+      status: 'succeeded',
     },
-    headers: {
-      'content-type': 'application/json',
-      'idempotency-key': 'inv_pay_882910_99182',
-    },
+    headers: { 'content-type': 'application/json', 'zyvan-idempotency': 'pi_3MtwBwLkdIwHu7ix28A3Vq68_succ' },
     deliveries: [
       {
-        id: 'del_01J98DEL001',
-        eventId: 'evt_01J98FA88102',
+        id: 'del_01',
+        eventId: 'evt_01J98FA88101',
         destinationId: 'dest_01J98FA001',
         destinationUrl: 'https://api.merchant.com/v1/webhooks/billing',
         status: 'delivered',
@@ -169,13 +202,52 @@ const SEED_EVENTS: WebhookEvent[] = [
         lastStatusCode: 200,
         attempts: [
           {
-            id: 'att_01',
-            deliveryId: 'del_01J98DEL001',
+            id: 'att_101',
+            deliveryId: 'del_01',
+            attemptNo: 1,
+            statusCode: 200,
+            latencyMs: 94,
+            outcome: 'success',
+            startedAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'evt_01J98FA88102',
+    projectId: '0198fa72-91bc-7123-8819-0012891fa120',
+    tenantId: 'tenant_shopify_store',
+    eventType: 'order.created',
+    idempotencyKey: 'shpfy_ord_99218201',
+    status: 'delivered',
+    createdAt: new Date(Date.now() - 1000 * 60 * 7).toISOString(),
+    payload: {
+      order_id: '99218201',
+      total_price: '289.50',
+      currency: 'USD',
+      line_items: [{ title: 'Mechanical Keyboard v2', quantity: 1, price: '249.00' }],
+      buyer: { email: 'sarah.connor@sky.io' },
+    },
+    headers: { 'content-type': 'application/json', 'zyvan-idempotency': 'shpfy_ord_99218201' },
+    deliveries: [
+      {
+        id: 'del_02',
+        eventId: 'evt_01J98FA88102',
+        destinationId: 'dest_01J98FA002',
+        destinationUrl: 'https://orders.customer-hub.io/events/shopify',
+        status: 'delivered',
+        attemptCount: 1,
+        lastStatusCode: 200,
+        attempts: [
+          {
+            id: 'att_102',
+            deliveryId: 'del_02',
             attemptNo: 1,
             statusCode: 200,
             latencyMs: 142,
             outcome: 'success',
-            startedAt: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
+            startedAt: new Date(Date.now() - 1000 * 60 * 7).toISOString(),
           },
         ],
       },
@@ -184,50 +256,48 @@ const SEED_EVENTS: WebhookEvent[] = [
   {
     id: 'evt_01J98FA88103',
     projectId: '0198fa72-91bc-7123-8819-0012891fa120',
-    tenantId: 'cust_tenant_9921',
-    eventType: 'order.fulfilled',
-    idempotencyKey: 'ord_ful_998124_002',
+    tenantId: 'tenant_shopify_store',
+    eventType: 'inventory.depleted',
+    idempotencyKey: 'inv_dep_wh_09_sku882',
     status: 'retrying',
-    createdAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
     payload: {
-      order_id: 'ord_998124',
-      items: [{ sku: 'PRO-SEAT-01', qty: 2 }],
-      tracking_number: '1Z9999999999999999',
+      sku: 'PRO-KEY-V2-BLK',
+      warehouse_id: 'wh_us_east_1',
+      remaining_units: 0,
+      threshold: 10,
     },
-    headers: {
-      'content-type': 'application/json',
-      'idempotency-key': 'ord_ful_998124_002',
-    },
+    headers: { 'content-type': 'application/json', 'zyvan-idempotency': 'inv_dep_wh_09_sku882' },
     deliveries: [
       {
-        id: 'del_01J98DEL002',
+        id: 'del_03',
         eventId: 'evt_01J98FA88103',
         destinationId: 'dest_01J98FA002',
         destinationUrl: 'https://orders.customer-hub.io/events/shopify',
         status: 'retrying',
         attemptCount: 2,
-        lastStatusCode: 500,
-        nextRetryAt: new Date(Date.now() + 1000 * 45).toISOString(),
+        lastStatusCode: 504,
+        nextRetryAt: new Date(Date.now() + 1000 * 35).toISOString(),
         attempts: [
           {
-            id: 'att_02',
-            deliveryId: 'del_01J98DEL002',
+            id: 'att_103a',
+            deliveryId: 'del_03',
             attemptNo: 1,
             statusCode: 500,
-            latencyMs: 310,
+            latencyMs: 290,
             outcome: 'failed',
-            errorMessage: 'HTTP 500 Internal Server Error (Worker node memory limit)',
-            startedAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
+            errorMessage: 'HTTP 500: Destination worker internal exception during batch update',
+            startedAt: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
           },
           {
-            id: 'att_03',
-            deliveryId: 'del_01J98DEL002',
+            id: 'att_103b',
+            deliveryId: 'del_03',
             attemptNo: 2,
             statusCode: 504,
             latencyMs: 5000,
             outcome: 'timeout',
-            errorMessage: 'HTTP 504 Gateway Timeout (AMQP TTL retry scheduled with jitter)',
-            startedAt: new Date(Date.now() - 1000 * 60 * 6).toISOString(),
+            errorMessage: 'HTTP 504: Gateway Timeout after 5000ms. AMQP TTL retry scheduled with jitter.',
+            startedAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
           },
         ],
       },
@@ -236,23 +306,21 @@ const SEED_EVENTS: WebhookEvent[] = [
   {
     id: 'evt_01J98FA88104',
     projectId: '0198fa72-91bc-7123-8819-0012891fa120',
-    tenantId: 'cust_tenant_7720',
+    tenantId: 'tenant_crm_prod',
     eventType: 'customer.subscription_deleted',
     idempotencyKey: 'sub_del_109281_441',
     status: 'dead_letter',
-    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 55).toISOString(),
     payload: {
       subscription_id: 'sub_109281',
       customer_email: 'churned.client@enterprise.com',
       reason: 'cancellation_requested',
+      churn_risk_score: 0.94,
     },
-    headers: {
-      'content-type': 'application/json',
-      'idempotency-key': 'sub_del_109281_441',
-    },
+    headers: { 'content-type': 'application/json', 'zyvan-idempotency': 'sub_del_109281_441' },
     deliveries: [
       {
-        id: 'del_01J98DEL003',
+        id: 'del_04',
         eventId: 'evt_01J98FA88104',
         destinationId: 'dest_01J98FA003',
         destinationUrl: 'https://crm-receiver.internal.net/hooks/sync',
@@ -261,16 +329,154 @@ const SEED_EVENTS: WebhookEvent[] = [
         lastStatusCode: 404,
         attempts: [
           {
-            id: 'att_04',
-            deliveryId: 'del_01J98DEL003',
+            id: 'att_104a',
+            deliveryId: 'del_04',
             attemptNo: 4,
             statusCode: 404,
             latencyMs: 110,
             outcome: 'failed',
-            errorMessage: '404 Endpoint Not Found (Destination webhook path decommissioned)',
-            startedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+            errorMessage: 'HTTP 404 Not Found: Webhook path was retired on receiver server',
+            startedAt: new Date(Date.now() - 1000 * 60 * 55).toISOString(),
           },
         ],
+      },
+    ],
+  },
+  {
+    id: 'evt_01J98FA88105',
+    projectId: '0198fa72-91bc-7123-8819-0012891fa120',
+    tenantId: 'tenant_telecom_sms',
+    eventType: 'sms.delivery_receipt',
+    idempotencyKey: 'sm_receipt_881920_delivered',
+    status: 'delivered',
+    createdAt: new Date(Date.now() - 1000 * 60 * 85).toISOString(),
+    payload: { message_sid: 'SM881920a019b', to: '+14155552671', status: 'delivered', segments: 1 },
+    headers: { 'content-type': 'application/json' },
+    deliveries: [
+      {
+        id: 'del_05',
+        eventId: 'evt_01J98FA88105',
+        destinationId: 'dest_01J98FA004',
+        destinationUrl: 'https://logs.telecom-gateway.com/webhooks/sms',
+        status: 'delivered',
+        attemptCount: 1,
+        lastStatusCode: 200,
+        attempts: [{ id: 'att_105', deliveryId: 'del_05', attemptNo: 1, statusCode: 200, latencyMs: 82, outcome: 'success', startedAt: new Date().toISOString() }],
+      },
+    ],
+  },
+  {
+    id: 'evt_01J98FA88106',
+    projectId: '0198fa72-91bc-7123-8819-0012891fa120',
+    tenantId: 'tenant_stripe_main',
+    eventType: 'invoice.paid',
+    idempotencyKey: 'inv_881290_paid_evt',
+    status: 'delivered',
+    createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    payload: { invoice_id: 'in_1MtwC0LkdIwHu7ix', amount: 120000, customer: 'cus_99182', status: 'paid' },
+    headers: { 'content-type': 'application/json' },
+    deliveries: [
+      {
+        id: 'del_06',
+        eventId: 'evt_01J98FA88106',
+        destinationId: 'dest_01J98FA001',
+        destinationUrl: 'https://api.merchant.com/v1/webhooks/billing',
+        status: 'delivered',
+        attemptCount: 1,
+        lastStatusCode: 200,
+        attempts: [{ id: 'att_106', deliveryId: 'del_06', attemptNo: 1, statusCode: 200, latencyMs: 78, outcome: 'success', startedAt: new Date().toISOString() }],
+      },
+    ],
+  },
+  {
+    id: 'evt_01J98FA88107',
+    projectId: '0198fa72-91bc-7123-8819-0012891fa120',
+    tenantId: 'tenant_github_actions',
+    eventType: 'pull_request.opened',
+    idempotencyKey: 'gh_pr_1829_open',
+    status: 'delivered',
+    createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
+    payload: { repository: 'zyvan/core', pr_number: 42, author: 'sultanxdev', title: 'feat: add RabbitMQ TTL retry' },
+    headers: { 'content-type': 'application/json' },
+    deliveries: [
+      {
+        id: 'del_07',
+        eventId: 'evt_01J98FA88107',
+        destinationId: 'dest_01J98FA003',
+        destinationUrl: 'https://crm-receiver.internal.net/hooks/sync',
+        status: 'delivered',
+        attemptCount: 1,
+        lastStatusCode: 200,
+        attempts: [{ id: 'att_107', deliveryId: 'del_07', attemptNo: 1, statusCode: 200, latencyMs: 115, outcome: 'success', startedAt: new Date().toISOString() }],
+      },
+    ],
+  },
+  {
+    id: 'evt_01J98FA88108',
+    projectId: '0198fa72-91bc-7123-8819-0012891fa120',
+    tenantId: 'tenant_workos_sso',
+    eventType: 'user.created',
+    idempotencyKey: 'wos_usr_01J98821',
+    status: 'delivered',
+    createdAt: new Date(Date.now() - 1000 * 60 * 240).toISOString(),
+    payload: { user_id: 'usr_01J98821', email: 'dev.lead@datadog.com', organization_id: 'org_8819' },
+    headers: { 'content-type': 'application/json' },
+    deliveries: [
+      {
+        id: 'del_08',
+        eventId: 'evt_01J98FA88108',
+        destinationId: 'dest_01J98FA001',
+        destinationUrl: 'https://api.merchant.com/v1/webhooks/billing',
+        status: 'delivered',
+        attemptCount: 1,
+        lastStatusCode: 200,
+        attempts: [{ id: 'att_108', deliveryId: 'del_08', attemptNo: 1, statusCode: 200, latencyMs: 65, outcome: 'success', startedAt: new Date().toISOString() }],
+      },
+    ],
+  },
+  {
+    id: 'evt_01J98FA88109',
+    projectId: '0198fa72-91bc-7123-8819-0012891fa120',
+    tenantId: 'tenant_stripe_main',
+    eventType: 'charge.refunded',
+    idempotencyKey: 'ch_rf_991820a_succ',
+    status: 'delivered',
+    createdAt: new Date(Date.now() - 1000 * 60 * 300).toISOString(),
+    payload: { charge_id: 'ch_3MtwD0LkdIwHu7ix', refund_amount: 4900, currency: 'usd', reason: 'requested_by_customer' },
+    headers: { 'content-type': 'application/json' },
+    deliveries: [
+      {
+        id: 'del_09',
+        eventId: 'evt_01J98FA88109',
+        destinationId: 'dest_01J98FA001',
+        destinationUrl: 'https://api.merchant.com/v1/webhooks/billing',
+        status: 'delivered',
+        attemptCount: 1,
+        lastStatusCode: 200,
+        attempts: [{ id: 'att_109', deliveryId: 'del_09', attemptNo: 1, statusCode: 200, latencyMs: 89, outcome: 'success', startedAt: new Date().toISOString() }],
+      },
+    ],
+  },
+  {
+    id: 'evt_01J98FA88110',
+    projectId: '0198fa72-91bc-7123-8819-0012891fa120',
+    tenantId: 'tenant_shopify_store',
+    eventType: 'fulfillment.tracking_updated',
+    idempotencyKey: 'ful_trk_001928_fedex',
+    status: 'delivered',
+    createdAt: new Date(Date.now() - 1000 * 60 * 420).toISOString(),
+    payload: { order_id: '99218201', carrier: 'FedEx', tracking_number: '782910829102', status: 'in_transit' },
+    headers: { 'content-type': 'application/json' },
+    deliveries: [
+      {
+        id: 'del_10',
+        eventId: 'evt_01J98FA88110',
+        destinationId: 'dest_01J98FA002',
+        destinationUrl: 'https://orders.customer-hub.io/events/shopify',
+        status: 'delivered',
+        attemptCount: 1,
+        lastStatusCode: 200,
+        attempts: [{ id: 'att_110', deliveryId: 'del_10', attemptNo: 1, statusCode: 200, latencyMs: 130, outcome: 'success', startedAt: new Date().toISOString() }],
       },
     ],
   },
@@ -280,12 +486,12 @@ const SEED_DEAD_LETTERS: WebhookDeadLetter[] = [
   {
     id: 'dlq_01J98DLQ001',
     eventId: 'evt_01J98FA88104',
-    deliveryId: 'del_01J98DEL003',
+    deliveryId: 'del_04',
     reason: 'Exhausted maximum retry attempts (4/4). Destination returned HTTP 404 Not Found.',
     eventType: 'customer.subscription_deleted',
     destinationUrl: 'https://crm-receiver.internal.net/hooks/sync',
     attemptsCount: 4,
-    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    createdAt: new Date(Date.now() - 1000 * 60 * 55).toISOString(),
   },
 ];
 
@@ -341,6 +547,76 @@ class ZyvanApiClient {
       redis: false,
       timestamp: new Date().toISOString(),
       latencyMs: Date.now() - start,
+    };
+  }
+
+  // ─── Throughput & Analytics Data ───────────────────────────
+  getThroughputData(range: '24h' | '7d'): ThroughputPoint[] {
+    const points: ThroughputPoint[] = [];
+    const now = Date.now();
+
+    if (range === '24h') {
+      // 12 points (every 2 hours)
+      for (let i = 11; i >= 0; i--) {
+        const t = new Date(now - i * 2 * 3600 * 1000);
+        const hours = t.getHours();
+        const ampm = hours >= 12 ? 'pm' : 'am';
+        const formattedHour = hours % 12 || 12;
+        const timeLabel = `${formattedHour}${ampm}`;
+
+        // realistic distribution with peak at daytime
+        const factor = hours >= 9 && hours <= 18 ? 1.6 : 0.7;
+        const delivered = Math.floor((320 + Math.sin(i) * 140) * factor);
+        const retrying = Math.floor(Math.random() * 8) + 1;
+        const failed = i === 4 ? 1 : 0;
+
+        points.push({
+          timeLabel,
+          timestamp: t.toISOString(),
+          delivered,
+          retrying,
+          failed,
+          total: delivered + retrying + failed,
+        });
+      }
+    } else {
+      // 7 points (daily)
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      for (let i = 6; i >= 0; i--) {
+        const t = new Date(now - i * 86400 * 1000);
+        const timeLabel = dayNames[t.getDay()];
+        const delivered = Math.floor(4800 + Math.random() * 1200);
+        const retrying = Math.floor(40 + Math.random() * 30);
+        const failed = Math.floor(Math.random() * 4);
+
+        points.push({
+          timeLabel,
+          timestamp: t.toISOString(),
+          delivered,
+          retrying,
+          failed,
+          total: delivered + retrying + failed,
+        });
+      }
+    }
+
+    return points;
+  }
+
+  getLatencyMetrics(): LatencyMetric {
+    return {
+      p50: 14,
+      p95: 46,
+      p99: 108,
+      avg: 22,
+      history: [
+        { time: '00:00', value: 16 },
+        { time: '04:00', value: 13 },
+        { time: '08:00', value: 24 },
+        { time: '12:00', value: 31 },
+        { time: '16:00', value: 28 },
+        { time: '20:00', value: 18 },
+      ],
     };
   }
 
@@ -443,7 +719,7 @@ class ZyvanApiClient {
               deliveryId: match.deliveries[0].id,
               attemptNo: 1,
               statusCode: 200,
-              latencyMs: Math.floor(Math.random() * 120) + 80,
+              latencyMs: Math.floor(Math.random() * 80) + 70,
               outcome: 'success',
               startedAt: new Date().toISOString(),
             },

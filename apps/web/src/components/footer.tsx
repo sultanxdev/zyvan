@@ -66,8 +66,8 @@ export function Footer() {
             </div>
             <ul className="space-y-2 text-xs text-muted-foreground">
               <li>
-                <Link href="#quickstart" className="hover:text-foreground transition-colors">
-                  Documentation
+                <Link href="/docs" className="hover:text-foreground transition-colors font-semibold text-zinc-900">
+                  Developer Documentation
                 </Link>
               </li>
               <li>
