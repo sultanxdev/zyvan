@@ -34,5 +34,8 @@
     "node": ">=20.0.0"
   },
   "author": "Zyvan",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "lightningcss-win32-x64-msvc": "^1.33.0"
+  }
 }
