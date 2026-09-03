@@ -1,43 +1,63 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
 
 export function CtaBanner() {
   return (
-    <section className="py-16 sm:py-20 relative overflow-hidden font-geist-mono">
+    <section className="py-16 sm:py-24 relative overflow-hidden font-geist-mono">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-        <div className="relative rounded-[28px] border border-black/[0.08] bg-gradient-to-br from-[#00DC5A] via-[#00D456] to-[#00BD4C] p-8 sm:p-14 text-center shadow-[0_20px_60px_-15px_rgba(0,220,90,0.35)] overflow-hidden text-[#0A160F]">
-          {/* Subtle Ambient Radial Highlight */}
-          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/20 blur-3xl pointer-events-none rounded-full" />
-          <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-black/10 blur-2xl pointer-events-none rounded-full" />
+        {/* Soft Pastel CTA Card */}
+        <div className="relative rounded-[32px] border border-[#D6E4FF] bg-gradient-to-b from-[#F3F7FF] via-[#EEF4FF] to-[#E4EFFF] p-8 sm:p-16 text-center shadow-[0_12px_40px_rgba(37,99,235,0.06)] overflow-hidden">
+          {/* Soft Diffuse Decorative Circles (Bottom Left & Right) */}
+          <div className="absolute -bottom-24 -left-24 size-80 rounded-full bg-[#D7E6FF]/80 blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-24 -right-24 size-80 rounded-full bg-[#D7E6FF]/80 blur-2xl pointer-events-none" />
 
-          <div className="max-w-2xl mx-auto space-y-5 relative z-10">
-            <Badge
-              variant="pill"
-              className="px-3.5 py-1 bg-black/10 border-black/15 text-[#0A160F] font-semibold text-xs shadow-2xs"
-            >
-              Reliable event delivery
-            </Badge>
+          {/* Ambient Sparkle Dots */}
+          <div className="absolute top-12 left-1/4 size-1.5 rounded-full bg-blue-400/40 blur-[0.5px]" />
+          <div className="absolute top-20 right-1/4 size-1 rounded-full bg-blue-500/50 blur-[0.5px]" />
+          <div className="absolute bottom-16 left-1/3 size-1.5 rounded-full bg-purple-400/40 blur-[0.5px]" />
+          <div className="absolute bottom-20 right-1/3 size-1.5 rounded-full bg-emerald-400/40 blur-[0.5px]" />
 
-            <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-bold tracking-tight text-[#0A160F] leading-[1.12]">
-              Ready to bulletproof your event delivery?
+          <div className="max-w-3xl mx-auto space-y-6 relative z-10">
+            {/* Badge with Logo on the left */}
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-200/90 bg-white/95 px-3.5 py-1.5 shadow-2xs">
+                <div className="size-4.5 rounded-md bg-black overflow-hidden flex items-center justify-center shrink-0">
+                  <img
+                    src="/logo.png"
+                    alt="Zyvan logo"
+                    className="size-full object-cover"
+                  />
+                </div>
+                <span className="text-xs font-semibold text-[#17172B]">
+                  Built for developers
+                </span>
+              </div>
+            </div>
+
+            {/* Headline */}
+            <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-bold tracking-tight text-[#17172B] leading-[1.15]">
+              Ready to Upgrade Your Webhook Experience?
             </h2>
 
-            <p className="text-sm sm:text-base text-[#0A160F]/85 leading-relaxed font-normal max-w-xl mx-auto">
-              Start sending events in minutes. Zyvan handles delivery, retries, signing, and delivery history.
+            {/* Subtitle */}
+            <p className="text-sm sm:text-base text-zinc-600 max-w-xl mx-auto font-normal leading-relaxed">
+              Send events once. Zyvan handles delivery, retries, signing, and delivery history—Start for Free.
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-3.5 pt-3">
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
               <Button
                 size="lg"
                 asChild
-                className="rounded-full h-11 px-7 text-sm bg-zinc-950 text-white hover:bg-zinc-900 shadow-md font-semibold transition-transform hover:scale-[1.02]"
+                className="rounded-full h-11 px-8 text-sm bg-[#3B66F5] hover:bg-[#2A52E0] text-white shadow-md font-semibold transition-all hover:shadow-lg hover:scale-[1.02]"
               >
                 <Link href="/login" className="flex items-center gap-2">
-                  <span>Start building</span>
+                  <span>Use Zyvan for Free</span>
                   <Icon icon={ArrowRight01Icon} size={16} />
                 </Link>
               </Button>
@@ -45,10 +65,10 @@ export function CtaBanner() {
                 variant="outline"
                 size="lg"
                 asChild
-                className="rounded-full h-11 px-6 text-sm border-black/15 bg-white/95 text-zinc-950 hover:bg-white shadow-xs font-semibold"
+                className="rounded-full h-11 px-6 text-sm border-blue-200 bg-white/90 text-zinc-800 hover:bg-white shadow-xs font-semibold"
               >
                 <Link href="/docs" className="flex items-center gap-2">
-                  <span>Read the docs</span>
+                  <span>Read the Docs</span>
                 </Link>
               </Button>
             </div>

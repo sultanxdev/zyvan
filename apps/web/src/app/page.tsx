@@ -1,6 +1,7 @@
 import { Navbar } from '@/components/navbar';
 import { Hero } from '@/components/hero';
 import { HowItWorks } from '@/components/how-it-works';
+import { UseCasesBento } from '@/components/use-cases-bento';
 import { FeaturesGrid } from '@/components/features-grid';
 import { Pricing } from '@/components/pricing';
 import { FAQ } from '@/components/faq';
@@ -15,6 +16,7 @@ export default function Home() {
         <main className="flex-1">
           <Hero />
           <HowItWorks />
+          <UseCasesBento />
           <FeaturesGrid />
           <Pricing />
           <FAQ />
