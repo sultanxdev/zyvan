@@ -8,28 +8,24 @@ import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons';
 
 const faqs = [
   {
-    q: 'How does Zyvan guarantee at-least-once delivery?',
-    a: 'When an event is sent to POST /v1/events, Zyvan first writes the event and associated delivery records to PostgreSQL in an atomic transaction before publishing to RabbitMQ. If the API server or queue node crashes at any point, the event is safely recorded in durable storage. Workers only acknowledge messages after successful HTTP delivery or when scheduling a persistent retry.',
+    q: 'How does Zyvan ensure events are never lost?',
+    a: 'When an event is sent to Zyvan, it is first written to PostgreSQL in an atomic transaction before entering the delivery queue. If a worker or queue node restarts, the event remains safely stored in durable persistence. Delivery workers only acknowledge events after verified HTTP delivery or persistent retry scheduling.',
   },
   {
-    q: 'What happens when a duplicate idempotency key is received?',
-    a: 'Zyvan uses a database-level uniqueness constraint: UNIQUE(project_id, idempotency_key). If a second request arrives with an existing key, the API catches the unique violation, skips queue dispatch, and immediately returns the existing event record with HTTP 200 OK ({ duplicate: true }). No duplicate webhooks or phantom billing deliveries can ever occur.',
+    q: 'How does Zyvan handle duplicate events?',
+    a: 'Zyvan enforces uniqueness constraints on (project_id, idempotency_key). If a duplicate request arrives, Zyvan detects the existing record, avoids duplicate delivery dispatches, and returns the original event record immediately.',
   },
   {
-    q: 'Why RabbitMQ TTL + Dead-Letter Exchanges instead of database polling?',
-    a: 'Database polling (SELECT * FROM deliveries WHERE retry_at <= NOW()) causes table lock contention, burns CPU cycles, and struggles to scale under thousands of concurrent retries. RabbitMQ natively supports per-message TTL in a dedicated retry queue. When the timer expires, the AMQP broker routes the message back to the active delivery queue via DLX with zero polling overhead.',
+    q: 'How does Zyvan handle retries?',
+    a: 'Zyvan schedules retries through native queue timers (RabbitMQ per-message TTL and Dead-Letter Exchanges) rather than continuous database polling. This eliminates database lock contention and allows retry backoff with jitter to execute smoothly at high volume.',
   },
   {
-    q: 'How does the Replay mechanism preserve delivery history?',
-    a: 'Unlike naive webhook tools that reset attempt_count = 0 on the existing delivery (overwriting historical logs), Zyvan creates a brand-new Delivery record and a linked Replay record. All previous attempts, status codes, latencies, and error traces remain completely intact in the PostgreSQL audit log.',
+    q: 'How does Zyvan protect webhook destinations?',
+    a: 'Every request is cryptographically signed using HMAC-SHA256 with tenant-specific signing secrets. Zyvan also performs DNS resolution checks to block Server-Side Request Forgery (SSRF) against internal networks, loopback addresses, and cloud instance metadata endpoints.',
   },
   {
-    q: 'How does Zyvan defend against Server-Side Request Forgery (SSRF)?',
-    a: 'When creating or updating a destination URL, Zyvan performs an actual DNS lookup and validates the resolved IP address against private ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), loopback addresses (127.0.0.0/8, ::1), and cloud metadata endpoints (169.254.169.254). Any destination resolving to internal IPs is rejected with HTTP 400 invalid_request.',
-  },
-  {
-    q: 'Can I self-host Zyvan?',
-    a: 'Yes. The entire Zyvan backend is fully open-source and comes with a production-ready docker-compose.yml including PostgreSQL, RabbitMQ, and Redis. You can run the entire infrastructure on your own cloud with npm run dev:api and npm run dev:worker.',
+    q: 'Can I replay failed events without losing history?',
+    a: 'Yes. Zyvan creates a new delivery record linked to the replay without overwriting previous attempts. The complete audit timeline of timestamps, response codes, latencies, and error payloads remains fully preserved.',
   },
 ];
 
