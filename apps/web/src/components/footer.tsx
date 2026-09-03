@@ -1,12 +1,9 @@
-import React from 'react';
-import Link from 'next/link';
-import { Icon } from '@/components/ui/icon';
-import { ServerIcon, GithubIcon } from '@hugeicons/core-free-icons';
+import { TextHoverEffect } from '@/components/ui/text-hover-effect';
 
 export function Footer() {
   return (
-    <footer className="border-t border-border/80 bg-white/70 backdrop-blur-xl">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <footer className="border-t border-border/80 bg-white/70 backdrop-blur-xl mb-0 pb-0 overflow-hidden">
+      <div className="mx-auto max-w-7xl px-4 pt-12 pb-8 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Col */}
           <div className="md:col-span-2 space-y-4">
@@ -42,13 +39,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="#architecture" className="hover:text-foreground transition-colors">
-                  Reliability Engine
-                </Link>
-              </li>
-              <li>
-                <Link href="#simulator" className="hover:text-foreground transition-colors">
-                  Webhook Simulator
+                <Link href="#how-it-works" className="hover:text-foreground transition-colors">
+                  How It Works
                 </Link>
               </li>
               <li>
@@ -101,6 +93,11 @@ export function Footer() {
             <span>Built with Next.js, Tailwind, &amp; Hugeicons</span>
           </div>
         </div>
+      </div>
+
+      {/* Large hover-effect text constrained to container with zero bottom gap */}
+      <div className="w-full flex items-end justify-center select-none overflow-hidden -mb-1 max-w-[1200px] mx-auto px-4">
+        <TextHoverEffect text="ZYVAN" duration={0.3} />
       </div>
     </footer>
   );
