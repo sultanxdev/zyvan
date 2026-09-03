@@ -41,12 +41,12 @@ export function CtaBanner() {
 
             {/* Headline */}
             <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-bold tracking-tight text-[#17172B] leading-[1.15]">
-              Ready to Upgrade Your Webhook Experience?
+              Stop building webhook reliability yourself.
             </h2>
 
             {/* Subtitle */}
             <p className="text-sm sm:text-base text-zinc-600 max-w-xl mx-auto font-normal leading-relaxed">
-              Send events once. Zyvan handles delivery, retries, signing, and delivery history—Start for Free.
+              Send once. Zyvan handles delivery, retries, signing, and delivery history.
             </p>
 
             {/* Action Buttons */}
@@ -57,7 +57,7 @@ export function CtaBanner() {
                 className="rounded-full h-11 px-8 text-sm bg-[#3B66F5] hover:bg-[#2A52E0] text-white shadow-md font-semibold transition-all hover:shadow-lg hover:scale-[1.02]"
               >
                 <Link href="/login" className="flex items-center gap-2">
-                  <span>Use Zyvan for Free</span>
+                  <span>Start building</span>
                   <Icon icon={ArrowRight01Icon} size={16} />
                 </Link>
               </Button>
@@ -68,7 +68,7 @@ export function CtaBanner() {
                 className="rounded-full h-11 px-6 text-sm border-blue-200 bg-white/90 text-zinc-800 hover:bg-white shadow-xs font-semibold"
               >
                 <Link href="/docs" className="flex items-center gap-2">
-                  <span>Read the Docs</span>
+                  <span>Read the docs</span>
                 </Link>
               </Button>
             </div>

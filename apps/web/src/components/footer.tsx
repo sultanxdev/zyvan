@@ -55,21 +55,8 @@ export function Footer() {
 
             <p className="mt-4 max-w-sm text-sm leading-6 text-zinc-500">
               Reliable webhook delivery for modern applications. Send once,
-              and let Zyvan handle delivery, retries,
-              delivery history and  keeps every attempt traceable.
+              and let Zyvan handle delivery, retries, and delivery history.
             </p>
-
-            {/* Small status */}
-            <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 shadow-2xs">
-              <span className="relative flex size-1.5">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
-              </span>
-
-              <span className="font-mono text-[11px] text-zinc-500">
-                Built for reliable webhook delivery
-              </span>
-            </div>
           </div>
 
           {/* Product */}

@@ -37,7 +37,7 @@ export function Hero() {
 
           {/* Subtitle */}
           <p className="text-base sm:text-lg lg:text-xl text-zinc-600 max-w-2xl leading-relaxed font-normal">
-            Send events once. Zyvan delivers them, retries failures, and keeps every attempt traceable.
+            Send once. Zyvan delivers your webhooks, retries failures, and keeps every attempt traceable.
           </p>
 
           {/* Dual Action CTAs */}

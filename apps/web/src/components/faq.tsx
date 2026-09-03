@@ -8,24 +8,24 @@ import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons';
 
 const faqs = [
   {
-    q: 'How does Zyvan ensure events are never lost?',
-    a: 'When an event is sent to Zyvan, it is first written to PostgreSQL in an atomic transaction before entering the delivery queue. If a worker or queue node restarts, the event remains safely stored in durable persistence. Delivery workers only acknowledge events after verified HTTP delivery or persistent retry scheduling.',
+    q: 'How does Zyvan protect against event loss?',
+    a: 'Zyvan stores the event and its delivery records in PostgreSQL before delivery begins. This keeps the accepted request in durable storage even if the queue or worker is temporarily unavailable.',
   },
   {
-    q: 'How does Zyvan handle duplicate events?',
-    a: 'Zyvan enforces uniqueness constraints on (project_id, idempotency_key). If a duplicate request arrives, Zyvan detects the existing record, avoids duplicate delivery dispatches, and returns the original event record immediately.',
+    q: 'How does Zyvan handle duplicate webhooks?',
+    a: 'Zyvan uses database-level idempotency keys to prevent the same request from creating duplicate delivery work.',
   },
   {
     q: 'How does Zyvan handle retries?',
-    a: 'Zyvan schedules retries through native queue timers (RabbitMQ per-message TTL and Dead-Letter Exchanges) rather than continuous database polling. This eliminates database lock contention and allows retry backoff with jitter to execute smoothly at high volume.',
+    a: 'Temporary failures such as timeouts and 5xx responses are retried using configurable backoff. Failed deliveries can be inspected and replayed from their delivery history.',
   },
   {
     q: 'How does Zyvan protect webhook destinations?',
-    a: 'Every request is cryptographically signed using HMAC-SHA256 with tenant-specific signing secrets. Zyvan also performs DNS resolution checks to block Server-Side Request Forgery (SSRF) against internal networks, loopback addresses, and cloud instance metadata endpoints.',
+    a: 'Zyvan validates destination URLs and applies SSRF protections before allowing outbound delivery.',
   },
   {
-    q: 'Can I replay failed events without losing history?',
-    a: 'Yes. Zyvan creates a new delivery record linked to the replay without overwriting previous attempts. The complete audit timeline of timestamps, response codes, latencies, and error payloads remains fully preserved.',
+    q: 'Can I replay a failed webhook?',
+    a: 'Yes. Replay creates a new delivery attempt while preserving the original delivery and attempt history.',
   },
 ];
 
@@ -40,16 +40,16 @@ export function FAQ() {
             Technical FAQ
           </Badge>
           <h2
-            className="text-3xl sm:text-5xl font-normal tracking-tight text-[#17172B] leading-[1.12] font-geist-mono"
-            style={{ fontFamily: "var(--font-geist-mono, 'Newsreader', Georgia, serif)" }}
+            className="text-3xl sm:text-5xl font-normal tracking-tight text-[#17172B] leading-[1.12]"
+            style={{ fontFamily: "var(--font-serif, 'Newsreader', Georgia, serif)" }}
           >
             Frequently asked{' '}
-            <span className="font-geist-mono text-[#18181B]">
+            <span className="italic text-[#18181B]">
               questions.
             </span>
           </h2>
           <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
-            Clear technical answers to common questions about Zyvan&apos;s reliability architecture.
+            Clear answers to common questions about Zyvan&apos;s webhook delivery platform.
           </p>
         </div>
 

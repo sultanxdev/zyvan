@@ -172,7 +172,7 @@ export function HeroDashboardPreview() {
                   Infrastructure Overview
                 </h2>
                 <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">
-                  Real-time event delivery pipeline for <span className="font-semibold text-zinc-700">Default Production Project</span>
+                  Real-time webhook delivery for your production project
                 </p>
               </div>
 
@@ -197,10 +197,10 @@ export function HeroDashboardPreview() {
 
             {/* Top 4 KPI Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5">
-              {/* Card 1: Events Ingested */}
+              {/* Card 1: Webhooks Received */}
               <div className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative overflow-hidden transition-all hover:border-black/10">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10.5px] font-semibold text-zinc-500 tracking-wider uppercase font-mono">EVENTS INGESTED</span>
+                  <span className="text-[10.5px] font-semibold text-zinc-500 tracking-wider uppercase font-mono">WEBHOOKS RECEIVED</span>
                   <div className="size-6 rounded-full bg-[#FFF5EB] flex items-center justify-center text-amber-600">
                     <Icon icon={FlashIcon} size={13} />
                   </div>
@@ -210,33 +210,33 @@ export function HeroDashboardPreview() {
                     {eventsCount}
                   </span>
                   <p className="mt-1 text-[11px] font-medium text-emerald-600 flex items-center gap-1 font-mono">
-                    <span>100% committed in &lt;15ms</span>
+                    <span>Stored before delivery</span>
                   </p>
                 </div>
               </div>
 
-              {/* Card 2: Success Rate */}
+              {/* Card 2: Delivery Success */}
               <div className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative overflow-hidden transition-all hover:border-black/10">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10.5px] font-semibold text-zinc-500 tracking-wider uppercase font-mono">SUCCESS RATE</span>
+                  <span className="text-[10.5px] font-semibold text-zinc-500 tracking-wider uppercase font-mono">DELIVERY SUCCESS</span>
                   <div className="size-6 rounded-full bg-[#F0FDF4] flex items-center justify-center text-emerald-600">
                     <Icon icon={CheckmarkCircle02Icon} size={14} />
                   </div>
                 </div>
                 <div className="mt-2.5">
                   <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#17172B]">
-                    80.0%
+                    99.8%
                   </span>
                   <p className="mt-1 text-[11px] text-zinc-500">
-                    At-least-once verified deliveries
+                    At-least-once delivery
                   </p>
                 </div>
               </div>
 
-              {/* Card 3: Configured Endpoints */}
+              {/* Card 3: Destinations */}
               <div className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative overflow-hidden transition-all hover:border-black/10">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10.5px] font-semibold text-zinc-500 tracking-wider uppercase font-mono">CONFIGURED ENDPOINTS</span>
+                  <span className="text-[10.5px] font-semibold text-zinc-500 tracking-wider uppercase font-mono">DESTINATIONS</span>
                   <div className="size-6 rounded-full bg-[#F4F4F5] flex items-center justify-center text-zinc-700">
                     <Icon icon={ServerIcon} size={13} />
                   </div>
@@ -246,29 +246,29 @@ export function HeroDashboardPreview() {
                     4
                   </span>
                   <p className="mt-1 text-[11px] text-zinc-500">
-                    HMAC-SHA256 signed destinations
+                    Signed destinations
                   </p>
                 </div>
               </div>
 
-              {/* Card 4: Active DLQ / Retries */}
+              {/* Card 4: Retry Pipeline */}
               <div className="rounded-2xl border border-black/[0.06] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative overflow-hidden transition-all hover:border-black/10">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10.5px] font-semibold text-zinc-500 tracking-wider uppercase font-mono">ACTIVE DLQ / RETRIES</span>
+                  <span className="text-[10.5px] font-semibold text-zinc-500 tracking-wider uppercase font-mono">RETRY PIPELINE</span>
                   <div className="size-6 rounded-full bg-[#FFF1E6] flex items-center justify-center text-orange-600">
                     <Icon icon={RefreshIcon} size={13} />
                   </div>
                 </div>
                 <div className="mt-2.5 flex items-baseline gap-2">
                   <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#17172B]">
-                    2
+                    0 active
                   </span>
-                  <span className="text-[10px] font-semibold font-mono px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">
-                    1 in DLQ
+                  <span className="text-[10px] font-semibold font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Healthy
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-zinc-500">
-                  Delayed AMQP TTL + Zero dropped
+                  Automatic retries + DLQ
                 </p>
               </div>
             </div>

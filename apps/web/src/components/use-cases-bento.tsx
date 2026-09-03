@@ -5,12 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import {
   CheckmarkCircle02Icon,
-  ArrowRight01Icon,
   ArrowDown01Icon,
-  ServerIcon,
-  ShoppingBag01Icon,
-  Layers01Icon,
-  CreditCardIcon,
 } from '@hugeicons/core-free-icons';
 
 export function UseCasesBento() {
@@ -35,7 +30,7 @@ export function UseCasesBento() {
             </span>
           </h2>
           <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
-            Reliable webhook delivery for products, platforms, and services that need notifications to reach the right destination.
+            Reliable webhook delivery for products, platforms, and services that depend on their integrations working.
           </p>
         </div>
 
@@ -69,7 +64,7 @@ export function UseCasesBento() {
                 Reliable webhooks for SaaS.
               </h3>
               <p className="mt-3 text-xs sm:text-sm text-zinc-600 leading-relaxed font-normal">
-                Keep subscription, billing, account, and integration webhooks moving without building your own retry system.
+                Subscriptions, billing, account changes, and integrations handled without building custom retry logic.
               </p>
             </div>
 
@@ -93,7 +88,7 @@ export function UseCasesBento() {
               <div className="flex items-center justify-between rounded-xl bg-zinc-950 text-white p-2.5 shadow-xs">
                 <div className="flex items-center gap-2 font-bold text-xs">
                   <span className="size-2 rounded-full bg-[#00DC5A]" />
-                  <span>Zyvan Engine</span>
+                  <span>Zyvan</span>
                 </div>
                 <span className="text-[10px] text-zinc-400">Signed &amp; Queued</span>
               </div>
@@ -135,7 +130,7 @@ export function UseCasesBento() {
                   Keep orders moving.
                 </h3>
                 <p className="mt-2.5 text-xs sm:text-sm text-zinc-600 leading-relaxed font-normal">
-                  Deliver order, payment, fulfillment, and inventory webhooks reliably.
+                  Orders, payments, fulfillment, and inventory notifications delivered reliably.
                 </p>
               </div>
 
@@ -165,7 +160,7 @@ export function UseCasesBento() {
               <div>
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <span className="font-mono text-xs font-bold text-emerald-800 uppercase tracking-wider">
-                    Platforms &amp; Internal Systems
+                    Platforms &amp; Services
                   </span>
                   <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-medium">
                     Multi-Service
@@ -175,7 +170,7 @@ export function UseCasesBento() {
                   One reliable delivery layer.
                 </h3>
                 <p className="mt-2.5 text-xs sm:text-sm text-zinc-600 leading-relaxed font-normal">
-                  Give customers dependable webhooks and connect your own services without maintaining delivery infrastructure.
+                  Give customers dependable webhooks and connect your own services without maintaining retry infrastructure.
                 </p>
               </div>
 
