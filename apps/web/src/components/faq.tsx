@@ -38,7 +38,7 @@ export function FAQ() {
 
   return (
     <section id="faq" className="py-20 sm:py-24 bg-secondary/30 relative">
-      <div className="mx-auto max-w-[1040px] px-4 sm:px-6">
+      <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <Badge variant="pill" className="mb-4">
             Technical FAQ
