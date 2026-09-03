@@ -1,3 +1,7 @@
+import React from 'react';
+import Link from 'next/link';
+import { Icon } from '@/components/ui/icon';
+import { GithubIcon } from '@hugeicons/core-free-icons';
 import { TextHoverEffect } from '@/components/ui/text-hover-effect';
 
 export function Footer() {

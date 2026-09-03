@@ -11,7 +11,7 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground antialiased selection:bg-zinc-950 selection:text-white">
       <Navbar />
-      <main className="flex-1">
+      <main className="flex-1 bg-grid-pattern relative">
         <Hero />
         <HowItWorks />
         <FeaturesGrid />

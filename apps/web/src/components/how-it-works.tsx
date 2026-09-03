@@ -1,340 +1,181 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Icon } from '@/components/ui/icon';
+import {
+  FlashIcon,
+  ServerIcon,
+  ShieldCheckIcon,
+  CheckmarkCircle02Icon,
+  RefreshIcon,
+  ArrowRight01Icon,
+  ZapIcon,
+  Layers01Icon,
+} from '@hugeicons/core-free-icons';
 
 export function HowItWorks() {
-  return (
-    <section
-      id="how-it-works"
-      className="relative overflow-hidden py-20 sm:py-28"
-    >
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-        {/* Header */}
-        <div className="mx-auto mb-12 max-w-2xl text-center sm:mb-16">
-          <Badge
-            variant="pill"
-            className="mb-3 border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-600"
-          >
-            How it works
-          </Badge>
+  const [activeStep, setActiveStep] = useState(0);
 
-          <h2 className="text-2xl font-bold leading-[1.15] tracking-tight text-[#17172B] sm:text-4xl">
+  const steps = [
+    {
+      step: '01',
+      badge: 'Ingest',
+      title: 'Send event once via HTTP',
+      subtitle: 'POST /v1/events with idempotency',
+      description:
+        'Your application fires a standard HTTP POST request. Zyvan guarantees transactional uniqueness with PostgreSQL before returning 202 Accepted in under 15ms.',
+      bg: 'bg-[#F0F7FF]',
+      border: 'border-[#D9EAFD]',
+      accentBg: 'bg-blue-100',
+      accentColor: 'text-blue-700',
+      pillText: '< 15ms Ingest',
+      preview: {
+        method: 'POST',
+        endpoint: '/v1/events',
+        headers: ['Idempotency-Key: inv_99812_pay', 'Authorization: Bearer zyvan_live_***'],
+        body: '{\n  "type": "invoice.paid",\n  "tenant_id": "cust_8829",\n  "amount": 14900\n}',
+        status: '202 Accepted',
+        statusColor: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+      },
+    },
+    {
+      step: '02',
+      badge: 'Queue & Sign',
+      title: 'Queued & cryptographically signed',
+      subtitle: 'Tenant-isolated AMQP broker',
+      description:
+        'Events are routed into dedicated RabbitMQ exchanges. Zyvan applies HMAC-SHA256 signatures, validates destination DNS against SSRF attacks, and prepares worker dispatch.',
+      bg: 'bg-[#FFF7ED]',
+      border: 'border-[#FED7AA]/60',
+      accentBg: 'bg-amber-100',
+      accentColor: 'text-amber-800',
+      pillText: 'HMAC-SHA256 Signed',
+      preview: {
+        method: 'AMQP',
+        endpoint: 'exchange: zyvan.delivery',
+        headers: ['X-Zyvan-Signature: v1=a94a8f...', 'SSRF Guard: Validated (Loopback Blocked)'],
+        body: '{\n  "delivery_id": "del_01J98FA",\n  "secret_version": "v1_gcm",\n  "attempt": 1\n}',
+        status: 'Enqueued',
+        statusColor: 'text-amber-700 bg-amber-50 border-amber-200',
+      },
+    },
+    {
+      step: '03',
+      badge: 'Deliver & Recover',
+      title: 'Delivered or auto-retried with DLQ',
+      subtitle: 'Zero CPU database polling',
+      description:
+        'Webhooks deliver directly to endpoints. If your recipient returns 5xx or times out, native RabbitMQ message TTL triggers exponential jitter backoff without dropped events.',
+      bg: 'bg-[#F0FDF4]',
+      border: 'border-[#BBF7D0]',
+      accentBg: 'bg-emerald-100',
+      accentColor: 'text-emerald-800',
+      pillText: '99.999% Guaranteed',
+      preview: {
+        method: 'HTTP/1.1',
+        endpoint: 'dest.example.com/webhook',
+        headers: ['Outcome A: 200 OK -> ✓ Done', 'Outcome B: 504 Timeout -> ↻ Retry (attempt 2/5)'],
+        body: '{\n  "delivery_status": "delivered",\n  "latency_ms": 38,\n  "next_retry": "null"\n}',
+        status: 'Delivered',
+        statusColor: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+      },
+    },
+  ];
+
+  return (
+    <section id="how-it-works" className="py-20 sm:py-24 relative overflow-hidden">
+      <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
+        {/* Section Header */}
+        <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
+          <Badge variant="pill" className="mb-3 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
+            How It Works
+          </Badge>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#17172B] leading-[1.15]">
             Send it once. Zyvan takes care of the rest.
           </h2>
-
-          <p className="mx-auto mt-3.5 max-w-xl text-sm leading-relaxed text-zinc-600 sm:text-base">
-            Send your event once. Zyvan delivers it and tries again when
-            something goes wrong.
+          <p className="mt-3.5 text-sm sm:text-base text-zinc-600 leading-relaxed max-w-xl mx-auto">
+            A predictable, durable 3-stage delivery pipeline engineered for high-throughput webhook reliability.
           </p>
         </div>
 
-        {/* Diagram */}
-        <div className="mx-auto max-w-[820px]">
-          <div className="overflow-hidden rounded-[24px] border border-black/[0.06] bg-white p-3 shadow-[0_2px_16px_rgba(0,0,0,0.02)] sm:p-6">
-            <svg
-              viewBox="0 0 900 560"
-              className="block h-auto w-full"
-              role="img"
-              aria-labelledby="how-it-works-title how-it-works-description"
+        {/* 3-Step Interactive Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+          {steps.map((s, idx) => (
+            <div
+              key={idx}
+              onClick={() => setActiveStep(idx)}
+              className={`rounded-[22px] border ${s.border} ${s.bg} p-6 sm:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.02)] transition-all hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] cursor-pointer group`}
             >
-              <title id="how-it-works-title">
-                How Zyvan handles event delivery
-              </title>
+              <div>
+                {/* Step Pill & Badge */}
+                <div className="flex items-center justify-between gap-2 mb-5">
+                  <span className="font-mono text-xs font-bold text-zinc-400">
+                    STEP {s.step}
+                  </span>
+                  <span className={`text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full ${s.accentBg} ${s.accentColor} border border-black/[0.04]`}>
+                    {s.pillText}
+                  </span>
+                </div>
 
-              <desc id="how-it-works-description">
-                Your app sends an event to Zyvan. Zyvan delivers it to your
-                server. Successful deliveries are completed, while failed
-                deliveries are tried again.
-              </desc>
+                {/* Title & Description */}
+                <h3 className="text-lg sm:text-xl font-bold text-[#17172B] leading-snug">
+                  {s.title}
+                </h3>
+                <p className="mt-2.5 text-xs sm:text-sm text-zinc-600 leading-relaxed">
+                  {s.description}
+                </p>
+              </div>
 
-              {/* Arrow definition */}
-              <defs>
-                <marker
-                  id="arrow"
-                  viewBox="0 0 10 10"
-                  refX="8.5"
-                  refY="5"
-                  markerWidth="7"
-                  markerHeight="7"
-                  orient="auto"
-                >
-                  <path d="M 0 0 L 10 5 L 0 10 Z" fill="#94A3B8" />
-                </marker>
-              </defs>
+              {/* Realistic Code / Pipeline Simulation Box */}
+              <div className="mt-6 rounded-xl border border-black/[0.08] bg-white/95 p-3.5 font-mono text-[11px] shadow-xs">
+                {/* Box Header */}
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-100 text-[10.5px]">
+                  <div className="flex items-center gap-1.5 font-semibold text-zinc-800">
+                    <span className="size-1.5 rounded-full bg-[#00DC5A]" />
+                    <span>{s.preview.method}</span>
+                    <span className="text-zinc-400 truncate max-w-[140px]">{s.preview.endpoint}</span>
+                  </div>
+                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-medium border ${s.preview.statusColor}`}>
+                    {s.preview.status}
+                  </span>
+                </div>
 
-              {/* =========================================================
-                  ARROWS
-              ========================================================= */}
+                {/* Headers Preview */}
+                <div className="space-y-0.5 text-zinc-500 text-[10px] pb-2 border-b border-zinc-50">
+                  {s.preview.headers.map((h, hIdx) => (
+                    <div key={hIdx} className="truncate text-zinc-600">
+                      {h}
+                    </div>
+                  ))}
+                </div>
 
-              {/* Your App → Send event */}
-              <line
-                x1="285"
-                y1="92"
-                x2="585"
-                y2="92"
-                stroke="#94A3B8"
-                strokeWidth="2"
-                strokeLinecap="round"
-                markerEnd="url(#arrow)"
-              />
+                {/* JSON Body */}
+                <pre className="pt-2 text-zinc-700 text-[10.5px] leading-tight overflow-x-auto">
+                  {s.preview.body}
+                </pre>
+              </div>
+            </div>
+          ))}
+        </div>
 
-              <text
-                x="435"
-                y="72"
-                textAnchor="middle"
-                fill="#71717A"
-                fontSize="15"
-                fontWeight="500"
-              >
-                Send
-              </text>
-
-              {/* Send event → Zyvan */}
-              <line
-                x1="705"
-                y1="145"
-                x2="705"
-                y2="235"
-                stroke="#94A3B8"
-                strokeWidth="2"
-                strokeLinecap="round"
-                markerEnd="url(#arrow)"
-              />
-
-              {/* Zyvan → Your Server */}
-              <line
-                x1="585"
-                y1="285"
-                x2="315"
-                y2="285"
-                stroke="#94A3B8"
-                strokeWidth="2"
-                strokeLinecap="round"
-                markerEnd="url(#arrow)"
-              />
-
-              <text
-                x="450"
-                y="265"
-                textAnchor="middle"
-                fill="#71717A"
-                fontSize="15"
-                fontWeight="500"
-              >
-                Deliver
-              </text>
-
-              {/* Your Server → Done */}
-              <line
-                x1="175"
-                y1="340"
-                x2="175"
-                y2="430"
-                stroke="#94A3B8"
-                strokeWidth="2"
-                strokeLinecap="round"
-                markerEnd="url(#arrow)"
-              />
-
-              <text
-                x="205"
-                y="385"
-                fill="#71717A"
-                fontSize="15"
-                fontWeight="500"
-              >
-                Works
-              </text>
-
-              {/* Your Server → Retry */}
-              <path
-                d="M 305 335 C 385 365, 465 390, 560 435"
-                fill="none"
-                stroke="#94A3B8"
-                strokeWidth="2"
-                strokeLinecap="round"
-                markerEnd="url(#arrow)"
-              />
-
-              <text
-                x="445"
-                y="385"
-                textAnchor="middle"
-                fill="#71717A"
-                fontSize="15"
-                fontWeight="500"
-              >
-                Fails
-              </text>
-
-              {/* Retry → Zyvan */}
-              <path
-                d="
-                  M 790 475
-                  C 855 425, 855 350, 815 300
-                  C 790 270, 760 265, 705 265
-                "
-                fill="none"
-                stroke="#94A3B8"
-                strokeWidth="2"
-                strokeLinecap="round"
-                markerEnd="url(#arrow)"
-              />
-
-              <text
-                x="830"
-                y="385"
-                textAnchor="middle"
-                fill="#71717A"
-                fontSize="14"
-                fontWeight="500"
-              >
-                Try again
-              </text>
-
-              {/* =========================================================
-                  NODES
-              ========================================================= */}
-
-              {/* Your App */}
-              <rect
-                x="45"
-                y="42"
-                width="240"
-                height="100"
-                rx="20"
-                fill="#EEF7FF"
-                stroke="#CFE3F5"
-                strokeWidth="1.5"
-              />
-
-              <text
-                x="165"
-                y="103"
-                textAnchor="middle"
-                fill="#17172B"
-                fontSize="20"
-                fontWeight="600"
-              >
-                Your App
-              </text>
-
-              {/* Send event */}
-              <rect
-                x="585"
-                y="42"
-                width="240"
-                height="100"
-                rx="20"
-                fill="#FFF1E6"
-                stroke="#F2D4BB"
-                strokeWidth="1.5"
-              />
-
-              <text
-                x="705"
-                y="103"
-                textAnchor="middle"
-                fill="#17172B"
-                fontSize="20"
-                fontWeight="600"
-              >
-                Send event
-              </text>
-
-              {/* Your Server */}
-              <rect
-                x="45"
-                y="235"
-                width="270"
-                height="100"
-                rx="20"
-                fill="#ECFAF2"
-                stroke="#C8E8D7"
-                strokeWidth="1.5"
-              />
-
-              <text
-                x="180"
-                y="296"
-                textAnchor="middle"
-                fill="#17172B"
-                fontSize="20"
-                fontWeight="600"
-              >
-                Your Server
-              </text>
-
-              {/* Zyvan */}
-              <rect
-                x="585"
-                y="235"
-                width="240"
-                height="100"
-                rx="20"
-                fill="#FFF1E6"
-                stroke="#F2D4BB"
-                strokeWidth="1.5"
-              />
-
-              <text
-                x="705"
-                y="296"
-                textAnchor="middle"
-                fill="#17172B"
-                fontSize="20"
-                fontWeight="700"
-              >
-                Zyvan
-              </text>
-
-              {/* Done */}
-              <rect
-                x="45"
-                y="430"
-                width="270"
-                height="90"
-                rx="20"
-                fill="#DDF8ED"
-                stroke="#B9E9D2"
-                strokeWidth="1.5"
-              />
-
-              <text
-                x="180"
-                y="487"
-                textAnchor="middle"
-                fill="#008F63"
-                fontSize="21"
-                fontWeight="700"
-              >
-                ✓ Done
-              </text>
-
-              {/* Retry */}
-              <rect
-                x="560"
-                y="430"
-                width="265"
-                height="90"
-                rx="20"
-                fill="#F1EAFE"
-                stroke="#D8C8F3"
-                strokeWidth="1.5"
-              />
-
-              <text
-                x="692"
-                y="487"
-                textAnchor="middle"
-                fill="#17172B"
-                fontSize="21"
-                fontWeight="600"
-              >
-                Retry
-              </text>
-            </svg>
+        {/* Bottom Flow Guarantee Pill */}
+        <div className="mt-8 flex items-center justify-center">
+          <div className="inline-flex flex-wrap items-center justify-center gap-2 sm:gap-4 rounded-full border border-black/[0.06] bg-white/80 px-5 py-2.5 text-xs text-zinc-600 backdrop-blur-md shadow-xs">
+            <span className="flex items-center gap-1.5 font-medium text-zinc-900">
+              <Icon icon={ShieldCheckIcon} size={15} className="text-[#00DC5A]" />
+              PostgreSQL Commit
+            </span>
+            <span className="text-zinc-300">→</span>
+            <span className="flex items-center gap-1.5 font-medium text-zinc-900">
+              <Icon icon={ServerIcon} size={15} className="text-amber-600" />
+              RabbitMQ Queue
+            </span>
+            <span className="text-zinc-300">→</span>
+            <span className="flex items-center gap-1.5 font-medium text-zinc-900">
+              <Icon icon={CheckmarkCircle02Icon} size={15} className="text-emerald-600" />
+              Guaranteed Delivery / Auto-Retry
+            </span>
           </div>
         </div>
       </div>
