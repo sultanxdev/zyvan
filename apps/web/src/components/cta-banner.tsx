@@ -7,7 +7,7 @@ import { ArrowRight01Icon, PlayIcon } from '@hugeicons/core-free-icons';
 
 export function CtaBanner() {
   return (
-    <section className="py-16 sm:py-20 relative overflow-hidden">
+    <section className="py-16 sm:py-20 relative overflow-hidden font-geist-mono">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         <div className="relative rounded-3xl border border-zinc-900 bg-zinc-950 p-8 sm:p-12 text-center shadow-2xl overflow-hidden text-white">
           {/* Ambient Glow */}

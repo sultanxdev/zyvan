@@ -37,18 +37,18 @@ export function FAQ() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="py-20 sm:py-24 relative">
+    <section id="faq" className="py-20 sm:py-24 relative font-geist-mono">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
           <Badge variant="pill" className="mb-3.5 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
             Technical FAQ
           </Badge>
           <h2
-            className="text-3xl sm:text-5xl font-normal tracking-tight text-[#17172B] leading-[1.12]"
-            style={{ fontFamily: "var(--font-serif, 'Newsreader', Georgia, serif)" }}
+            className="text-3xl sm:text-5xl font-normal tracking-tight text-[#17172B] leading-[1.12] font-geist-mono"
+            style={{ fontFamily: "var(--font-geist-mono, 'Newsreader', Georgia, serif)" }}
           >
             Frequently asked{' '}
-            <span className="italic text-[#18181B]">
+            <span className="font-geist-mono text-[#18181B]">
               questions.
             </span>
           </h2>

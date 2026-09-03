@@ -15,20 +15,20 @@ export function FeaturesGrid() {
         {/* Editorial Section Header */}
         <div className="text-center max-w-xl mx-auto mb-12 sm:mb-14">
           <h2
-            className="text-3xl sm:text-4xl font-normal tracking-tight text-[#18181B] leading-[1.15]"
-            style={{ fontFamily: "var(--font-serif, 'Newsreader', 'EB Garamond', 'Times New Roman', Georgia, serif)" }}
+            className="text-3xl sm:text-4xl font-normal tracking-tight text-[#18181B] leading-[1.15] font-geist-mono"
+            style={{ fontFamily: "var(--font-geist-mono, 'Newsreader', 'EB Garamond', 'Times New Roman', Georgia, serif)" }}
           >
             Reliable webhooks by default.
           </h2>
-          <p className="mt-3 text-sm sm:text-base text-zinc-600 leading-relaxed">
-            Guarantee at-least-once delivery, trace every attempt, and handle retries with zero database polling.
+          <p className="mt-3 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal font-geist-mono">
+            Everything between your event and your webhook, handled with precision.
           </p>
         </div>
 
         {/* Bento Grid: 7 Calm Pastel Cards aligned inside 1200px */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-stretch">
           {/* ============================================================ */}
-          {/* CARD 1: From incoming event to guaranteed delivery (5 cols) */}
+          {/* CARD 1: From incoming event to reliable delivery (5 cols)   */}
           {/* ============================================================ */}
           <div className="sm:col-span-5 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F7ECFF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(123,53,240,0.06)] transition-all">
             {/* Top Micro-Graphic */}
@@ -45,7 +45,7 @@ export function FeaturesGrid() {
                   <path d="M29 39 Q35 44 41 39" stroke="#1C152B" strokeWidth="2.2" strokeLinecap="round" fill="none" />
                 </svg>
                 <span className="text-[10px] font-mono text-purple-700 bg-white/90 border border-purple-200/80 px-2 py-0.5 rounded-full mt-1.5 shadow-2xs">
-                  #post_event
+                  #event_received
                 </span>
               </div>
 
@@ -53,18 +53,18 @@ export function FeaturesGrid() {
                 <div className="flex items-center justify-between pb-1.5 border-b border-zinc-100 text-zinc-900 font-semibold">
                   <span className="flex items-center gap-1 text-emerald-600">
                     <span className="size-1.5 rounded-full bg-emerald-500" />
-                    202 OK
+                    202 Accepted
                   </span>
-                  <span className="text-[10px] text-zinc-500 font-normal">3ms</span>
+                  <span className="text-[10px] text-zinc-500 font-normal">Durable</span>
                 </div>
                 <div className="pt-1.5 space-y-1 text-zinc-600 text-[10px]">
                   <div className="flex justify-between">
-                    <span>idempotent:</span>
+                    <span>idempotency:</span>
                     <span className="text-purple-700 font-semibold truncate max-w-[65px]">inv_8829</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>postgres:</span>
-                    <span className="text-zinc-800">persisted</span>
+                    <span>storage:</span>
+                    <span className="text-zinc-800">persisted first</span>
                   </div>
                 </div>
               </div>
@@ -74,16 +74,16 @@ export function FeaturesGrid() {
             <div className="mt-3">
               <h3 className="text-lg font-semibold tracking-tight leading-snug">
                 <span className="block text-[#7B35F0]">From incoming event</span>
-                <span className="block text-[#17152A]">to guaranteed delivery</span>
+                <span className="block text-[#17152A]">to reliable delivery</span>
               </h3>
-              <p className="mt-1.5 text-xs text-zinc-600 leading-relaxed">
-                Persist events to PostgreSQL with composite uniqueness before queuing. Zero duplicate deliveries or dropped payloads.
+              <p className="mt-1.5 text-xs text-zinc-600 leading-relaxed font-normal">
+                Events are stored before delivery begins, so temporary failures don&apos;t leave your application responsible for recovery.
               </p>
             </div>
           </div>
 
           {/* ============================================================ */}
-          {/* CARD 2: Zero polling delayed retries (7 cols)               */}
+          {/* CARD 2: Retries without database polling (7 cols)            */}
           {/* ============================================================ */}
           <div className="sm:col-span-7 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F0F9FF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(2,132,199,0.06)] transition-all">
             {/* Top Micro-Graphic (Chat Dialogue) */}
@@ -105,7 +105,7 @@ export function FeaturesGrid() {
                   <path d="M21 29 Q25 33 29 29" stroke="#0C4A6E" strokeWidth="2" strokeLinecap="round" fill="none" />
                 </svg>
                 <div className="rounded-xl rounded-tl-xs bg-white/95 border border-sky-100 text-zinc-800 px-3 py-1.5 text-xs font-medium shadow-2xs">
-                  Enqueued in RabbitMQ DLX. Retry in 4s (attempt 1/5).
+                  Scheduled in queue. Retrying later without DB queries.
                 </div>
               </div>
 
@@ -113,24 +113,24 @@ export function FeaturesGrid() {
                 <span className="size-1.5 rounded-full bg-emerald-500" />
                 <span className="font-semibold text-emerald-700">Attempt 2: 200 OK</span>
                 <span className="text-zinc-300">•</span>
-                <span className="text-zinc-500 font-mono">38ms</span>
+                <span className="text-zinc-500 font-mono">RabbitMQ TTL</span>
               </div>
             </div>
 
             {/* Bottom Copy */}
             <div className="mt-3">
               <h3 className="text-lg font-semibold tracking-tight leading-snug">
-                <span className="block text-sky-600">Zero polling</span>
-                <span className="block text-[#17152A]">delayed retries.</span>
+                <span className="block text-sky-600">Retries without</span>
+                <span className="block text-[#17152A]">database polling.</span>
               </h3>
-              <p className="mt-1.5 text-xs text-zinc-600 leading-relaxed">
-                Native AMQP message TTL and Dead-Letter Exchanges replace CPU-heavy SQL polling. Failures retry with zero DB burn.
+              <p className="mt-1.5 text-xs text-zinc-600 leading-relaxed font-normal">
+                Failed deliveries are scheduled through the queue and retried later without repeatedly querying the database.
               </p>
             </div>
           </div>
 
           {/* ============================================================ */}
-          {/* CARD 3: Adapts to every destination (4 cols)                 */}
+          {/* CARD 3: Works with every destination (4 cols)                */}
           {/* ============================================================ */}
           <div className="sm:col-span-4 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#FFF5EB] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(234,88,12,0.06)] transition-all">
             <div className="py-2 flex items-center justify-center min-h-[130px]">
@@ -161,24 +161,24 @@ export function FeaturesGrid() {
 
             <div className="mt-2">
               <h3 className="text-base font-semibold tracking-tight leading-snug">
-                <span className="block text-[#EA580C]">Adapts to</span>
+                <span className="block text-[#EA580C]">Works with</span>
                 <span className="block text-[#17152A]">every destination.</span>
               </h3>
-              <p className="mt-1 text-xs text-zinc-600 leading-relaxed">
-                Custom HMAC signatures, headers, and individual timeout policies per destination.
+              <p className="mt-1 text-xs text-zinc-600 leading-relaxed font-normal">
+                Configure each endpoint with its own headers, signing secret, timeout, and delivery rules.
               </p>
             </div>
           </div>
 
           {/* ============================================================ */}
-          {/* CARD 4: Engineered for 99.99% deliverability (4 cols)        */}
+          {/* CARD 4: Built to keep delivering (4 cols)                    */}
           {/* ============================================================ */}
           <div className="sm:col-span-4 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F0FDF4] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(22,163,74,0.06)] transition-all">
             <div className="py-2 flex flex-col justify-end min-h-[130px]">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] text-zinc-500 font-medium">Deliverability</span>
+                <span className="text-[10px] text-zinc-500 font-medium">Automatic Handling</span>
                 <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded-full">
-                  99.99% SLA
+                  Zero Lost Events
                 </span>
               </div>
               <div className="flex items-end justify-between gap-2">
@@ -200,17 +200,17 @@ export function FeaturesGrid() {
 
             <div className="mt-2">
               <h3 className="text-base font-semibold tracking-tight leading-snug">
-                <span className="block text-emerald-600">Engineered for</span>
-                <span className="block text-[#17152A]">99.99% reliability.</span>
+                <span className="block text-emerald-600">Built to</span>
+                <span className="block text-[#17152A]">keep delivering.</span>
               </h3>
-              <p className="mt-1 text-xs text-zinc-600 leading-relaxed">
-                Real-time metrics, automated DLQ routing, and jitter backoff protect from drops.
+              <p className="mt-1 text-xs text-zinc-600 leading-relaxed font-normal">
+                Automatic retries, backoff, and failure tracking help keep temporary outages from becoming lost events.
               </p>
             </div>
           </div>
 
           {/* ============================================================ */}
-          {/* CARD 5: Fortified security at every step (4 cols)            */}
+          {/* CARD 5: Security built in (4 cols)                           */}
           {/* ============================================================ */}
           <div className="sm:col-span-4 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F5F0FF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(124,58,237,0.06)] transition-all">
             <div className="py-2 flex items-center justify-between min-h-[130px] gap-2">
@@ -221,11 +221,11 @@ export function FeaturesGrid() {
                 </div>
                 <div className="flex items-center gap-1.5 bg-white/90 rounded-lg px-2 py-1 border border-purple-100 text-[10px] text-zinc-700 shadow-2xs">
                   <span className="size-1.5 rounded-full bg-indigo-500" />
-                  <span>AES-256 Secrets</span>
+                  <span>Encrypted Secrets</span>
                 </div>
                 <div className="flex items-center gap-1.5 bg-white/90 rounded-lg px-2 py-1 border border-purple-100 text-[10px] text-zinc-700 shadow-2xs">
                   <span className="size-1.5 rounded-full bg-emerald-500" />
-                  <span>HMAC-SHA256</span>
+                  <span>Signed Requests</span>
                 </div>
               </div>
               <div className="size-11 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs shrink-0">
@@ -235,32 +235,32 @@ export function FeaturesGrid() {
 
             <div className="mt-2">
               <h3 className="text-base font-semibold tracking-tight leading-snug">
-                <span className="block text-[#7C3AED]">Fortified security</span>
-                <span className="block text-[#17152A]">at every step.</span>
+                <span className="block text-[#7C3AED]">Security</span>
+                <span className="block text-[#17152A]">built in.</span>
               </h3>
-              <p className="mt-1 text-xs text-zinc-600 leading-relaxed">
-                DNS validation blocks loopback attacks and cloud IAM metadata theft (169.254.169.254).
+              <p className="mt-1 text-xs text-zinc-600 leading-relaxed font-normal">
+                Signed requests, encrypted secrets, and SSRF protection help keep your event pipeline secure.
               </p>
             </div>
           </div>
 
           {/* ============================================================ */}
-          {/* CARD 6: Inspect, debug, and replay instantly (7 cols)        */}
+          {/* CARD 6: See what happened & Replay safely (7 cols)           */}
           {/* ============================================================ */}
           <div className="sm:col-span-7 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F0F7FF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(2,132,199,0.06)] transition-all">
             <div className="py-2 flex items-center justify-between min-h-[130px]">
               <div className="flex flex-col gap-1.5">
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 border border-sky-100 shadow-2xs">
                   <span className="size-1.5 rounded-full bg-sky-500" />
-                  <span>Live payload preview</span>
+                  <span>Inspect attempt traces</span>
                 </div>
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 border border-sky-100 shadow-2xs">
                   <span className="size-1.5 rounded-full bg-purple-500" />
-                  <span>Share trace link</span>
+                  <span>Full response headers</span>
                 </div>
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 border border-sky-100 shadow-2xs">
                   <span className="size-1.5 rounded-full bg-emerald-500" />
-                  <span>1-click replay delivery</span>
+                  <span>Replay without losing history</span>
                 </div>
               </div>
 
@@ -288,29 +288,29 @@ export function FeaturesGrid() {
 
             <div className="mt-3">
               <h3 className="text-lg font-semibold tracking-tight leading-snug">
-                <span className="block text-sky-600">Inspect, debug,</span>
-                <span className="block text-[#17152A]">and replay instantly.</span>
+                <span className="block text-sky-600">See what happened</span>
+                <span className="block text-[#17152A]">and replay without losing history.</span>
               </h3>
-              <p className="mt-1.5 text-xs text-zinc-600 leading-relaxed">
-                Full attempt traces, raw headers, payload diffs, and safe manual replays with zero overwrite of historical attempts.
+              <p className="mt-1.5 text-xs text-zinc-600 leading-relaxed font-normal">
+                See every attempt, inspect the response, and replay failed deliveries without losing the original history.
               </p>
             </div>
           </div>
 
           {/* ============================================================ */}
-          {/* CARD 7: Sub-millisecond throughput scale (5 cols)            */}
+          {/* CARD 7: Built for high-volume delivery (5 cols)              */}
           {/* ============================================================ */}
           <div className="sm:col-span-5 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F7FEE7] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(77,124,15,0.06)] transition-all">
             <div className="py-2 flex flex-col justify-between min-h-[130px]">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 border border-lime-200 px-2.5 py-0.5 text-[11px] font-semibold text-lime-800 shadow-2xs self-start">
                 <span>★</span>
-                <span>Sub-millisecond pipeline</span>
+                <span>Controlled delivery</span>
               </div>
 
               <div className="bg-white/80 rounded-xl p-2.5 border border-lime-200/70 shadow-2xs">
                 <div className="flex items-center justify-between text-[11px] text-lime-900 font-medium mb-1">
-                  <span>Worker Concurrency</span>
-                  <span className="font-mono font-bold text-lime-700">10,000 req/s</span>
+                  <span>Tenant Concurrency</span>
+                  <span className="font-mono font-bold text-lime-700">Auto-balanced</span>
                 </div>
                 <div className="w-full bg-lime-100 rounded-full h-1.5 overflow-hidden">
                   <div className="bg-lime-600 h-1.5 rounded-full w-[85%]" />
@@ -320,11 +320,11 @@ export function FeaturesGrid() {
 
             <div className="mt-3">
               <h3 className="text-lg font-semibold tracking-tight leading-snug">
-                <span className="block text-[#4D7C0F]">Sub-millisecond</span>
-                <span className="block text-[#17152A]">throughput scale.</span>
+                <span className="block text-[#4D7C0F]">Built for</span>
+                <span className="block text-[#17152A]">high-volume delivery.</span>
               </h3>
-              <p className="mt-1.5 text-xs text-zinc-600 leading-relaxed">
-                Channel-bounded worker prefetch and non-blocking I/O ingest thousands of webhooks per second without memory leaks.
+              <p className="mt-1.5 text-xs text-zinc-600 leading-relaxed font-normal">
+                Process large event volumes with controlled concurrency, non-blocking I/O, and per-tenant limits.
               </p>
             </div>
           </div>
