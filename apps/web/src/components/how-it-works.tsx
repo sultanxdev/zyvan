@@ -88,13 +88,19 @@ export function HowItWorks() {
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
-          <Badge variant="pill" className="mb-3 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
+          <Badge variant="pill" className="mb-3.5 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
             How It Works
           </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#17172B] leading-[1.15]">
-            Send it once. Zyvan takes care of the rest.
+          <h2
+            className="text-3xl sm:text-5xl font-normal tracking-tight text-[#17172B] leading-[1.12]"
+            style={{ fontFamily: "var(--font-serif, 'Newsreader', Georgia, serif)" }}
+          >
+            Send it once.{' '}
+            <span className="italic text-[#18181B]">
+              Zyvan takes care of the rest.
+            </span>
           </h2>
-          <p className="mt-3.5 text-sm sm:text-base text-zinc-600 leading-relaxed max-w-xl mx-auto">
+          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed max-w-xl mx-auto font-normal">
             A predictable, durable 3-stage delivery pipeline engineered for high-throughput webhook reliability.
           </p>
         </div>

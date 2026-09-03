@@ -22,7 +22,7 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: 'Zyvan — Reliable Webhook & Event Delivery Infrastructure',
+  title: 'Zyvan-Reliable Webhook & Event Delivery Infrastructure',
   description:
     'A multi-tenant webhook reliability engine that durably accepts events, asynchronously delivers them with RabbitMQ, retries transient failures with exponential backoff & jitter, and provides zero-overwrite DLQ replay.',
   keywords: [
@@ -58,7 +58,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
+      <body className="min-h-full flex flex-col bg-background text-foreground font-mono">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

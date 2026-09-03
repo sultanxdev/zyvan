@@ -7,7 +7,7 @@ import { TextHoverEffect } from '@/components/ui/text-hover-effect';
 export function Footer() {
   return (
     <footer className="border-t border-border/80 bg-white/70 backdrop-blur-xl mb-0 pb-0 overflow-hidden">
-      <div className="mx-auto max-w-7xl px-4 pt-12 pb-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1200px] px-4 pt-14 pb-10 sm:px-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Col */}
           <div className="md:col-span-2 space-y-4">

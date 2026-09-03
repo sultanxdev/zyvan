@@ -39,14 +39,20 @@ export function FAQ() {
   return (
     <section id="faq" className="py-20 sm:py-24 relative">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <Badge variant="pill" className="mb-4">
+        <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
+          <Badge variant="pill" className="mb-3.5 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
             Technical FAQ
           </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
-            Frequently Asked Questions
+          <h2
+            className="text-3xl sm:text-5xl font-normal tracking-tight text-[#17172B] leading-[1.12]"
+            style={{ fontFamily: "var(--font-serif, 'Newsreader', Georgia, serif)" }}
+          >
+            Frequently asked{' '}
+            <span className="italic text-[#18181B]">
+              questions.
+            </span>
           </h2>
-          <p className="mt-4 text-base sm:text-lg text-muted-foreground">
+          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
             Clear technical answers to common questions about Zyvan&apos;s reliability architecture.
           </p>
         </div>

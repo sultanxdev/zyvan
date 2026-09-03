@@ -65,14 +65,20 @@ export function Pricing() {
   return (
     <section id="pricing" className="py-20 sm:py-24 relative">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <Badge variant="pill" className="mb-3">
+        <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
+          <Badge variant="pill" className="mb-3.5 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
             Predictable Pricing
           </Badge>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            Scale without surprise webhook bills
+          <h2
+            className="text-3xl sm:text-5xl font-normal tracking-tight text-[#17172B] leading-[1.12]"
+            style={{ fontFamily: "var(--font-serif, 'Newsreader', Georgia, serif)" }}
+          >
+            Scale without{' '}
+            <span className="italic text-[#18181B]">
+              surprise webhook bills.
+            </span>
           </h2>
-          <p className="mt-4 text-base sm:text-lg text-muted-foreground">
+          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
             Transparent pricing based on successful event throughput. No hidden fees or lock-ins.
           </p>
         </div>
