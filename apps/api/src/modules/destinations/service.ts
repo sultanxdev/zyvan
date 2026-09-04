@@ -227,3 +227,14 @@ export async function testDestination(
     };
   }
 }
+
+/**
+ * Delete a destination by ID.
+ */
+export async function deleteDestination(id: string, projectId: string): Promise<boolean> {
+  const existing = await destRepo.findByIdWithProject(id, projectId);
+  if (!existing) return false;
+
+  await destRepo.remove(id);
+  return true;
+}

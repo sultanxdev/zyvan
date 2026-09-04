@@ -193,3 +193,27 @@ export async function testDestination(req: Request, res: Response, next: NextFun
     next(err);
   }
 }
+
+/**
+ * DELETE /v1/destinations/:id
+ * Delete a destination.
+ */
+export async function deleteDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const deleted = await destinationService.deleteDestination(req.params.id as string, req.auth!.projectId);
+
+    if (!deleted) {
+      res.status(404).json({
+        code: 'not_found',
+        message: 'Destination not found',
+        request_id: req.requestId || 'unknown',
+        details: {},
+      });
+      return;
+    }
+
+    res.json({ message: 'Destination deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
