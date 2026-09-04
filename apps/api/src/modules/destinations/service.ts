@@ -52,14 +52,37 @@ function toSafeDestination(dest: any): SafeDestination {
  */
 export async function createDestination(
   projectId: string,
-  tenantId: string,
+  tenantId: string | undefined,
   url: string,
   secret?: string,
   retryPolicy?: { maxAttempts?: number; baseDelay?: number; maxDelay?: number },
   rateLimit?: number
 ): Promise<SafeDestination> {
-  // 1. Verify tenant ownership
-  const tenant = await tenantRepo.findById(tenantId, projectId);
+  // 1. Resolve tenant (auto-resolve default tenant if not provided)
+  let resolvedTenantId = tenantId;
+  if (!resolvedTenantId) {
+    const defaultTenant = await tenantRepo.findByExternalId('tenant_default', projectId);
+    if (defaultTenant) {
+      resolvedTenantId = defaultTenant.id;
+    } else {
+      const allTenants = await tenantRepo.listByProject(projectId);
+      if (allTenants.length > 0) {
+        resolvedTenantId = allTenants[0].id;
+      } else {
+        const created = await tenantRepo.create({
+          projectId,
+          externalId: 'tenant_default',
+          name: 'Default Tenant',
+          concurrencyLimit: 10,
+          rateLimit: 100,
+        });
+        resolvedTenantId = created.id;
+      }
+    }
+  }
+
+  // Verify tenant ownership
+  const tenant = await tenantRepo.findById(resolvedTenantId, projectId);
   if (!tenant) {
     const err = new Error('Tenant not found or does not belong to this project');
     (err as any).code = 'not_found';
@@ -84,7 +107,7 @@ export async function createDestination(
 
   // 4. Create destination
   const destination = await destRepo.create({
-    tenantId,
+    tenantId: resolvedTenantId,
     url,
     secretRef: encryptedSecret,
     retryPolicy: retryPolicy || { maxAttempts: 5, baseDelay: 1, maxDelay: 3600 },

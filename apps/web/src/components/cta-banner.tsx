@@ -17,8 +17,8 @@ export function CtaBanner() {
           <div className="absolute -bottom-24 -right-24 size-80 rounded-full bg-[#D7E6FF]/80 blur-2xl pointer-events-none" />
 
           {/* Ambient Sparkle Dots */}
-          <div className="absolute top-12 left-1/4 size-1.5 rounded-full bg-blue-400/40 blur-[0.5px]" />
-          <div className="absolute top-20 right-1/4 size-1 rounded-full bg-blue-500/50 blur-[0.5px]" />
+          <div className="absolute top-12 left-1/4 size-1.5 rounded-full bg-green-400/40 blur-[0.5px]" />
+          <div className="absolute top-20 right-1/4 size-1 rounded-full bg-green-500/50 blur-[0.5px]" />
           <div className="absolute bottom-16 left-1/3 size-1.5 rounded-full bg-purple-400/40 blur-[0.5px]" />
           <div className="absolute bottom-20 right-1/3 size-1.5 rounded-full bg-emerald-400/40 blur-[0.5px]" />
 

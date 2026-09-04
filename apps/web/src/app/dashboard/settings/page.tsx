@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
+import { apiClient } from '@/lib/api-client';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,9 +20,10 @@ export default function SettingsPage() {
   const [projectName, setProjectName] = useState(project?.name || 'Default Production Project');
   const [saved, setSaved] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (project) {
+      await apiClient.updateProject(project.id, projectName);
       switchProject({ ...project, name: projectName });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

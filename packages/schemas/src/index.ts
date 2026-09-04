@@ -123,7 +123,7 @@ export const RetryPolicySchema = z.object({
 });
 
 export const CreateDestinationSchema = z.object({
-  tenantId: z.string().uuid(),
+  tenantId: z.string().uuid().optional(),
   url: z.string().url().max(2048),
   secret: z.string().min(16).max(512).optional(),
   retryPolicy: RetryPolicySchema.optional().default({}),

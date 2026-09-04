@@ -496,6 +496,42 @@ const SEED_DEAD_LETTERS: WebhookDeadLetter[] = [
 ];
 
 class ZyvanApiClient {
+  private token: string | null = null;
+  private currentProjectId: string | null = null;
+
+  setAuthToken(token: string | null) {
+    this.token = token;
+  }
+
+  setProjectId(id: string | null) {
+    this.currentProjectId = id;
+  }
+
+  private getBaseUrl(): string {
+    if (typeof window !== 'undefined') {
+      return process.env.NEXT_PUBLIC_API_URL || '/api/proxy';
+    }
+    return process.env.BACKEND_API_URL || 'http://localhost:4000';
+  }
+
+  private getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    const t = this.token || (typeof window !== 'undefined' ? localStorage.getItem('zyvan_token') : null);
+    if (t) {
+      headers['Authorization'] = `Bearer ${t}`;
+    }
+
+    const p = this.currentProjectId || (typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('zyvan_project') || '{}')?.id) : null);
+    if (p) {
+      headers['X-Project-Id'] = p;
+    }
+
+    return headers;
+  }
+
   private getStorage<T>(key: string, fallback: T): T {
     if (typeof window === 'undefined') return fallback;
     try {
@@ -515,29 +551,47 @@ class ZyvanApiClient {
     }
   }
 
-  // ─── Health Check ──────────────────────────────────────────
+  // ─── Health & Readiness Check ──────────────────────────────
   async checkHealth(): Promise<SystemHealth> {
     const start = Date.now();
-    try {
-      const res = await fetch(`${API_BASE_URL}/health`, {
-        method: 'GET',
-        cache: 'no-store',
-        signal: AbortSignal.timeout(2000),
-      });
+    const baseUrl = this.getBaseUrl();
 
-      if (res.ok) {
-        const data = await res.json();
+    try {
+      const [healthRes, readyRes] = await Promise.allSettled([
+        fetch(`${baseUrl}/health`, { method: 'GET', cache: 'no-store', signal: AbortSignal.timeout(2500) }),
+        fetch(`${baseUrl}/ready`, { method: 'GET', cache: 'no-store', signal: AbortSignal.timeout(2500) }),
+      ]);
+
+      const isHealthOk = healthRes.status === 'fulfilled' && healthRes.value.ok;
+      let isDbOk = false;
+      let isMqOk = false;
+      let isRedisOk = false;
+
+      if (readyRes.status === 'fulfilled' && readyRes.value.ok) {
+        const readyData = await readyRes.value.json().catch(() => ({}));
+        isDbOk = readyData.database === 'ok';
+        isMqOk = readyData.rabbitmq === 'ok';
+        isRedisOk = readyData.redis === 'ok';
+      } else if (isHealthOk) {
+        // API is up, ready was degraded
+        const readyData = readyRes.status === 'fulfilled' ? await readyRes.value.json().catch(() => ({})) : {};
+        isDbOk = readyData.database === 'ok';
+        isMqOk = readyData.rabbitmq === 'ok';
+        isRedisOk = readyData.redis === 'ok';
+      }
+
+      if (isHealthOk) {
         return {
           api: true,
-          postgres: data.services?.database === 'up' || true,
-          rabbitmq: data.services?.rabbitmq === 'up' || true,
-          redis: data.services?.redis === 'up' || true,
+          postgres: isDbOk,
+          rabbitmq: isMqOk,
+          redis: isRedisOk,
           timestamp: new Date().toISOString(),
           latencyMs: Date.now() - start,
         };
       }
     } catch {
-      // API currently offline or starting
+      // API currently offline
     }
 
     return {
@@ -556,7 +610,6 @@ class ZyvanApiClient {
     const now = Date.now();
 
     if (range === '24h') {
-      // 12 points (every 2 hours)
       for (let i = 11; i >= 0; i--) {
         const t = new Date(now - i * 2 * 3600 * 1000);
         const hours = t.getHours();
@@ -564,7 +617,6 @@ class ZyvanApiClient {
         const formattedHour = hours % 12 || 12;
         const timeLabel = `${formattedHour}${ampm}`;
 
-        // realistic distribution with peak at daytime
         const factor = hours >= 9 && hours <= 18 ? 1.6 : 0.7;
         const delivered = Math.floor((320 + Math.sin(i) * 140) * factor);
         const retrying = Math.floor(Math.random() * 8) + 1;
@@ -580,7 +632,6 @@ class ZyvanApiClient {
         });
       }
     } else {
-      // 7 points (daily)
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       for (let i = 6; i >= 0; i--) {
         const t = new Date(now - i * 86400 * 1000);
@@ -622,20 +673,59 @@ class ZyvanApiClient {
 
   // ─── Events ────────────────────────────────────────────────
   async getEvents(): Promise<WebhookEvent[]> {
+    const baseUrl = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/v1/events`, {
-        headers: { Authorization: 'Bearer zyvan_live_e891c01b2a98f' },
+      const res = await fetch(`${baseUrl}/v1/events?limit=50`, {
+        headers: this.getAuthHeaders(),
         cache: 'no-store',
-        signal: AbortSignal.timeout(2000),
+        signal: AbortSignal.timeout(3000),
       });
+
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.events) && data.events.length > 0) {
-          return data.events;
+        const json = await res.json();
+        const rawList = Array.isArray(json.data) ? json.data : (Array.isArray(json.events) ? json.events : []);
+        if (rawList.length > 0) {
+          const mapped: WebhookEvent[] = rawList.map((e: any) => ({
+            id: e.id,
+            projectId: e.projectId,
+            tenantId: e.tenantId,
+            eventType: e.eventType,
+            idempotencyKey: e.idempotencyKey,
+            payload: e.payload || {},
+            headers: e.headers || {},
+            status: e.status,
+            createdAt: typeof e.createdAt === 'string' ? e.createdAt : new Date(e.createdAt).toISOString(),
+            deliveries: Array.isArray(e.deliveries)
+              ? e.deliveries.map((d: any) => ({
+                  id: d.id,
+                  eventId: e.id,
+                  destinationId: d.destinationId,
+                  destinationUrl: d.destination?.url || d.destinationUrl,
+                  status: d.status,
+                  attemptCount: d.attemptCount || (d.attempts ? d.attempts.length : 0),
+                  lastStatusCode: d.lastStatusCode,
+                  nextRetryAt: d.nextRetryAt,
+                  attempts: Array.isArray(d.attempts)
+                    ? d.attempts.map((a: any) => ({
+                        id: a.id,
+                        deliveryId: d.id,
+                        attemptNo: a.attemptNo,
+                        statusCode: a.statusCode || 200,
+                        latencyMs: a.latencyMs || 100,
+                        outcome: a.outcome,
+                        errorMessage: a.errorMessage,
+                        startedAt: typeof a.startedAt === 'string' ? a.startedAt : new Date(a.startedAt).toISOString(),
+                      }))
+                    : [],
+                }))
+              : [],
+          }));
+          this.setStorage('zyvan_local_events', mapped);
+          return mapped;
         }
       }
     } catch {
-      // Fallback to local storage
+      // Offline fallback
     }
     return this.getStorage('zyvan_local_events', SEED_EVENTS);
   }
@@ -645,11 +735,13 @@ class ZyvanApiClient {
     payload: Record<string, any>;
     idempotencyKey?: string;
   }): Promise<{ success: boolean; event: WebhookEvent; duplicate?: boolean }> {
+    const baseUrl = this.getBaseUrl();
     const idempotencyKey = data.idempotencyKey || `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
     const newEvent: WebhookEvent = {
       id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-      projectId: '0198fa72-91bc-7123-8819-0012891fa120',
-      tenantId: 'cust_tenant_default',
+      projectId: this.currentProjectId || '0198fa72-91bc-7123-8819-0012891fa120',
+      tenantId: 'tenant_default',
       eventType: data.eventType,
       idempotencyKey,
       payload: data.payload,
@@ -671,40 +763,39 @@ class ZyvanApiClient {
       ],
     };
 
-    // Try live API first
     try {
-      const res = await fetch(`${API_BASE_URL}/v1/events`, {
+      const res = await fetch(`${baseUrl}/v1/events`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer zyvan_live_e891c01b2a98f',
-        },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify({
           type: data.eventType,
-          tenant_id: 'cust_tenant_default',
+          tenant_id: 'tenant_default',
           idempotency_key: idempotencyKey,
           data: data.payload,
         }),
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(4000),
       });
 
       if (res.ok) {
         const result = await res.json();
         newEvent.id = result.event_id || newEvent.id;
         newEvent.status = result.duplicate ? 'delivered' : 'queued';
+
+        const current = this.getStorage('zyvan_local_events', SEED_EVENTS);
+        this.setStorage('zyvan_local_events', [newEvent, ...current]);
+        return { success: true, event: newEvent, duplicate: result.duplicate };
       }
     } catch {
-      // Local simulation with RabbitMQ delivery flow
+      // Offline fallback
     }
 
-    // Update local state
     const current = this.getStorage('zyvan_local_events', SEED_EVENTS);
     const existing = current.find((e) => e.idempotencyKey === idempotencyKey);
     if (existing) {
       return { success: true, event: existing, duplicate: true };
     }
 
-    // Simulate async RabbitMQ delivery completion after 800ms
+    // Simulate async delivery completion after 800ms
     setTimeout(() => {
       const updated = this.getStorage<WebhookEvent[]>('zyvan_local_events', []);
       const match = updated.find((e) => e.id === newEvent.id);
@@ -736,16 +827,30 @@ class ZyvanApiClient {
 
   // ─── Destinations ──────────────────────────────────────────
   async getDestinations(): Promise<WebhookDestination[]> {
+    const baseUrl = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/v1/destinations`, {
-        headers: { Authorization: 'Bearer zyvan_live_e891c01b2a98f' },
+      const res = await fetch(`${baseUrl}/v1/destinations`, {
+        headers: this.getAuthHeaders(),
         cache: 'no-store',
-        signal: AbortSignal.timeout(2000),
+        signal: AbortSignal.timeout(3000),
       });
+
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.destinations) && data.destinations.length > 0) {
-          return data.destinations;
+        const json = await res.json();
+        const rawList = Array.isArray(json.data) ? json.data : (Array.isArray(json.destinations) ? json.destinations : []);
+        if (rawList.length > 0) {
+          const mapped: WebhookDestination[] = rawList.map((d: any) => ({
+            id: d.id,
+            name: d.name || `Endpoint (${d.url.replace(/^https?:\/\//, '').split('/')[0]})`,
+            url: d.url,
+            secretRef: d.secretRef || (d.secret ? 'whsec_***' : undefined),
+            rateLimit: d.rateLimit || 20,
+            active: d.active !== false,
+            createdAt: typeof d.createdAt === 'string' ? d.createdAt : new Date(d.createdAt).toISOString(),
+            retryPolicy: d.retryPolicy || { maxAttempts: 5, baseDelay: 1000, maxDelay: 60000 },
+          }));
+          this.setStorage('zyvan_local_destinations', mapped);
+          return mapped;
         }
       }
     } catch {
@@ -760,6 +865,7 @@ class ZyvanApiClient {
     rateLimit?: number;
     maxAttempts?: number;
   }): Promise<WebhookDestination> {
+    const baseUrl = this.getBaseUrl();
     const newDest: WebhookDestination = {
       id: `dest_${Date.now()}`,
       name: data.name,
@@ -776,19 +882,29 @@ class ZyvanApiClient {
     };
 
     try {
-      await fetch(`${API_BASE_URL}/v1/destinations`, {
+      const res = await fetch(`${baseUrl}/v1/destinations`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer zyvan_live_e891c01b2a98f',
-        },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify({
-          tenant_id: 'cust_tenant_default',
           url: data.url,
           rate_limit: data.rateLimit || 20,
+          retryPolicy: {
+            maxAttempts: data.maxAttempts || 5,
+            baseDelay: 1,
+            maxDelay: 3600,
+          },
         }),
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(4000),
       });
+
+      if (res.ok) {
+        const json = await res.json();
+        const created = json.data;
+        if (created) {
+          newDest.id = created.id;
+          newDest.url = created.url;
+        }
+      }
     } catch {
       // Local fallback
     }
@@ -799,18 +915,47 @@ class ZyvanApiClient {
     return newDest;
   }
 
+  async deleteDestination(id: string): Promise<void> {
+    const baseUrl = this.getBaseUrl();
+    try {
+      await fetch(`${baseUrl}/v1/destinations/${id}`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+        signal: AbortSignal.timeout(3000),
+      });
+    } catch {
+      // Fallback
+    }
+
+    const current = this.getStorage<WebhookDestination[]>('zyvan_local_destinations', SEED_DESTINATIONS);
+    const updated = current.filter((d) => d.id !== id);
+    this.setStorage('zyvan_local_destinations', updated);
+  }
+
   // ─── API Keys ──────────────────────────────────────────────
   async getApiKeys(): Promise<WebhookApiKey[]> {
+    const baseUrl = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/v1/api-keys`, {
-        headers: { Authorization: 'Bearer zyvan_live_e891c01b2a98f' },
+      const res = await fetch(`${baseUrl}/v1/api-keys`, {
+        headers: this.getAuthHeaders(),
         cache: 'no-store',
-        signal: AbortSignal.timeout(2000),
+        signal: AbortSignal.timeout(3000),
       });
+
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.api_keys) && data.api_keys.length > 0) {
-          return data.api_keys;
+        const json = await res.json();
+        const rawList = Array.isArray(json.data) ? json.data : (Array.isArray(json.api_keys) ? json.api_keys : []);
+        if (rawList.length > 0) {
+          const mapped: WebhookApiKey[] = rawList.map((k: any) => ({
+            id: k.id,
+            name: k.name,
+            keyPrefix: k.keyPrefix || k.key_prefix,
+            scopes: k.scopes || [],
+            createdAt: typeof k.createdAt === 'string' ? k.createdAt : new Date(k.createdAt).toISOString(),
+            revokedAt: k.revokedAt || k.revoked_at || null,
+          }));
+          this.setStorage('zyvan_local_keys', mapped);
+          return mapped;
         }
       }
     } catch {
@@ -820,7 +965,9 @@ class ZyvanApiClient {
   }
 
   async createApiKey(data: { name: string; scopes: string[] }): Promise<{ key: WebhookApiKey; rawKey: string }> {
-    const rawSecret = `zyvan_live_${Math.random().toString(36).substring(2, 14)}${Math.random().toString(36).substring(2, 14)}`;
+    const baseUrl = this.getBaseUrl();
+    let rawSecret = `zyvan_live_${Math.random().toString(36).substring(2, 14)}${Math.random().toString(36).substring(2, 14)}`;
+
     const newKey: WebhookApiKey = {
       id: `key_${Date.now()}`,
       name: data.name,
@@ -830,18 +977,27 @@ class ZyvanApiClient {
     };
 
     try {
-      await fetch(`${API_BASE_URL}/v1/api-keys`, {
+      const res = await fetch(`${baseUrl}/v1/api-keys`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer zyvan_live_e891c01b2a98f',
-        },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify({
           name: data.name,
           scopes: data.scopes,
         }),
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(4000),
       });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.key) {
+          rawSecret = json.key;
+        }
+        if (json.api_key) {
+          newKey.id = json.api_key.id;
+          newKey.keyPrefix = json.api_key.key_prefix || json.api_key.keyPrefix;
+          newKey.name = json.api_key.name;
+        }
+      }
     } catch {
       // Local fallback
     }
@@ -852,11 +1008,12 @@ class ZyvanApiClient {
   }
 
   async revokeApiKey(id: string): Promise<void> {
+    const baseUrl = this.getBaseUrl();
     try {
-      await fetch(`${API_BASE_URL}/v1/api-keys/${id}`, {
+      await fetch(`${baseUrl}/v1/api-keys/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: 'Bearer zyvan_live_e891c01b2a98f' },
-        signal: AbortSignal.timeout(2000),
+        headers: this.getAuthHeaders(),
+        signal: AbortSignal.timeout(3000),
       });
     } catch {
       // Fallback
@@ -869,16 +1026,30 @@ class ZyvanApiClient {
 
   // ─── DLQ & Replay ──────────────────────────────────────────
   async getDeadLetters(): Promise<WebhookDeadLetter[]> {
+    const baseUrl = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/v1/dead-letters`, {
-        headers: { Authorization: 'Bearer zyvan_live_e891c01b2a98f' },
+      const res = await fetch(`${baseUrl}/v1/dead-letters`, {
+        headers: this.getAuthHeaders(),
         cache: 'no-store',
-        signal: AbortSignal.timeout(2000),
+        signal: AbortSignal.timeout(3000),
       });
+
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.dead_letters) && data.dead_letters.length > 0) {
-          return data.dead_letters;
+        const json = await res.json();
+        const rawList = Array.isArray(json.data) ? json.data : (Array.isArray(json.dead_letters) ? json.dead_letters : []);
+        if (rawList.length > 0) {
+          const mapped: WebhookDeadLetter[] = rawList.map((d: any) => ({
+            id: d.id,
+            eventId: d.eventId || d.event_id,
+            deliveryId: d.deliveryId || d.delivery_id,
+            reason: d.reason,
+            eventType: d.event?.eventType || d.eventType || 'unknown',
+            destinationUrl: d.delivery?.destination?.url || d.destinationUrl || 'https://api.merchant.com/v1/webhooks',
+            attemptsCount: d.delivery?.attemptCount || d.attemptsCount || 4,
+            createdAt: typeof d.createdAt === 'string' ? d.createdAt : new Date(d.createdAt).toISOString(),
+          }));
+          this.setStorage('zyvan_local_dlq', mapped);
+          return mapped;
         }
       }
     } catch {
@@ -888,12 +1059,14 @@ class ZyvanApiClient {
   }
 
   async replayEvent(eventId: string): Promise<{ success: boolean; message: string }> {
+    const baseUrl = this.getBaseUrl();
     try {
-      const res = await fetch(`${API_BASE_URL}/v1/events/${eventId}/replay`, {
+      const res = await fetch(`${baseUrl}/v1/events/${eventId}/replay`, {
         method: 'POST',
-        headers: { Authorization: 'Bearer zyvan_live_e891c01b2a98f' },
-        signal: AbortSignal.timeout(3000),
+        headers: this.getAuthHeaders(),
+        signal: AbortSignal.timeout(4000),
       });
+
       if (res.ok) {
         return { success: true, message: 'Replay scheduled in RabbitMQ' };
       }
@@ -901,7 +1074,6 @@ class ZyvanApiClient {
       // Fallback
     }
 
-    // In fallback mode, update the local event state to queued/delivering
     const currentEvents = this.getStorage<WebhookEvent[]>('zyvan_local_events', SEED_EVENTS);
     const match = currentEvents.find((e) => e.id === eventId);
     if (match) {
@@ -913,12 +1085,28 @@ class ZyvanApiClient {
       this.setStorage('zyvan_local_events', currentEvents);
     }
 
-    // Remove from DLQ
     const currentDlq = this.getStorage<WebhookDeadLetter[]>('zyvan_local_dlq', SEED_DEAD_LETTERS);
     this.setStorage('zyvan_local_dlq', currentDlq.filter((d) => d.eventId !== eventId));
 
     return { success: true, message: 'Replay lineage created. RabbitMQ message dispatched.' };
   }
+
+  // ─── Project Management ────────────────────────────────────
+  async updateProject(id: string, name: string): Promise<boolean> {
+    const baseUrl = this.getBaseUrl();
+    try {
+      const res = await fetch(`${baseUrl}/v1/projects/${id}`, {
+        method: 'PATCH',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ name }),
+        signal: AbortSignal.timeout(3000),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
 }
 
 export const apiClient = new ZyvanApiClient();
+

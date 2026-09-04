@@ -25,10 +25,10 @@ export function Hero() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-4xl sm:text-6xl lg:text-[72px] font-extrabold tracking-[-0.035em] text-[#111113] leading-[1.05]">
+          <h1 className="font-geist-mono text-4xl sm:text-6xl lg:text-[72px] font-extrabold tracking-[-0.035em] text-[#111113] leading-[1.05]">
             Webhooks fail.{' '}
             <span
-              className="font-normal text-[#27272A] block sm:inline"
+              className="font-geist-mono font-normal text-[#27272A] block sm:inline"
               style={{ fontFamily: "var(--font-serif, 'Newsreader', Georgia, serif)" }}
             >
               Your infrastructure shouldn&apos;t.
@@ -36,7 +36,7 @@ export function Hero() {
           </h1>
 
           {/* Subtitle */}
-          <p className="text-base sm:text-lg lg:text-xl text-zinc-600 max-w-2xl leading-relaxed font-normal">
+          <p className="text-base sm:text-lg lg:text-xl text-zinc-600 max-w-2xl leading-relaxed font-geist-mono">
             Send once. Zyvan delivers your webhooks, retries failures, and keeps every attempt traceable.
           </p>
 
