@@ -9,6 +9,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { authenticateByApiKey } from '../modules/auth/service';
+import { verifyUserToken } from '../modules/auth/user-service';
 import { logger } from '../lib/logger';
 import '../modules/auth/types'; // Ensure req.auth type is augmented
 
@@ -53,6 +54,24 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   }
 
   try {
+    // 1. Try verifying as a User JWT session token first
+    const userPayload = verifyUserToken(token);
+    if (userPayload) {
+      // Check if project was specified via X-Project-Id header, otherwise use payload projectId
+      const requestedProjectId = (req.headers['x-project-id'] as string) || userPayload.projectId;
+
+      req.auth = {
+        type: 'user',
+        userId: userPayload.userId,
+        userEmail: userPayload.email,
+        projectId: requestedProjectId,
+        scopes: ['*'],
+      };
+      next();
+      return;
+    }
+
+    // 2. Fall back to Bearer API key validation
     const result = await authenticateByApiKey(token);
 
     if (!result.success || !result.context) {

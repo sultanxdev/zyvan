@@ -27,6 +27,12 @@ export function authorize(...requiredScopes: string[]) {
       return;
     }
 
+    // Dashboard user sessions have full access to manage their projects
+    if (req.auth.type === 'user' || req.auth.scopes.includes('*')) {
+      next();
+      return;
+    }
+
     const missingScopes = requiredScopes.filter(
       (scope) => !req.auth!.scopes.includes(scope)
     );

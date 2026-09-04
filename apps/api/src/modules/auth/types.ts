@@ -10,8 +10,11 @@
  * on this context for authorization checks.
  */
 export interface AuthContext {
+  type: 'user' | 'api_key';
   projectId: string;
-  apiKeyId: string;
+  userId?: string;
+  userEmail?: string;
+  apiKeyId?: string;
   scopes: string[];
 }
 

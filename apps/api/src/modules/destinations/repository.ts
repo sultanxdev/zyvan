@@ -119,3 +119,13 @@ export async function setActive(id: string, active: boolean): Promise<Destinatio
     data: { active },
   });
 }
+
+/**
+ * Delete a destination.
+ */
+export async function remove(id: string): Promise<Destination> {
+  const prisma = getPrismaClient();
+  return prisma.destination.delete({
+    where: { id },
+  });
+}

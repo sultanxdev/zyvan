@@ -82,6 +82,7 @@ export async function authenticateByApiKey(bearerToken: string): Promise<AuthRes
   return {
     success: true,
     context: {
+      type: 'api_key',
       projectId: apiKey.projectId,
       apiKeyId: apiKey.id,
       scopes: apiKey.scopes,
