@@ -5,7 +5,7 @@
 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { getPrismaClient, PrismaClient } from '@zyvan/database';
+import { getPrismaClient } from '@zyvan/database';
 import { generateApiKey, hashApiKey } from '@zyvan/crypto';
 import { API_KEY_SCOPES } from '@zyvan/schemas';
 import type { SignupInput, LoginInput } from '@zyvan/schemas';

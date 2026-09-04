@@ -20,6 +20,7 @@ import { errorHandler } from './middleware/error-handler';
 import { authenticate } from './middleware/authenticate';
 import { healthRoutes } from './routes/health';
 import { bootstrapRoutes } from './modules/bootstrap/routes';
+import { authRoutes } from './modules/auth/routes';
 import { apiKeyRoutes } from './modules/api-keys/routes';
 import { projectRoutes } from './modules/projects/routes';
 import { tenantRoutes } from './modules/tenants/routes';
@@ -42,7 +43,14 @@ const app = express();
 // ─── Global Middleware ───────────────────────────────────────
 
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Project-Id', 'X-Request-Id'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  })
+);
 app.use(compression());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -75,6 +83,9 @@ app.use('/', healthRoutes);
 
 // Bootstrap (no auth — only works when zero projects exist)
 app.use('/v1/bootstrap', bootstrapRoutes);
+
+// User Authentication (signup, login, demo, me)
+app.use('/v1/auth', authRoutes);
 
 // API root info (no auth)
 app.get('/v1', (_req, res) => {

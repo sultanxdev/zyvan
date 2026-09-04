@@ -19,6 +19,7 @@ router.post('/', authorize('destinations:manage'), controller.createDestination)
 router.get('/', authorize('destinations:manage'), controller.listDestinations);
 router.get('/:id', authorize('destinations:manage'), controller.getDestination);
 router.patch('/:id', authorize('destinations:manage'), controller.updateDestination);
+router.delete('/:id', authorize('destinations:manage'), controller.deleteDestination);
 
 router.post('/:id/pause', authorize('destinations:manage'), controller.pauseDestination);
 router.post('/:id/resume', authorize('destinations:manage'), controller.resumeDestination);

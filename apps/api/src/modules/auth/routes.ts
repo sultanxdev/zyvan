@@ -48,7 +48,7 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction): P
  * POST /v1/auth/demo
  * One-click demo sign-in for portfolio demonstration.
  */
-router.post('/demo', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.post('/demo', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const session = await userService.demoLogin();
     res.json({

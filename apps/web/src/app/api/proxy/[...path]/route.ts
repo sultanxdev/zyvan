@@ -10,6 +10,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   return handleProxy(request, await params);
 }
 
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  return handleProxy(request, await params);
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  return handleProxy(request, await params);
+}
+
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   return handleProxy(request, await params);
 }
