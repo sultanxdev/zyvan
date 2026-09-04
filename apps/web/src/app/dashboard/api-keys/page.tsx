@@ -124,7 +124,7 @@ export default function ApiKeysPage() {
               <tbody className="divide-y divide-border/60">
                 {keys.map((k) => (
                   <tr key={k.id} className="hover:bg-secondary/20 transition-colors">
-                    <td className="py-3.5 px-4 font-semibold text-zinc-950 font-sans text-sm">
+                    <td className="py-3.5 px-4 font-semibold text-zinc-950 font-mono text-sm">
                       {k.name}
                     </td>
                     <td className="py-3.5 px-4 text-zinc-800">
@@ -212,7 +212,7 @@ export default function ApiKeysPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Ingestion Pipeline Worker"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-zinc-950 font-sans text-sm"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-zinc-950 font-mono text-sm"
                     required
                   />
                 </div>

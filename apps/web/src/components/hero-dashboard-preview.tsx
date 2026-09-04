@@ -78,7 +78,7 @@ export function HeroDashboardPreview() {
             <span>dashboard</span>
             <span>/</span>
             <span className="text-zinc-900 font-medium">overview</span>
-            <span className="hidden sm:inline-flex items-center gap-1 ml-2 text-[10px] text-emerald-600 font-sans font-medium px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/60">
+            <span className="hidden sm:inline-flex items-center gap-1 ml-2 text-[10px] text-emerald-600 font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200/60">
               <span className="size-1.5 rounded-full bg-[#00DC5A] animate-pulse" />
               Live Ingestion
             </span>

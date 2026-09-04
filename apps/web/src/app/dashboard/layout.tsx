@@ -83,7 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground antialiased selection:bg-zinc-950 selection:text-white">
+    <div className="min-h-screen flex bg-background text-foreground antialiased selection:bg-zinc-950 selection:text-white font-mono">
       {/* ─── Desktop Sidebar ───────────────────────────────────── */}
       <aside className="w-64 border-r border-border bg-white/90 backdrop-blur-md flex flex-col justify-between shrink-0 hidden md:flex">
         <div className="flex flex-col">
@@ -225,7 +225,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </button>
 
               {userMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-white p-2 shadow-xl z-50 animate-fade-in font-sans">
+                <div className="absolute right-0 mt-2 w-56 rounded-xl border border-border bg-white p-2 shadow-xl z-50 animate-fade-in font-mono">
                   <div className="p-2 border-b border-border/70 mb-1">
                     <p className="text-xs font-bold text-zinc-950 truncate">{user.name}</p>
                     <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>

@@ -48,7 +48,7 @@ export function Hero() {
                 <Icon icon={ArrowRight01Icon} size={16} />
               </Link>
             </Button>
-            <Button variant="outline" size="lg" asChild className="rounded-full border-black/[0.1] bg-white text-zinc-800 hover:bg-zinc-50 text-sm px-6 h-11 font-medium shadow-xs">
+            <Button variant="outline" size="lg" asChild className="rounded-full border-black/[0.1] bg-white text-zinc-800 hover:bg-green-700 bg-green-400   text-sm px-6 h-11 font-medium shadow-xs">
               <Link href="/docs" className="flex items-center gap-2">
                 <span>Read the docs</span>
               </Link>

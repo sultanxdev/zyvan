@@ -177,7 +177,7 @@ function DocsContent() {
                 placeholder="Quick search docs..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-full border border-zinc-200/80 bg-zinc-50 py-1.5 pl-8 pr-8 text-xs text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition-all font-sans"
+                className="w-full rounded-full border border-zinc-200/80 bg-zinc-50 py-1.5 pl-8 pr-8 text-xs text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:border-emerald-500 focus:outline-hidden transition-all font-mono"
               />
               {searchQuery && (
                 <button
