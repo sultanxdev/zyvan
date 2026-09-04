@@ -60,11 +60,48 @@ enum ReplayStatus {
   failed
 }
 
+// ─── Users ───────────────────────────────────────────────────────────────────
+// Dashboard users who manage projects and view metrics.
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  name         String   @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  avatar       String?  @db.VarChar(512)
+  role         String   @default("member") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  ownedProjects Project[]       @relation("ProjectOwner")
+  memberships   ProjectMember[]
+
+  @@map("users")
+}
+
+model ProjectMember {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  role      String   @default("owner") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@index([projectId])
+  @@map("project_members")
+}
+
 // ─── Projects ────────────────────────────────────────────────────────────────
 // The main isolation boundary. All resources belong to a project.
 
 model Project {
   id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId   String?       @map("owner_id") @db.Uuid
   name      String        @db.VarChar(255)
   plan      String        @default("free") @db.VarChar(50)
   status    ProjectStatus @default(active)
@@ -72,10 +109,13 @@ model Project {
   updatedAt DateTime      @updatedAt @map("updated_at")
 
   // Relations
+  owner    User?           @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  members  ProjectMember[]
   apiKeys  ApiKey[]
   tenants  Tenant[]
   events   Event[]
 
+  @@index([ownerId])
   @@map("projects")
 }
 

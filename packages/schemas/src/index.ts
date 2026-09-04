@@ -37,6 +37,28 @@ export type DeliveryStatus = z.infer<typeof DeliveryStatusEnum>;
 export type AttemptOutcome = z.infer<typeof AttemptOutcomeEnum>;
 export type ReplayStatus = z.infer<typeof ReplayStatusEnum>;
 
+// ─── User Schemas ────────────────────────────────────────────
+
+export const SignupSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255),
+  email: z.string().email('Valid email is required').max(255),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+});
+
+export const LoginSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+export const UpdateUserSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  avatar: z.string().url().max(512).optional(),
+});
+
+export type SignupInput = z.infer<typeof SignupSchema>;
+export type LoginInput = z.infer<typeof LoginSchema>;
+export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;
+
 // ─── Project Schemas ─────────────────────────────────────────
 
 export const CreateProjectSchema = z.object({
