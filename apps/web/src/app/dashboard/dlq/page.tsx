@@ -85,7 +85,7 @@ export default function DeadLetterQueuePage() {
       <div className="p-4 rounded-xl border border-zinc-200 bg-white shadow-xs font-mono text-xs flex items-start gap-3">
         <Icon icon={ShieldCheckIcon} size={20} className="text-[#00DC5A] mt-0.5 shrink-0" />
         <div>
-          <strong className="text-zinc-950 font-bold block mb-0.5 font-sans">
+          <strong className="text-zinc-950 font-bold block mb-0.5 font-mono">
             Zero-Overwrite DLQ Guarantee
           </strong>
           <span className="text-muted-foreground leading-relaxed">

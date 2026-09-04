@@ -241,7 +241,7 @@ export default function DestinationsPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Production Stripe Ingestion"
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-zinc-950 font-sans text-sm"
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-zinc-950 font-mono text-sm"
                   required
                 />
               </div>
@@ -256,7 +256,7 @@ export default function DestinationsPage() {
                   className="w-full px-3 py-2 rounded-lg border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-zinc-950 font-mono text-xs"
                   required
                 />
-                <p className="text-[11px] text-zinc-500 font-sans mt-1">
+                <p className="text-[11px] text-zinc-500 font-mono mt-1">
                   Protected by Zyvan SSRF DNS Guard (private IP &amp; loopback ranges are rejected).
                 </p>
               </div>
