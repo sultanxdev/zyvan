@@ -1,70 +1,73 @@
-version: '3.8'
+# ─────────────────────────────────────────────────────────────
+# Zyvan — Docker Compose (Local Development)
+#
+# Services:
+#   - PostgreSQL (source of truth)
+#   - Redis (sessions/cache)
+#   - RabbitMQ (delivery queue)
+#
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose down           # Stop all services
+#   docker-compose logs -f        # Tail all logs
+# ─────────────────────────────────────────────────────────────
+
 
 services:
+  # ─── PostgreSQL ─────────────────────────────────────────────
   postgres:
-    image: postgres:15
-    container_name: zyvan_postgres
+    image: postgres:16-alpine
+    container_name: zyvan-postgres
     restart: unless-stopped
+    ports:
+      - '5432:5432'
     environment:
       POSTGRES_USER: zyvan
       POSTGRES_PASSWORD: zyvan_secret
-      POSTGRES_DB: zyvan_db
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: zyvan_dev
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - zyvan-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U zyvan -d zyvan_db"]
+      test: ['CMD-SHELL', 'pg_isready -U zyvan -d zyvan_dev']
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # ─── Redis ──────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: zyvan_redis
+    container_name: zyvan-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - '6379:6379'
+    volumes:
+      - zyvan-redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
 
-  server:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    container_name: zyvan_server
+  # ─── RabbitMQ ───────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: zyvan-rabbitmq
     restart: unless-stopped
     ports:
-      - "4000:4000"
-    env_file:
-      - ./server/.env
+      - '5672:5672'    # AMQP
+      - '15672:15672'  # Management UI
     environment:
-      - PORT=4000
-      - DATABASE_URL=postgresql://zyvan:zyvan_secret@postgres:5432/zyvan_db
-      - REDIS_URL=redis://redis:6379
-      - NODE_ENV=production
-      - CORS_ORIGINS=http://localhost:3000,http://client:3000
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  client:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
-    container_name: zyvan_client
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://server:4000
-    depends_on:
-      - server
+      RABBITMQ_DEFAULT_USER: zyvan
+      RABBITMQ_DEFAULT_PASS: zyvan_secret
+    volumes:
+      - zyvan-rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 volumes:
-  pg_data:
+  zyvan-postgres-data:
+  zyvan-redis-data:
+  zyvan-rabbitmq-data:

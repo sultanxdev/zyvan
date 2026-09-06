@@ -1,0 +1,3314 @@
+Zyvan MVP v0.1
+This should be your actual implementation baseline now. The PRD is broader than what you should build immediately, so MVP v0.1 deliberately freezes the scope around the reliability core rather than trying to implement the entire product vision. The PRD itself says the first release should focus on durable ingestion, at-least-once delivery, idempotency, retries, dead-letter recovery, replay, debugging, tenant isolation, and fast onboarding.
+
+1. Product definition
+Product
+Zyvan — Reliable Webhook & Event Delivery Infrastructure
+MVP v0.1 objective
+Build a working developer infrastructure platform where a customer can:
+Create Project
+      ↓
+Create API Key
+      ↓
+Create Tenant
+      ↓
+Create Destination
+      ↓
+POST Event
+      ↓
+Durably Store Event
+      ↓
+Queue Delivery
+      ↓
+Worker Sends Webhook
+      ↓
+Success → Delivered
+Failure → Retry
+      ↓
+Retry Exhausted
+      ↓
+DLQ
+      ↓
+Replay
+The important architectural principle is that PostgreSQL is the system of record, while Redis/BullMQ is the execution mechanism.
+
+2. MVP v0.1 feature scope
+A. Authentication
+Build:
+API-key authentication
+API-key hashing
+API-key scopes
+API-key revocation
+API-key expiration
+Dashboard authentication
+Authentication middleware
+Authorization middleware
+Every protected API operation should enforce project/tenant/key scope.
+
+3. Project management
+A project is the main isolation boundary.
+Project
+id
+name
+plan
+status
+created_at
+updated_at
+Features:
+Create project
+View project
+Update project
+Disable project
+Generate API key
+The PRD defines Project as the isolation boundary for configuration and usage.
+
+4. Multi-tenant support
+Each project can contain multiple tenants.
+Tenant
+id
+project_id
+external_id
+name
+concurrency_limit
+rate_limit
+status
+created_at
+updated_at
+Features:
+Create tenant
+List tenants
+View tenant
+Update tenant
+Set concurrency limit
+Set rate limit
+Pause tenant
+Tenant-specific metrics
+The purpose is to prevent a high-volume tenant from consuming all worker capacity. This is a P0 requirement.
+
+5. Destination management
+A destination is where Zyvan sends the webhook.
+Destination
+id
+tenant_id
+url
+secret_ref
+retry_policy
+rate_limit
+active
+created_at
+updated_at
+Features:
+Create destination
+View destination
+Update destination
+Delete/disable destination
+Test destination
+Pause destination
+Resume destination
+Configure retry policy
+Configure rate limit
+Secrets must not be exposed through normal API responses, logs, or dashboard payloads.
+
+6. Event ingestion
+This is the heart of Zyvan.
+Endpoint
+POST /v1/events
+Request
+{
+  "type": "invoice.paid",
+  "tenant_id": "tenant_123",
+  "idempotency_key": "invoice_789_paid",
+  "data": {
+    "invoice_id": "inv_789"
+  }
+}
+Response
+{
+  "event_id": "evt_01J...",
+  "status": "queued",
+  "created_at": "2026-08-30T10:00:00Z"
+}
+The PRD explicitly specifies this basic event contract and 202 Accepted behavior.
+Ingestion processing
+Request
+  ↓
+Authenticate
+  ↓
+Authorize
+  ↓
+Validate payload
+  ↓
+Validate Idempotency-Key
+  ↓
+Check duplicate
+  ↓
+Persist Event in PostgreSQL
+  ↓
+Create Delivery records
+  ↓
+Queue delivery job
+  ↓
+Return 202
+The API must not wait for the destination HTTP request to finish before responding. Durable acceptance comes first.
+
+7. Idempotency
+This is one of the features you should absolutely demonstrate in interviews.
+Rule
+Same project + same idempotency_key
+             ↓
+       Same logical event
+Two concurrent requests using the same idempotency key must not create two logical events.
+Example:
+Request 1 → idempotency_key = order_123
+Request 2 → idempotency_key = order_123
+
+Result:
+Request 1 → evt_001
+Request 2 → evt_001
+Not:
+evt_001
+evt_002
+
+8. Event storage
+Event
+id
+project_id
+tenant_id
+event_type
+idempotency_key
+payload
+headers
+status
+created_at
+updated_at
+Recommended states:
+queued
+delivering
+retrying
+delivered
+dead_letter
+expired
+cancelled
+These states follow the PRD's UX/state model.
+
+9. Delivery model
+One Event can produce one or more Deliveries.
+Delivery
+id
+event_id
+destination_id
+status
+created_at
+updated_at
+This is important because:
+1 Event
+   ↓
+Destination A → Delivery A
+Destination B → Delivery B
+Destination C → Delivery C
+The PRD defines Delivery as the logical delivery of an Event to a Destination.
+
+10. Worker system
+Use:
+Redis
+   +
+BullMQ
+   ↓
+Worker
+Worker responsibilities:
+Consume delivery job
+Check tenant concurrency
+Check destination rate limit
+Build webhook request
+Sign payload
+Apply timeout
+Send HTTP request
+Record result
+Determine retry/terminal outcome
+The PRD specifically recommends Redis + BullMQ for asynchronous execution, scheduling, concurrency and delayed retries.
+
+11. Attempt tracking
+Every actual HTTP delivery should create an Attempt.
+Attempt
+id
+delivery_id
+attempt_no
+started_at
+ended_at
+response
+status_code
+latency_ms
+outcome
+error_message
+Example:
+Delivery D1
+
+Attempt 1 → 500 → 210ms → failed
+Attempt 2 → timeout → 5000ms → failed
+Attempt 3 → 200 → 180ms → success
+The attempt history must remain immutable because it is what lets an engineer reconstruct the incident.
+
+12. Retry engine
+Retry on
+HTTP 5xx
+Connection failure
+Timeout
+Other configured transient failures
+Don't blindly retry
+Permanent 4xx errors
+Invalid requests
+Authorization failures
+Policy-defined terminal errors
+Retry strategy
+Attempt 1
+   ↓
+wait
+   ↓
+Attempt 2
+   ↓
+exponential backoff + jitter
+   ↓
+Attempt 3
+   ↓
+...
+   ↓
+retry exhausted
+   ↓
+DLQ
+The SRS explicitly requires exponential backoff + jitter and classification between retryable and terminal errors.
+A simple MVP policy could be:
+max_attempts = 5
+base_delay = 1s
+max_delay = configurable
+jitter = enabled
+That exact numeric policy is your implementation choice, not a value specified by the PRD.
+
+13. Dead Letter Queue
+When retry attempts are exhausted:
+Delivery
+   ↓
+Retry exhausted
+   ↓
+Dead Letter
+Store:
+event_id
+reason
+created_at
+But do not throw away attempt history.
+The PRD requires exhausted/expired events to enter a recoverable terminal state with complete history.
+
+14. Replay
+Replay must not mutate the original attempt history.
+Example:
+Original:
+
+Attempt 1 → 500
+Attempt 2 → 500
+Attempt 3 → DLQ
+
+
+Replay:
+
+Replay R1
+   ↓
+New Delivery/Attempt
+   ↓
+Attempt 4 → 200
+The PRD explicitly requires replay to create a new attempt lineage rather than overwrite historical attempts.
+Endpoint
+POST /v1/events/{event_id}/replay
+Response:
+{
+  "replay_id": "replay_01J...",
+  "status": "queued"
+}
+
+15. HMAC webhook signing
+Outbound requests should include a versioned signature.
+Example conceptual headers:
+X-Zyvan-Signature: v1=<signature>
+X-Zyvan-Timestamp: <timestamp>
+X-Zyvan-Delivery-Id: <delivery_id>
+X-Zyvan-Event-Id: <event_id>
+Sign:
+timestamp + raw payload
+using:
+HMAC-SHA256
+The PRD specifies HMAC-SHA256, versioned signatures, timestamp information and delivery/event IDs.
+
+16. Secret management
+For v0.1:
+Destination Secret
+       ↓
+Encrypt
+       ↓
+Database
+Never:
+console.log(secret)
+logger.info(secret)
+dashboard API → secret
+error tracking → secret
+The PRD explicitly requires secrets to be encrypted at rest and excluded from normal logs/traces.
+
+17. SSRF protection
+This is an excellent interview feature.
+Before allowing a destination:
+https://customer-domain.com/webhook
+validate that the URL isn't targeting:
+localhost
+127.0.0.1
+private IP ranges
+link-local addresses
+cloud metadata endpoints
+The PRD explicitly identifies SSRF protection as a P0 security requirement.
+
+18. Tenant rate limiting
+You need two separate controls.
+Concurrency
+Tenant A → max 5 concurrent deliveries
+Tenant B → max 5 concurrent deliveries
+Rate limit
+Tenant A
+100 events/sec
+
+Destination B
+20 requests/sec
+Excess work stays queued instead of being silently discarded.
+
+19. Dashboard
+Do not build a pretty SaaS dashboard full of useless charts.
+The dashboard exists primarily for debugging reliability.
+Overview
+Show:
+Events today
+Delivery success rate
+Failure rate
+Retry rate
+Queue depth
+Queue age
+DLQ count
+Average latency
+The PRD calls for delivery rate, failures, backlog, latency and usage visibility.
+
+20. Event Explorer
+Filters:
+Event ID
+Event Type
+Tenant
+Destination
+Status
+Date/Time
+Example:
+Search:
+tenant = shop_123
+status = retrying
+
+21. Event Detail
+This should be one of your strongest UI screens.
+Show:
+Event ID
+Event Type
+Tenant
+Created At
+Current Status
+Then:
+Timeline
+
+10:01:02  Event received
+10:01:02  Event persisted
+10:01:03  Delivery queued
+10:01:04  Attempt #1
+10:01:05  HTTP 500
+10:01:05  Retry scheduled
+10:01:10  Attempt #2
+10:01:11  HTTP 200
+And:
+Destination
+HTTP status
+Latency
+Attempt number
+Retry schedule
+Failure reason
+This mirrors the PRD's event-detail design.
+
+22. Destination dashboard
+Show:
+URL
+Status
+Success rate
+Failure rate
+Retry rate
+Last delivery
+Retry policy
+Rate limit
+Actions:
+Pause
+Resume
+Test
+Edit
+
+23. DLQ dashboard
+Show:
+Event
+Tenant
+Destination
+Failure reason
+Attempts
+Created time
+Actions:
+Replay
+Inspect
+Don't initially build complex bulk operations unless the basic replay workflow works reliably.
+
+24. Observability
+For v0.1:
+Logs
+Structured JSON:
+{
+  "event_id": "evt_123",
+  "delivery_id": "del_456",
+  "attempt_id": "att_789",
+  "tenant_id": "tenant_1",
+  "status": "failed",
+  "status_code": 500,
+  "latency_ms": 240
+}
+Metrics
+Track:
+ingestion_success
+delivery_success
+delivery_failure
+retry_count
+queue_depth
+queue_age
+delivery_latency
+worker_utilization
+dlq_growth
+These are directly aligned with the PRD's observability requirements.
+
+25. API v0.1
+Keep the API small.
+Projects
+POST   /v1/projects
+GET    /v1/projects
+GET    /v1/projects/{project_id}
+PATCH  /v1/projects/{project_id}
+API keys
+POST   /v1/api-keys
+GET    /v1/api-keys
+DELETE /v1/api-keys/{key_id}
+Tenants
+POST   /v1/tenants
+GET    /v1/tenants
+GET    /v1/tenants/{tenant_id}
+PATCH  /v1/tenants/{tenant_id}
+Destinations
+POST   /v1/destinations
+GET    /v1/destinations
+GET    /v1/destinations/{destination_id}
+PATCH  /v1/destinations/{destination_id}
+
+POST   /v1/destinations/{destination_id}/pause
+POST   /v1/destinations/{destination_id}/resume
+POST   /v1/destinations/{destination_id}/test
+Events
+POST   /v1/events
+GET    /v1/events
+GET    /v1/events/{event_id}
+
+POST   /v1/events/{event_id}/replay
+Deliveries
+GET /v1/destinations/{destination_id}/deliveries
+Usage
+GET /v1/usage
+The core event, replay, destination and API-key endpoints are consistent with the PRD's API specification.
+
+26. Error contract
+Every error:
+{
+  "code": "duplicate_idempotency_key",
+  "message": "An event already exists for this idempotency key.",
+  "request_id": "req_123",
+  "details": {}
+}
+Supported categories should include:
+invalid_request
+authentication_failed
+authorization_denied
+duplicate_idempotency_key
+rate_limited
+not_found
+conflict
+payload_too_large
+internal_error
+These categories are explicitly defined in the PRD.
+
+27. Database schema
+For v0.1, use:
+projects
+    ↓
+api_keys
+
+projects
+    ↓
+tenants
+    ↓
+destinations
+
+projects
+    ↓
+events
+    ↓
+deliveries
+    ↓
+attempts
+
+events
+    ↓
+replays
+
+events
+    ↓
+dead_letters
+Core tables
+projects
+api_keys
+tenants
+destinations
+events
+deliveries
+attempts
+replays
+dead_letters
+Don't create 30 tables because the PRD mentions future capabilities. That's premature architecture.
+
+28. Recommended backend architecture
+                   ┌──────────────────────┐
+                    │ Customer Application │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │     Zyvan API        │
+                    │ Auth / Validation    │
+                    │ Idempotency          │
+                    └──────────┬───────────┘
+                               │
+                         Persist first
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │     PostgreSQL       │
+                    │  Source of Truth     │
+                    └──────────┬───────────┘
+                               │
+                         Queue Job
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │    Redis / BullMQ    │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │      Workers         │
+                    │ Retry / Rate Limit   │
+                    │ Concurrency / HMAC   │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │ Customer Endpoint    │
+                    └──────────┬───────────┘
+                               │
+                     ┌─────────┴─────────┐
+                     │                   │
+                   2xx              4xx/5xx/Timeout
+                     │                   │
+                     ▼                   ▼
+                 Delivered              Retry
+                                         │
+                                         ▼
+                                      DLQ
+                                         │
+                                         ▼
+                                      Replay
+Conceptually, this matches the PRD's separation of ingestion, delivery, control, observation and storage planes.
+
+29. Code structure
+Use a structure close to the PRD's recommended repository layout.
+zyvan/
+│
+├── apps/
+│   ├── web/
+│   ├── api/
+│   └── worker/
+│
+├── packages/
+│   ├── schemas/
+│   ├── crypto/
+│   └── sdk-node/
+│
+├── infra/
+│   ├── docker/
+│   └── local/
+│
+├── docs/
+│   ├── architecture/
+│   ├── api/
+│   └── runbooks/
+│
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   ├── e2e/
+│   └── load/
+│
+├── docker-compose.yml
+├── package.json
+└── README.md
+For your current project, don't build sdk-python, Terraform, or a giant infrastructure repository unless the actual implementation requires them.
+
+30. Technology stack for v0.1
+Frontend
+Next.js
+React
+TypeScript
+Backend
+Node.js
+TypeScript
+Fastify
+Zod
+The PRD recommends Next.js/React/TypeScript and Node.js/TypeScript with Fastify as the API direction.
+Database
+PostgreSQL
+Queue
+Redis
+BullMQ
+Security
+API Keys
+HMAC-SHA256
+SSRF validation
+Encrypted secrets
+Observability
+OpenTelemetry
+Structured JSON logging
+Prometheus-compatible metrics
+Testing
+Vitest/Jest
+Supertest
+Playwright
+Load testing
+Deployment
+Docker
+GitHub Actions
+Containerized API + Worker
+These choices match the PRD's engineering standards.
+
+31. What is explicitly OUT of MVP v0.1
+This is just as important as the feature list.
+Don't build now
+❌ Customer-facing webhook portal
+❌ Advanced payload transformations
+❌ General workflow engine
+❌ Kafka
+❌ SQS/PubSub integrations
+❌ Multi-region active-active
+❌ Terraform provider
+❌ SSO/SAML
+❌ SCIM
+❌ Dedicated enterprise infrastructure
+❌ Formal SOC 2 program
+❌ Self-hosted enterprise distribution
+❌ Advanced routing language
+❌ Large-scale archival system
+❌ Complex billing engine
+Routing/filtering is P1, transformations and customer-facing portal are P2, while several enterprise and scale features are explicitly post-PMF.
+
+32. MVP v0.1 definition of done
+Do not call v0.1 finished merely because the UI works.
+Your implementation should pass these tests:
+Core
+✓ Event is durably stored before acceptance
+✓ Duplicate idempotency key doesn't create duplicate event
+✓ Worker can deliver event asynchronously
+✓ Delivery attempts are persisted
+✓ 500 triggers retry
+✓ Timeout triggers retry
+✓ Retry uses backoff + jitter
+✓ Retry exhaustion moves to DLQ
+✓ DLQ event can be replayed
+✓ Original attempts remain unchanged
+Multi-tenancy
+✓ Tenant A cannot access Tenant B's data
+✓ Tenant limits work
+✓ One tenant cannot consume all worker capacity
+Security
+✓ Invalid API key rejected
+✓ Unauthorized scope rejected
+✓ Webhook contains HMAC signature
+✓ Secret isn't logged
+✓ SSRF destination blocked
+Observability
+✓ Event searchable
+✓ Event timeline visible
+✓ Attempt history visible
+✓ Response code visible
+✓ Retry state visible
+✓ Queue depth visible
+Testing
+The PRD explicitly calls for automated tests covering duplicate deliveries, worker crash recovery, retry exhaustion, secret rotation and queue backlog.
+
+33. The three failure scenarios you MUST demonstrate
+These will make the project much stronger in an interview.
+Scenario 1 — Duplicate request
+POST event
+POST same event again
+        ↓
+same logical event
+Explain:
+"I used idempotency keys scoped to the project/tenant and enforced uniqueness at persistence level."
+
+Scenario 2 — Customer endpoint failure
+Webhook
+   ↓
+Customer endpoint → 500
+   ↓
+Retry #1
+   ↓
+500
+   ↓
+Retry #2
+   ↓
+200
+   ↓
+Delivered
+Explain:
+"The ingestion path is decoupled from delivery, and the worker retries transient failures using exponential backoff with jitter."
+
+Scenario 3 — Worker crash
+Event persisted
+      ↓
+Job queued
+      ↓
+Worker crashes
+      ↓
+Worker restarted
+      ↓
+Job recovered
+      ↓
+Delivery continues
+This is particularly important because the architecture explicitly requires asynchronous work to be recoverable after process/worker loss.
+
+34. What you can put on your resume
+Zyvan — Webhook & Event Reliability Platform
+Use this only after the corresponding functionality genuinely exists.
+Built Zyvan, a multi-tenant webhook reliability platform using Node.js, TypeScript, PostgreSQL, Redis and BullMQ, providing durable event ingestion and asynchronous webhook delivery.
+Implemented idempotent event processing, persistent delivery/attempt history, configurable retries with exponential backoff and jitter, dead-letter recovery and safe event replay.
+Engineered tenant-aware concurrency/rate controls, HMAC-SHA256 webhook signing, SSRF protection and encrypted destination secrets for secure multi-tenant delivery.
+Built an operational dashboard for event search, delivery timelines, retry state, failures, queue health and DLQ recovery.
+Containerized API and worker services with automated unit, integration and end-to-end reliability testing.
+The strongest part here is not the technology list. It is the failure-handling engineering.
+
+35. How you should describe Zyvan in a cold email
+Don't say:
+"I built a webhook API."
+Too weak.
+Use:
+I’m building Zyvan, a webhook reliability platform for SaaS teams that need durable event ingestion, asynchronous delivery, automatic retries, failure recovery, replay, and delivery observability without maintaining the infrastructure themselves.
+Then mention the technical depth:
+The platform is built with Node.js, TypeScript, PostgreSQL, Redis/BullMQ and Docker, with idempotency, tenant isolation, HMAC signing, retry/DLQ workflows, and production-oriented observability.
+
+36. Your actual scope boundary
+This is the most important part.
+V0.1 = Reliability Engine
+               ZYVAN V0.1
+                    │
+       ┌────────────┴────────────┐
+       │                         │
+   INGESTION                 DELIVERY
+       │                         │
+   Auth                    Queue / Worker
+   Validation              HTTP Delivery
+   Idempotency              Retry
+   Persistence              Timeout
+       │                    HMAC
+       │                    Rate Limit
+       │                    Concurrency
+       │                         │
+       └────────────┬────────────┘
+                    │
+             FAILURE RECOVERY
+                    │
+              DLQ + Replay
+                    │
+              OBSERVABILITY
+                    │
+          Dashboard + Timeline
+That is a coherent engineering project.
+Don't dilute it by prematurely adding billing, AI, transformations, Terraform, multi-region infrastructure and enterprise IAM. The PRD itself warns against overbuilding before product-market validation and says to earn expansion only after production customers validate the core reliability problem.
+The one-sentence definition to keep in your README
+Zyvan v0.1 is a multi-tenant webhook reliability engine that durably accepts events, asynchronously delivers them with retry and tenant-aware controls, records complete delivery history, and provides DLQ, replay, security and operational debugging.
+
+Zyvan Frontend PRD v0.1
+This frontend PRD is the implementation PRD for the current Zyvan MVP, not the entire long-term product vision.
+The frontend should communicate one core idea: Zyvan reliably receives, stores, delivers, retries, and replays critical webhooks while giving engineers clear visibility into failures. That is consistent with the product positioning and UX direction in the original PRD.
+The primary user is an engineer debugging a production event, so the UI should optimize for operational clarity rather than generic SaaS decoration.
+
+1. Frontend product definition
+Product
+Zyvan — Webhook & Event Reliability Platform
+Frontend responsibilities
+The frontend has two distinct areas:
+Zyvan Frontend
+│
+├── Public Website
+│   ├── Landing Page
+│   ├── Documentation
+│   ├── Pricing
+│   └── Footer / Legal
+│
+└── Application
+    ├── Authentication
+    ├── Onboarding
+    ├── Dashboard
+    ├── Events
+    ├── Destinations
+    ├── Tenants
+    ├── Dead Letter Queue
+    ├── Developers
+    └── Settings
+The PRD's information architecture identifies Overview, Events, Destinations, Tenants, Dead Letter, Developers, Settings and Billing as the primary product areas.
+For v0.1, the core implementation should prioritize everything except a complex billing experience.
+
+2. Frontend technology
+Use:
+Next.js
+React
+TypeScript
+Tailwind CSS
+shadcn/ui or equivalent component system
+React Hook Form
+Zod
+TanStack Query
+Lucide Icons
+The original PRD explicitly calls for Next.js/React/TypeScript for the dashboard.
+Suggested frontend architecture
+apps/web/
+│
+├── app/
+│   ├── (marketing)/
+│   │   ├── page.tsx
+│   │   ├── docs/
+│   │   └── pricing/
+│   │
+│   ├── (auth)/
+│   │   ├── login/
+│   │   ├── signup/
+│   │   └── verify/
+│   │
+│   └── (dashboard)/
+│       ├── overview/
+│       ├── events/
+│       ├── destinations/
+│       ├── tenants/
+│       ├── dead-letter/
+│       ├── developers/
+│       └── settings/
+│
+├── components/
+│   ├── marketing/
+│   ├── dashboard/
+│   ├── events/
+│   ├── destinations/
+│   ├── tenants/
+│   └── common/
+│
+├── lib/
+│   ├── api/
+│   ├── auth/
+│   ├── validation/
+│   └── utils/
+│
+├── hooks/
+├── types/
+└── providers/
+
+3. Design direction
+Visual personality
+Zyvan should look like developer infrastructure, not another generic startup landing page.
+Use:
+clean white/light surfaces
+dark technical sections where useful
+strong typography
+subtle borders
+compact cards
+clear status indicators
+code snippets
+event timelines
+data-heavy layouts
+restrained animation
+Avoid:
+huge decorative gradients everywhere
+excessive glassmorphism
+meaningless animated blobs
+oversized marketing illustrations
+dashboards filled with vanity charts
+The original UX principle is essentially: show current reliability state first and implementation details second.
+
+4. Global Navbar
+Desktop navbar
+┌──────────────────────────────────────────────────────────────┐
+│ ZYVAN     Product  Docs  Pricing  Changelog      Sign In     │
+│                                                  Get Started │
+└──────────────────────────────────────────────────────────────┘
+Left
+Zyvan logo
+Navigation
+Product
+Docs
+Pricing
+Changelog
+Right
+Sign In
+Get Started
+Behavior
+Sticky navbar.
+On scroll:
+reduce vertical height slightly
+subtle border/shadow
+retain CTA
+Mobile
+ZYVAN                         ☰
+Menu opens:
+Product
+Docs
+Pricing
+Changelog
+
+Sign In
+Get Started
+
+5. Landing page
+Route:
+/
+Landing page sections:
+Navbar
+↓
+Hero
+↓
+Problem
+↓
+How Zyvan Works
+↓
+Core Reliability Features
+↓
+Architecture / Flow
+↓
+Developer Experience
+↓
+Dashboard Preview
+↓
+CTA
+↓
+Footer
+
+6. Hero section
+This is the most important marketing section.
+Primary headline
+Reliable webhook infrastructure for growing SaaS teams.
+This directly follows the positioning from the PRD.
+Supporting copy
+Receive, store, retry, deliver and replay critical webhooks without building and operating the reliability infrastructure yourself.
+Primary CTA
+Get Started
+Secondary CTA
+View Documentation
+Code example
+Show an integration example directly inside the hero.
+curl -X POST https://api.zyvan.dev/v1/events \
+  -H "Authorization: Bearer zyvan_xxx" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: invoice_789_paid" \
+  -d '{
+    "type": "invoice.paid",
+    "tenant_id": "tenant_123",
+    "data": {
+      "invoice_id": "inv_789"
+    }
+  }'
+Then show:
+{
+  "event_id": "evt_01J...",
+  "status": "queued"
+}
+This reinforces that the API is the product, which the PRD explicitly states.
+
+7. Hero visual
+Instead of a random illustration, show a simplified reliability pipeline:
+Event
+  ↓
+Persisted
+  ↓
+Queued
+  ↓
+Attempt #1
+  ↓
+500
+  ↓
+Retry
+  ↓
+Attempt #2
+  ↓
+200
+  ↓
+Delivered
+This is much stronger because it demonstrates the actual product.
+
+8. Problem section
+Headline:
+Webhooks fail. Your infrastructure shouldn't.
+Three/four cards:
+Duplicate events
+Providers can resend the same event.
+Endpoint failures
+Destinations can timeout or return 5xx responses.
+Traffic spikes
+One tenant can overwhelm worker capacity.
+Debugging
+Engineers need to understand exactly what happened.
+These map directly to the customer pain described in the PRD.
+
+9. How Zyvan works
+Use a four-step visual.
+01
+Receive
+
+Your application sends an event
+to Zyvan.
+
+↓
+
+02
+Persist
+
+Event is durably stored before
+successful acceptance.
+
+↓
+
+03
+Deliver
+
+Workers asynchronously deliver
+the webhook.
+
+↓
+
+04
+Recover
+
+Failures retry automatically or
+move to DLQ for replay.
+The architecture depends on durable acceptance followed by asynchronous delivery.
+
+10. Reliability features section
+Title:
+Built for failure, not just success.
+Six cards:
+Durable ingestion
+Accepted events are persisted before successful acknowledgement.
+Idempotency
+Prevent duplicate logical events.
+Automatic retries
+Exponential backoff with jitter.
+Dead-letter recovery
+Failed events remain inspectable.
+Replay
+Replay failed events without destroying historical attempts.
+Tenant isolation
+Prevent noisy tenants from consuming all worker capacity.
+These are the core capabilities identified in the MVP direction.
+
+11. Security section
+Title:
+Production-ready webhook security
+Cards:
+HMAC-SHA256
+API Keys
+Secret Encryption
+SSRF Protection
+Replay Protection
+Scoped Access
+Explain HMAC briefly:
+Every outbound webhook can be verified using a signed request with timestamp and delivery metadata.
+The PRD specifies HMAC-SHA256, secret protection, API-key controls and SSRF protection.
+
+12. Developer section
+Title:
+From API call to first delivery in minutes.
+Show:
+Install / curl
+      ↓
+Create destination
+      ↓
+Send event
+      ↓
+Watch delivery
+Buttons:
+Read Docs
+View API Reference
+Supported onboarding assets:
+curl
+Node.js
+Python
+API examples
+Node.js is the first SDK priority in the PRD, followed by Python.
+
+13. Dashboard preview section
+Marketing homepage should show a realistic dashboard screenshot/mockup.
+Show:
+Events Today             12,431
+Success Rate              99.82%
+Retry Rate                  2.1%
+Queue Age                  1.2s
+DLQ                          13
+Then an event timeline:
+✓ Event received
+✓ Persisted
+✓ Delivery queued
+✓ Attempt #1
+✕ HTTP 500
+↻ Retry scheduled
+✓ Attempt #2
+✓ Delivered
+This reinforces the actual operational value of the product.
+
+14. Final CTA
+Headline:
+Stop maintaining webhook reliability yourself.
+Copy:
+Give your engineering team durable delivery, automatic retries and complete event visibility.
+Buttons:
+Get Started
+Read Documentation
+
+15. Footer
+The footer should be professional and compact.
+┌──────────────────────────────────────────────────────────────┐
+│ ZYVAN                                                        │
+│ Reliable webhook infrastructure for growing SaaS teams.     │
+│                                                              │
+│ PRODUCT           DEVELOPERS        COMPANY        LEGAL      │
+│ Overview          Documentation     About          Privacy    │
+│ Events            API Reference     Changelog      Terms      │
+│ Destinations      SDKs              Contact        Security   │
+│ Tenants           Examples                                     
+│                                                              │
+│ Status · GitHub · X · LinkedIn                               │
+│                                                              │
+│ © 2026 Zyvan. All rights reserved.                           │
+└──────────────────────────────────────────────────────────────┘
+Important
+Don't create 30 footer links.
+Keep it focused on:
+Product
+Developers
+Company
+Legal
+
+16. Authentication
+Routes:
+/login
+/signup
+/verify
+/forgot-password
+/reset-password
+The product also needs machine-to-machine API authentication through API keys, separate from dashboard authentication. The PRD distinguishes API-key service access from dashboard account access.
+
+17. Signup page
+Layout:
+               ZYVAN
+
+      Create your Zyvan account
+
+  Work email
+  [________________________]
+
+  Password
+  [________________________]
+
+  [ Create Account ]
+
+  Already have an account?
+  Sign in
+Potential future options:
+Continue with Google
+Continue with GitHub
+Do not build OAuth until required.
+
+18. Login page
+ZYVAN
+
+Welcome back
+
+Email
+[________________]
+
+Password
+[________________]
+
+[ Sign In ]
+
+Forgot password?
+
+Don't have an account?
+Create account
+States:
+Loading
+Invalid credentials
+Account disabled
+Network error
+Success
+
+19. Onboarding
+After signup:
+Account
+  ↓
+Create Project
+  ↓
+Create API Key
+  ↓
+Create Destination
+  ↓
+Send Test Event
+  ↓
+First Successful Delivery
+This directly follows the PRD's primary user flow.
+
+20. Onboarding screen
+Step 1
+Create your project
+
+Project name
+[ My SaaS ]
+
+[ Continue ]
+Step 2
+Your API Key
+
+zyvan_live_************************
+
+[ Copy ]
+
+⚠️ This key will only be shown once.
+Step 3
+Create destination
+
+Webhook URL
+[ https://api.example.com/webhooks ]
+
+Signing secret
+[ ************ ]
+
+[ Test Connection ]
+Step 4
+Send your first event
+
+curl ...
+
+[ Copy ]
+
+[ I've sent the event ]
+
+21. Dashboard shell
+After login:
+┌─────────────┬─────────────────────────────────────────────┐
+│ ZYVAN       │ Header                                      │
+│             ├─────────────────────────────────────────────┤
+│ Overview    │                                             │
+│ Events      │                                             │
+│ Destinations│              Page Content                   │
+│ Tenants     │                                             │
+│ Dead Letter │                                             │
+│ Developers  │                                             │
+│ Settings    │                                             │
+│             │                                             │
+│             │                                             │
+│ Project     │                                             │
+│ Selector    │                                             │
+└─────────────┴─────────────────────────────────────────────┘
+
+22. Dashboard sidebar
+Primary navigation
+Overview
+Events
+Destinations
+Tenants
+Dead Letter
+Developers
+Settings
+This follows the PRD information architecture.
+Bottom sidebar
+Project selector
+Usage
+Help
+Account
+
+23. Dashboard top bar
+[ Project ▼ ]      Search...       Docs   Notifications   Avatar
+Potential global search:
+Search event ID
+Search tenant
+Search destination
+
+24. Overview page
+Route:
+/overview
+Header:
+Overview
+Subtitle:
+Monitor webhook delivery health across your project.
+KPI cards
+Events
+12,431
+
+Delivered
+12,102
+
+Failed
+218
+
+Retrying
+98
+
+DLQ
+13
+Operational chart
+Show:
+Delivery Success
+──────────────╮
+              ╰──────
+Queue panel
+Queue Depth
+1,284
+
+Oldest Event
+2.4s
+
+Worker Utilization
+61%
+Recent failures
+Event              Destination       Status
+evt_01J...         Stripe Webhook     Retry
+evt_02J...         Billing API        Failed
+evt_03J...         CRM                Delivered
+The dashboard metrics are based on the PRD's required visibility around delivery success, retries, queue age, latency and DLQ.
+
+25. Events page
+Route:
+/events
+Header
+Events
+Filters
+Search
+Status
+Event Type
+Tenant
+Destination
+Date
+Table
+Event ID
+Type
+Tenant
+Status
+Created
+evt_123
+invoice.paid
+tenant_1
+Delivered
+2m ago
+evt_124
+payment.failed
+tenant_2
+Retrying
+5m ago
+evt_125
+order.created
+tenant_3
+DLQ
+10m ago
+
+The PRD specifically requires search/filtering by event ID, tenant, endpoint, type, status and time.
+
+26. Event detail page
+Route:
+/events/[eventId]
+This is the most important screen in the application.
+Header
+Event
+evt_01J...
+
+invoice.paid
+Delivered
+Metadata
+Tenant
+tenant_123
+
+Created
+10:02:31
+
+Destination
+Billing API
+Timeline
+10:02:31   ✓ Event received
+10:02:31   ✓ Event persisted
+10:02:31   ✓ Delivery queued
+10:02:32   → Attempt #1
+10:02:32   ✕ HTTP 500
+10:02:32   ↻ Retry scheduled
+10:02:37   → Attempt #2
+10:02:37   ✓ HTTP 200
+Attempt card
+Attempt #2
+
+HTTP Status       200
+Latency           183ms
+Started           10:02:37
+Finished          10:02:37
+
+Response
+{
+  "status": "ok"
+}
+Actions
+Retry Now
+Replay
+Cancel
+Copy Event ID
+These fields and actions are explicitly called out in the PRD's event-detail requirements.
+
+27. Event status UI
+Do not depend only on color.
+Use:
+● Queued
+◐ Delivering
+↻ Retrying
+✓ Delivered
+! Dead Letter
+○ Expired
+× Cancelled
+The PRD explicitly says status should not be communicated through color alone.
+
+28. Destinations page
+Route:
+/destinations
+Table
+Destination
+URL
+Tenant
+Status
+Success rate
+Last delivery
+Actions
+Example:
+Billing API
+https://billing.example.com/webhook
+Tenant A
+Active
+99.9%
+12 sec ago
+
+[ Test ] [ Pause ] [ Edit ]
+
+29. Destination detail
+Route:
+/destinations/[destinationId]
+Sections:
+Configuration
+URL
+Signing
+HTTP method
+Status
+Retry
+Max attempts
+Backoff
+Retryable status codes
+Rate limiting
+Requests / second
+Concurrency
+Actions
+Test
+Pause
+Resume
+Edit
+The product's destination controls include URL, status, signing key status, retry policy, rate limits and pause/resume.
+
+30. Tenants page
+Route:
+/tenants
+Display:
+Tenant
+Events
+Success Rate
+Concurrency
+Queue Depth
+Status
+Tenant detail
+Tenant Name
+External ID
+
+Current throughput
+Concurrency limit
+Rate limit
+
+Recent events
+Recent failures
+Actions:
+Edit Limits
+Pause
+Resume
+The purpose is operational tenant isolation, not a CRM-like tenant management system.
+
+31. Dead Letter page
+Route:
+/dead-letter
+Header
+Dead Letter Queue
+Table
+Event
+Tenant
+Destination
+Failure reason
+Attempts
+Created
+Example:
+evt_123
+tenant_1
+Billing API
+Timeout
+5
+10m ago
+
+[ Inspect ] [ Replay ]
+The PRD explicitly makes DLQ recovery and replay a first-class workflow.
+
+32. Replay confirmation modal
+Never replay immediately with one accidental click.
+Replay event?
+
+Event:
+evt_123
+
+Destination:
+Billing API
+
+This will create a new delivery attempt.
+Previous attempt history will remain unchanged.
+
+[ Cancel ] [ Replay Event ]
+This reflects the requirement that replay creates a new attempt lineage without modifying historical attempts.
+
+33. Developers page
+Route:
+/developers
+Sections:
+API Keys
+Quick Start
+API Reference
+SDKs
+Webhook Signing
+Examples
+Quick start
+1. Create API key
+2. Create destination
+3. Send event
+4. Verify delivery
+Code tabs
+curl
+Node.js
+Python
+
+34. API key UI
+API Keys
+
+Name        Created       Status
+Production  Aug 30        Active
+Testing     Aug 29        Revoked
+
+[ Create API Key ]
+Create modal:
+Name
+Scopes
+Expiration
+
+[ Create ]
+After creation:
+zyvan_live_xxxxxxxxxxxx
+
+Copy the key now.
+You won't be able to view it again.
+
+35. Settings
+Route:
+/settings
+Tabs:
+General
+API Keys
+Security
+Retention
+Retry Policies
+Team
+For v0.1, implement only the settings that correspond to functionality you actually support.
+Do not create fake enterprise settings.
+
+36. Empty states
+Every major page needs a useful empty state.
+Events
+No events yet.
+Send your first event to start seeing
+delivery activity here.
+
+[ View Quick Start ]
+Destinations
+No destinations configured.
+Create a destination to start delivering
+webhooks.
+
+[ Create Destination ]
+DLQ
+Your dead-letter queue is empty.
+That's good. Failed events will appear here when delivery attempts are exhausted.
+
+37. Error states
+Every API-driven screen must support:
+Loading
+Empty
+Success
+Partial failure
+Full failure
+Unauthorized
+Forbidden
+Not found
+Network error
+The PRD explicitly calls out loading, empty, partial-failure and permission-denied states as required UX states.
+
+38. Responsive behavior
+Desktop
+Primary target:
+1440 × 900
+Dashboard optimized for laptop/desktop.
+Tablet
+Sidebar becomes collapsible.
+Mobile
+Prioritize:
+Alerts
+Event detail
+Delivery status
+Incident review
+The PRD describes the dashboard as laptop-first with mobile support for alerts and incident review.
+
+39. Accessibility
+Required:
+keyboard navigation
+visible focus states
+semantic buttons
+accessible dialogs
+accessible tables
+screen-reader labels
+status labels in addition to color
+proper form validation
+sufficient contrast
+This directly follows the PRD's accessibility requirements.
+
+40. Frontend API integration
+Create a single API client.
+lib/api/
+├── client.ts
+├── auth.ts
+├── projects.ts
+├── tenants.ts
+├── destinations.ts
+├── events.ts
+├── deliveries.ts
+├── api-keys.ts
+└── usage.ts
+Example:
+events.get(eventId)
+events.list(filters)
+events.replay(eventId)
+
+destinations.create(data)
+destinations.update(id, data)
+destinations.pause(id)
+destinations.resume(id)
+
+tenants.list()
+tenants.updateLimits(id, limits)
+Do not scatter raw fetch() calls throughout components.
+
+41. Authentication architecture
+Frontend flow:
+User
+ ↓
+Login
+ ↓
+Auth API
+ ↓
+Session
+ ↓
+Protected Route
+ ↓
+Dashboard
+Machine authentication:
+Customer Server
+ ↓
+Bearer API Key
+ ↓
+Zyvan API
+These are different concerns and should remain different in the frontend architecture too. The PRD specifies bearer API keys for server-to-server requests.
+
+42. Frontend route structure
+/
+├── /docs
+├── /pricing
+│
+├── /login
+├── /signup
+├── /verify
+├── /forgot-password
+├── /reset-password
+│
+└── /app
+    ├── /overview
+    ├── /events
+    ├── /events/[eventId]
+    ├── /destinations
+    ├── /destinations/[destinationId]
+    ├── /tenants
+    ├── /tenants/[tenantId]
+    ├── /dead-letter
+    ├── /developers
+    └── /settings
+I would use /app as the authenticated boundary rather than exposing dashboard routes directly at the root.
+
+43. Frontend component system
+Build reusable components instead of writing each screen separately.
+Button
+Input
+Select
+Dialog
+Dropdown
+Badge
+Card
+Table
+Pagination
+Tabs
+Tooltip
+Toast
+Skeleton
+EmptyState
+ErrorState
+CodeBlock
+Timeline
+MetricCard
+StatusBadge
+SearchInput
+FilterBar
+PageHeader
+ConfirmDialog
+Then domain components:
+EventTimeline
+AttemptCard
+DeliveryStatus
+DestinationCard
+TenantHealthCard
+DLQTable
+ApiKeyReveal
+WebhookCodeExample
+
+44. Important frontend state model
+Do not let UI components invent their own event statuses.
+Use one shared enum:
+type EventStatus =
+  | "queued"
+  | "delivering"
+  | "retrying"
+  | "delivered"
+  | "dead_letter"
+  | "expired"
+  | "cancelled";
+These states come directly from the product UX specification.
+
+45. Frontend performance requirements
+Initial page
+Optimize:
+Landing page
+Dashboard shell
+Event list
+Event detail
+Rules
+Server-render marketing content where appropriate
+Avoid loading the entire dashboard on initial render
+Paginate events
+Lazy-load large detail sections
+Debounce search
+Cache stable API data
+Avoid polling every endpoint constantly
+For event lists, use cursor pagination because that is the API convention defined by the PRD.
+
+46. Dashboard refresh strategy
+Don't build a WebSocket architecture for v0.1 just because it sounds impressive.
+Use:
+Initial request
+      ↓
+API
+      ↓
+Dashboard
+
+Then:
+poll important metrics periodically
+For example:
+Overview metrics → periodic refresh
+Event detail → refresh while active
+Static configuration → normal request/cache
+Realtime infrastructure can come later.
+
+47. Frontend security requirements
+Never expose:
+Destination secrets
+Database credentials
+Internal API credentials
+Server-only environment variables
+Frontend should receive only safe representations.
+For example:
+{
+  "id": "dest_123",
+  "url": "https://example.com/webhook",
+  "secret_configured": true
+}
+Not:
+{
+  "secret": "my-real-secret"
+}
+This is consistent with the PRD's requirement that secrets not be returned to dashboards or logs.
+
+48. Landing page copy hierarchy
+Keep the copy consistent.
+Hero
+Reliable webhook infrastructure for growing SaaS teams.
+Problem
+Webhooks fail. Your infrastructure shouldn't.
+Reliability
+Built for failure, not just success.
+Developer experience
+From API call to first delivery in minutes.
+Debugging
+Know exactly what happened.
+Final CTA
+Stop maintaining webhook reliability yourself.
+This gives the website a coherent narrative instead of a collection of unrelated feature claims.
+
+49. v0.1 frontend acceptance criteria
+Marketing
+✓ Responsive landing page
+✓ Navbar
+✓ Hero
+✓ Problem section
+✓ Reliability features
+✓ Architecture section
+✓ Developer CTA
+✓ Dashboard preview
+✓ Final CTA
+✓ Footer
+Auth
+✓ Signup
+✓ Login
+✓ Logout
+✓ Protected routes
+✓ Auth error states
+✓ Session handling
+Onboarding
+✓ Create project
+✓ API key creation
+✓ Destination creation
+✓ Test destination
+✓ First-event instructions
+Dashboard
+✓ Overview metrics
+✓ Event explorer
+✓ Event detail
+✓ Delivery timeline
+✓ Attempt history
+✓ Destination management
+✓ Tenant management
+✓ DLQ
+✓ Replay
+✓ Developers/API keys
+✓ Settings
+UX
+✓ Loading states
+✓ Empty states
+✓ Error states
+✓ Permission states
+✓ Responsive layouts
+✓ Keyboard accessibility
+✓ Status not represented only by color
+
+50. Frontend v0.1 scope — what NOT to build
+Don't waste time on:
+❌ Full billing portal
+❌ Advanced team/RBAC UI
+❌ SSO/SAML
+❌ SCIM
+❌ Customer-facing portal
+❌ Complex transformations UI
+❌ Visual workflow builder
+❌ Advanced routing builder
+❌ Multi-region controls
+❌ Terraform UI
+❌ Enterprise administration
+Those are beyond the focused MVP and several are explicitly positioned as later roadmap items in the original PRD.
+
+51. Final frontend architecture
+                        ZYVAN WEBSITE
+                              │
+          ┌───────────────────┴───────────────────┐
+          │                                       │
+    PUBLIC WEBSITE                          AUTHENTICATED APP
+          │                                       │
+   ┌──────┼──────┐                    ┌───────────┼───────────┐
+   │      │      │                    │           │           │
+ Hero   Docs   Pricing             Overview     Events    Destinations
+   │                                       │        │           │
+   │                                       │   Event Detail    │
+ Footer                                   │        │           │
+                                          │      Replay        │
+                                          │                    │
+                                      Tenants              DLQ
+                                          │                    │
+                                     Developers            Settings
+                                          │                    │
+                                          └─────────┬──────────┘
+                                                    │
+                                             Zyvan API
+                                                    │
+                                      ┌─────────────┼─────────────┐
+                                      │             │             │
+                                  PostgreSQL     Redis/BullMQ    Auth
+
+The most important frontend principle
+Your dashboard should make this possible:
+An engineer opens an event and understands what happened, why it failed, what Zyvan did about it, and what action they can take next — without opening server logs.
+That is directly aligned with the PRD's stated goal that an engineer should be able to reconstruct a failure from the dashboard.
+This gives you a clean Zyvan Frontend v0.1 boundary: marketing site + auth + onboarding + reliability dashboard, with the event timeline and failure-recovery workflow as the centerpiece, rather than building a generic SaaS admin panel.
+Zyvan Backend PRD v0.1
+This is the backend implementation PRD for the Zyvan MVP, derived from the backend architecture, SRS, API requirements, reliability model, security requirements, and technology standards in your main PRD.
+The backend's job is simple to state but difficult to implement correctly:
+Accept an event durably, process it asynchronously, deliver it reliably, recover from failures, preserve the complete history, and expose enough state for the dashboard to explain exactly what happened.
+The original PRD explicitly defines PostgreSQL as the authoritative source of event/delivery state and Redis/BullMQ as the execution layer.
+
+1. Backend product definition
+Product
+Zyvan — Reliable Webhook & Event Delivery Infrastructure
+Backend v0.1 responsibilities
+Backend
+│
+├── Authentication
+├── Authorization
+├── Project Management
+├── Tenant Management
+├── API Key Management
+├── Destination Management
+│
+├── Event Ingestion
+├── Idempotency
+├── Event Persistence
+│
+├── Delivery Queue
+├── Worker Processing
+├── Retry Engine
+├── Timeout Handling
+├── HMAC Signing
+├── Rate Limiting
+├── Tenant Concurrency
+│
+├── Dead Letter Queue
+├── Replay
+├── Event Timeline
+│
+├── Usage Metering
+├── Metrics
+├── Structured Logs
+└── Health / Readiness
+The v0.1 scope should remain focused on the reliability core rather than implementing the full long-term product. The PRD explicitly says the first release should focus on durable ingestion, at-least-once delivery, idempotency, retries, DLQ, replay, debugging, tenant isolation and fast onboarding.
+
+2. Backend architecture
+Use three logical backend components:
+                   ┌─────────────────────┐
+                    │   Customer / SDK    │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │      Zyvan API      │
+                    │      Fastify        │
+                    └──────────┬──────────┘
+                               │
+                 ┌─────────────┴─────────────┐
+                 │                           │
+                 ▼                           ▼
+        ┌─────────────────┐         ┌─────────────────┐
+        │   PostgreSQL    │         │ Redis + BullMQ  │
+        │ Source of Truth │         │ Execution Layer │
+        └────────┬────────┘         └────────┬────────┘
+                 │                           │
+                 │                           ▼
+                 │                 ┌──────────────────┐
+                 │                 │ Delivery Workers │
+                 │                 └────────┬─────────┘
+                 │                          │
+                 │                    ┌─────┴─────┐
+                 │                    │           │
+                 │                    ▼           ▼
+                 │                  Retry       DLQ
+                 │                              │
+                 │                              ▼
+                 │                            Replay
+                 │
+                 ▼
+        ┌──────────────────┐
+        │ Dashboard / API  │
+        └──────────────────┘
+This follows the PRD's separation of control, ingestion, delivery, observation and storage concerns.
+
+3. Technology stack
+API
+Node.js
+TypeScript
+Fastify
+Zod
+The PRD recommends Node.js + TypeScript with Fastify for the API.
+Database
+PostgreSQL
+Queue
+Redis
+BullMQ
+Security
+API Keys
+HMAC-SHA256
+Encrypted secrets
+SSRF protection
+Observability
+OpenTelemetry
+Structured JSON logs
+Prometheus-compatible metrics
+Testing
+Vitest/Jest
+Supertest
+Integration tests
+E2E tests
+Load tests
+Infrastructure
+Docker
+GitHub Actions
+AWS deployment
+The chosen technologies and production rules are directly specified by the PRD.
+
+4. Backend repository structure
+Use this:
+apps/
+├── api/
+│   └── src/
+│       ├── modules/
+│       ├── middleware/
+│       ├── plugins/
+│       ├── config/
+│       ├── routes/
+│       ├── lib/
+│       └── app.ts
+│
+└── worker/
+    └── src/
+        ├── processors/
+        ├── services/
+        ├── queues/
+        ├── jobs/
+        └── worker.ts
+
+packages/
+├── schemas/
+├── crypto/
+└── sdk-node/
+The structure mirrors the repository organization proposed in the PRD.
+
+5. API service architecture
+Organize the backend by domain.
+modules/
+├── auth/
+├── projects/
+├── api-keys/
+├── tenants/
+├── destinations/
+├── events/
+├── deliveries/
+├── attempts/
+├── retries/
+├── replay/
+├── dlq/
+├── usage/
+└── health/
+Each module should follow:
+module/
+├── controller.ts
+├── service.ts
+├── repository.ts
+├── schema.ts
+├── types.ts
+└── routes.ts
+Don't make one giant server.ts containing every business rule. That becomes a maintenance problem almost immediately.
+
+6. Request lifecycle
+Every API request should conceptually pass through:
+Request
+  ↓
+Request ID
+  ↓
+Authentication
+  ↓
+Authorization
+  ↓
+Validation
+  ↓
+Business Logic
+  ↓
+Database
+  ↓
+Response
+For event ingestion:
+POST /v1/events
+       ↓
+API Key validation
+       ↓
+Project/Tenant authorization
+       ↓
+Payload validation
+       ↓
+Idempotency check
+       ↓
+PostgreSQL transaction
+       ↓
+Create Event
+       ↓
+Create Delivery
+       ↓
+Queue Job
+       ↓
+202 Accepted
+The PRD requires that accepted events be durably persisted before successful acceptance is returned.
+
+7. Authentication
+API-key authentication
+Every server-to-server request uses:
+Authorization: Bearer <api_key>
+The API should:
+Extract API key
+      ↓
+Hash / lookup
+      ↓
+Check active
+      ↓
+Check expiration
+      ↓
+Check project scope
+      ↓
+Check tenant scope
+      ↓
+Authorize operation
+The public API contract specifies bearer API-key authentication.
+
+8. Authorization
+Authorization must be enforced at the service layer, not just the route layer.
+Example:
+API key
+   ↓
+Project P1
+   ↓
+Tenant T1
+   ↓
+Destination D1
+The same key must not be able to access:
+Tenant T2
+Destination D2
+unless its scopes explicitly permit it.
+The SRS requires project, tenant and key scopes on protected operations.
+
+9. API Key module
+Responsibilities
+Create key
+Hash key before persistence
+Return plaintext key only once
+List keys safely
+Revoke key
+Expire key
+Support scopes
+Table
+api_keys
+
+id
+project_id
+key_hash
+name
+scopes
+expires_at
+revoked_at
+created_at
+Never store raw API keys in PostgreSQL.
+
+10. Project module
+Endpoints
+POST  /v1/projects
+GET   /v1/projects
+GET   /v1/projects/:id
+PATCH /v1/projects/:id
+Service
+createProject()
+getProject()
+listProjects()
+updateProject()
+Project is the primary configuration/usage isolation boundary.
+
+11. Tenant module
+Endpoints
+POST  /v1/tenants
+GET   /v1/tenants
+GET   /v1/tenants/:id
+PATCH /v1/tenants/:id
+Tenant fields
+id
+project_id
+external_id
+name
+concurrency_limit
+rate_limit
+status
+created_at
+updated_at
+The PRD's tenant model is specifically intended to support tenant-aware reliability controls.
+
+12. Destination module
+Endpoints
+POST   /v1/destinations
+GET    /v1/destinations
+GET    /v1/destinations/:id
+PATCH  /v1/destinations/:id
+
+POST /v1/destinations/:id/pause
+POST /v1/destinations/:id/resume
+POST /v1/destinations/:id/test
+Destination model
+id
+tenant_id
+url
+secret_ref
+retry_policy
+rate_limit
+active
+created_at
+updated_at
+The destination model and management endpoints follow the PRD resource and API definitions.
+
+13. Destination URL validation
+Before storing a destination:
+Validate URL
+   ↓
+HTTPS requirement
+   ↓
+Resolve hostname
+   ↓
+Check IP
+   ↓
+Reject unsafe target
+Block by default:
+localhost
+127.0.0.1
+private address ranges
+link-local
+cloud metadata endpoints
+This is a P0 security requirement in the SRS.
+Important
+SSRF protection cannot be implemented as just:
+url.includes("localhost")
+That's not real SSRF protection.
+The implementation needs hostname/IP validation and must account for DNS resolution behavior.
+
+14. Event module
+Endpoint
+POST /v1/events
+Event model
+id
+project_id
+tenant_id
+event_type
+idempotency_key
+payload
+headers
+status
+created_at
+updated_at
+The PRD defines Event as the durable logical event.
+
+15. Event ingestion service
+Service flow:
+createEvent()
+      │
+      ├── validateProject()
+      ├── validateTenant()
+      ├── validatePayload()
+      ├── validateIdempotency()
+      ├── checkDuplicate()
+      │
+      ├── BEGIN TRANSACTION
+      │
+      ├── insertEvent()
+      ├── createDelivery()
+      │
+      └── COMMIT
+               │
+               ▼
+         enqueueDelivery()
+The core rule:
+Never acknowledge durable acceptance before PostgreSQL has successfully committed the event.
+This is one of the central reliability guarantees in the PRD.
+
+16. Idempotency implementation
+Use a database uniqueness constraint.
+Example:
+UNIQUE(project_id, idempotency_key)
+Then:
+Request A
+     ↓
+INSERT
+     ↓
+Success
+
+Request B
+     ↓
+same project + same key
+     ↓
+Unique constraint
+     ↓
+Return existing logical event
+This is better than relying only on Redis or an in-memory check.
+The SRS explicitly requires concurrent requests using the same key to resolve to one logical event.
+
+17. Provider event deduplication
+For provider webhooks, store provider event identifiers where available.
+Example:
+provider = stripe
+provider_event_id = evt_123
+Unique constraint conceptually:
+UNIQUE(project_id, provider, provider_event_id)
+This prevents duplicate provider deliveries from becoming duplicate logical processing.
+
+18. Delivery creation
+An event can create one or multiple deliveries.
+Event
+ │
+ ├── Delivery → Destination A
+ ├── Delivery → Destination B
+ └── Delivery → Destination C
+Delivery
+id
+event_id
+destination_id
+status
+created_at
+updated_at
+This is important because an Event and a Delivery are not the same object. The PRD explicitly defines Delivery as the logical delivery to one Destination.
+
+19. Queue architecture
+Use:
+Redis
+  ↓
+BullMQ
+  ↓
+delivery queue
+  ↓
+worker
+Example job:
+{
+  "deliveryId": "del_123",
+  "eventId": "evt_123"
+}
+Don't place the entire event payload inside the queue job unless there is a strong reason to do so.
+Prefer:
+Queue job → delivery_id
+               ↓
+          PostgreSQL
+This reinforces PostgreSQL as the source of truth.
+The PRD explicitly says Redis/BullMQ is the execution mechanism, not the system of record.
+
+20. Worker service
+Worker responsibilities:
+Consume job
+  ↓
+Load Delivery
+  ↓
+Load Event
+  ↓
+Load Destination
+  ↓
+Check tenant limits
+  ↓
+Check destination limits
+  ↓
+Generate signature
+  ↓
+Send HTTP request
+  ↓
+Record Attempt
+  ↓
+Classify result
+  ↓
+Success / Retry / DLQ
+The PRD's event lifecycle explicitly includes worker claiming, signing, sending, recording response and retrying.
+
+21. Worker concurrency
+Example:
+Global worker capacity = 20
+
+Tenant A = max 5
+Tenant B = max 5
+Tenant C = max 5
+Tenant D = max 5
+A tenant cannot simply take all 20 workers.
+This is the backend implementation of the PRD's noisy-neighbor protection requirement.
+
+22. Delivery attempt
+Before sending:
+Create Attempt
+status = running
+After response:
+Update Attempt
+status_code
+latency_ms
+outcome
+error_message
+started_at
+finished_at
+Example:
+Attempt #1
+    ↓
+500
+    ↓
+failed
+
+Attempt #2
+    ↓
+timeout
+    ↓
+failed
+
+Attempt #3
+    ↓
+200
+    ↓
+success
+The SRS requires attempt timestamp, outcome, latency, status and sanitized response metadata.
+
+23. HTTP delivery client
+Create a dedicated service:
+HttpDeliveryClient
+Responsibilities:
+buildRequest()
+signRequest()
+validateUrl()
+setHeaders()
+applyTimeout()
+send()
+captureResponse()
+Every external request needs:
+connect timeout
+read timeout
+overall timeout
+The PRD explicitly requires configurable connect/read/overall outbound timeouts.
+
+24. HMAC signing
+Before sending:
+Raw payload
+    +
+Timestamp
+    ↓
+Canonical representation
+    ↓
+HMAC-SHA256
+    ↓
+Signature
+Headers:
+X-Zyvan-Signature: v1=...
+X-Zyvan-Timestamp: ...
+X-Zyvan-Delivery-Id: ...
+X-Zyvan-Event-Id: ...
+The PRD requires a versioned signature scheme and delivery/event identifiers.
+
+25. Retry engine
+Create a dedicated:
+RetryService
+Responsibilities:
+classifyFailure()
+shouldRetry()
+calculateBackoff()
+addJitter()
+schedule()
+Example:
+5xx      → retry
+timeout  → retry
+network  → retry
+
+4xx      → normally terminal
+But the final decision should be policy-driven rather than hard-coded into HTTP logic.
+The SRS requires retry classification and exponential backoff with jitter.
+
+26. Retry state
+Each Delivery should track enough state to answer:
+How many attempts?
+Why is it retrying?
+When is the next attempt?
+What was the last response?
+Example:
+status = retrying
+attempt_count = 2
+next_retry_at = ...
+last_status_code = 500
+
+27. Dead Letter Queue
+When:
+attempts exhausted
+OR
+retention expired
+OR
+policy says terminal
+move the Delivery/Event into a terminal failure state.
+Delivery
+    ↓
+Retry exhausted
+    ↓
+Dead Letter
+Store:
+event_id
+reason
+created_at
+with complete historical Attempts preserved.
+The PRD explicitly requires recoverable terminal state with complete history.
+
+28. Replay service
+Create:
+ReplayService
+Flow:
+POST /v1/events/:eventId/replay
+                 ↓
+Authorize
+                 ↓
+Load event
+                 ↓
+Create Replay
+                 ↓
+Create new delivery/attempt lineage
+                 ↓
+Queue
+                 ↓
+202 Accepted
+Replay must never delete or rewrite previous Attempts.
+The PRD explicitly requires a new delivery lineage while preserving historical attempts.
+
+29. Pause / resume
+Destination state:
+active = true
+Pause:
+active = false
+When paused:
+existing queued jobs
+        ↓
+remain queued
+        ↓
+worker skips delivery
+Resume:
+active = true
+        ↓
+delivery resumes
+The SRS explicitly requires pausing a destination without deleting queued events.
+
+30. Rate limiting
+Implement at least two levels:
+Tenant rate limit
+Destination rate limit
+Example:
+Tenant:
+100 events/sec
+
+Destination:
+20 requests/sec
+Excess work stays queued rather than being dropped.
+
+31. Backpressure
+When downstream becomes slow:
+Destination slows
+      ↓
+Worker throughput drops
+      ↓
+Queue increases
+      ↓
+Don't spawn infinite workers
+      ↓
+Maintain bounded concurrency
+Track:
+queue_depth
+queue_age
+worker_utilization
+The PRD specifically requires backpressure and queue-depth visibility.
+
+32. Circuit breaker
+This can be included in v0.1 as a basic reliability feature.
+Example state machine:
+CLOSED
+  ↓ repeated failures
+OPEN
+  ↓ cool-down
+HALF_OPEN
+  ↓ success
+CLOSED
+Purpose:
+Stop hammering a destination that is continuously failing.
+The PRD defines circuit breaking as a P1 feature.
+Because this is MVP v0.1, keep the implementation simple.
+
+33. Database design
+Core tables:
+projects
+api_keys
+tenants
+destinations
+events
+deliveries
+attempts
+replays
+dead_letters
+Relationships:
+Project
+ ├── API Keys
+ ├── Tenants
+ │     └── Destinations
+ └── Events
+        └── Deliveries
+              └── Attempts
+
+Event
+ ├── Replays
+ └── Dead Letter
+This matches the PRD's resource model.
+
+34. PostgreSQL constraints
+Use database-level guarantees for critical invariants.
+Examples:
+UNIQUE(project_id, idempotency_key)
+
+UNIQUE(project_id, provider, provider_event_id)
+
+FOREIGN KEY(event_id)
+FOREIGN KEY(destination_id)
+FOREIGN KEY(tenant_id)
+For statuses, use either PostgreSQL enums or carefully validated application values.
+Don't depend only on frontend validation.
+
+35. Transaction boundaries
+The most important transaction:
+BEGIN
+
+insert event
+create delivery
+commit
+
+THEN
+
+enqueue job
+But this creates a subtle failure problem:
+DB commit succeeds
+queue publish fails
+The event must not be lost.
+Therefore v0.1 should include a recovery/reconciliation mechanism.
+For example:
+PostgreSQL
+   ↓
+event/delivery = queued
+   ↓
+queue publish
+and a periodic recovery process:
+Find queued deliveries
+without active queue jobs
+        ↓
+re-enqueue
+This follows the PRD requirement that accepted asynchronous work remain recoverable after process failure.
+Do not claim a full transactional outbox implementation unless you actually build one. A DB-backed reconciliation mechanism is enough for your first implementation.
+
+36. Event statuses
+Centralize them.
+type EventStatus =
+  | "queued"
+  | "delivering"
+  | "retrying"
+  | "delivered"
+  | "dead_letter"
+  | "expired"
+  | "cancelled";
+The PRD defines these operational states.
+
+37. Delivery statuses
+Use a separate model because Event state and Delivery state are different.
+queued
+delivering
+retrying
+delivered
+failed
+cancelled
+Example:
+Event = queued
+
+Delivery A = delivered
+Delivery B = retrying
+Delivery C = dead_letter
+That lets one Event have different outcomes across multiple destinations.
+
+38. API endpoints v0.1
+Projects
+POST   /v1/projects
+GET    /v1/projects
+GET    /v1/projects/:id
+PATCH  /v1/projects/:id
+API keys
+POST   /v1/api-keys
+GET    /v1/api-keys
+DELETE /v1/api-keys/:id
+Tenants
+POST   /v1/tenants
+GET    /v1/tenants
+GET    /v1/tenants/:id
+PATCH  /v1/tenants/:id
+Destinations
+POST   /v1/destinations
+GET    /v1/destinations
+GET    /v1/destinations/:id
+PATCH  /v1/destinations/:id
+
+POST /v1/destinations/:id/pause
+POST /v1/destinations/:id/resume
+POST /v1/destinations/:id/test
+Events
+POST /v1/events
+GET  /v1/events
+GET  /v1/events/:id
+
+POST /v1/events/:id/replay
+Deliveries
+GET /v1/destinations/:id/deliveries
+Usage
+GET /v1/usage
+These are consistent with the core endpoint set in the original API specification.
+
+39. API response design
+Successful event creation:
+{
+  "event_id": "evt_01J...",
+  "status": "queued",
+  "created_at": "2026-08-30T10:00:00Z"
+}
+Failed request:
+{
+  "code": "payload_too_large",
+  "message": "Payload exceeds the configured limit.",
+  "request_id": "req_01J...",
+  "details": {}
+}
+Every error must contain:
+code
+message
+request_id
+details?
+The PRD explicitly defines this error contract.
+
+40. Pagination
+Use cursor pagination:
+GET /v1/events?cursor=abc123&limit=50
+Response:
+{
+  "data": [],
+  "next_cursor": "xyz789"
+}
+The API specification explicitly calls for cursor-based pagination.
+
+41. Usage service
+Basic usage tracking:
+events_ingested
+deliveries
+attempts
+retries
+Example:
+Project
+ ├── Events: 12,432
+ ├── Deliveries: 15,201
+ └── Retries: 1,242
+The SRS requires auditable usage counters.
+For v0.1, don't build a full billing engine.
+Just build accurate usage measurement.
+
+42. Observability
+Every important operation should carry:
+request_id
+project_id
+tenant_id
+event_id
+delivery_id
+attempt_id
+Example log:
+{
+  "level": "info",
+  "service": "worker",
+  "event": "delivery_attempt",
+  "event_id": "evt_123",
+  "delivery_id": "del_456",
+  "attempt_id": "att_789",
+  "tenant_id": "tenant_1",
+  "status_code": 500,
+  "latency_ms": 240
+}
+
+43. Metrics
+At minimum:
+ingestion_success_total
+ingestion_failure_total
+
+delivery_success_total
+delivery_failure_total
+
+retry_total
+dlq_total
+
+queue_depth
+queue_age
+
+delivery_latency_ms
+worker_utilization
+
+tenant_concurrency
+These map to the PRD's required operational metrics.
+
+44. Health endpoints
+Implement:
+GET /health
+GET /ready
+/health
+Process is alive.
+/ready
+Verify critical dependencies:
+PostgreSQL
+Redis
+Example:
+{
+  "status": "ready",
+  "database": "ok",
+  "redis": "ok"
+}
+
+45. Graceful shutdown
+The API and worker must handle shutdown properly.
+API
+Stop accepting new requests
+        ↓
+Finish active requests
+        ↓
+Close DB pool
+        ↓
+Close Redis
+        ↓
+Exit
+Worker
+Stop consuming new jobs
+        ↓
+Finish/mark active job correctly
+        ↓
+Close worker
+        ↓
+Close Redis
+        ↓
+Exit
+This is important for deployment and worker recovery.
+
+46. Failure handling
+Backend v0.1 must explicitly handle:
+Database unavailable
+POST /events
+   ↓
+DB unavailable
+   ↓
+Do NOT return 202
+   ↓
+Return explicit error
+The PRD explicitly says the system must not falsely acknowledge durable acceptance when the database is unavailable.
+Redis unavailable
+PostgreSQL remains source of truth
+Queued work must be reconstructable.
+Worker crashes
+Queued/deliverable work remains recoverable.
+Destination timeout
+Record attempt → schedule retry.
+Destination 500
+Record attempt → schedule retry.
+Retry exhausted
+Move to DLQ.
+
+47. Security requirements
+Backend v0.1 must implement:
+✓ TLS externally
+✓ API-key authentication
+✓ Scoped authorization
+✓ HMAC-SHA256
+✓ Encrypted destination secrets
+✓ Secret rotation
+✓ No secrets in logs
+✓ SSRF protection
+✓ Replay protection
+✓ Payload access controls
+These are explicitly covered by the PRD security requirements.
+
+48. Replay protection
+Include:
+timestamp
+delivery_id
+event_id
+The consumer should be able to reject stale requests.
+The PRD recommends timestamp tolerance and unique delivery IDs for replay protection.
+
+49. Testing strategy
+This is where Zyvan becomes a strong resume project instead of a normal CRUD backend.
+Unit tests
+Test:
+retry classification
+backoff calculation
+HMAC signing
+SSRF validation
+authorization
+status transitions
+Integration tests
+Test:
+PostgreSQL
+Redis
+BullMQ
+API
+Worker
+API tests
+Test:
+POST /events
+GET /events
+POST /replay
+destination management
+API keys
+E2E tests
+Test:
+Create project
+→ create key
+→ create destination
+→ send event
+→ worker delivers
+→ dashboard can inspect result
+Failure tests
+Absolutely test:
+duplicate event
+worker crash
+Redis restart
+DB failure
+HTTP 500
+HTTP timeout
+retry exhaustion
+DLQ
+replay
+secret rotation
+tenant spike
+queue backlog
+The PRD explicitly says failure-mode testing is mandatory.
+
+50. Load testing
+For the actual v0.1 project, start with realistic numbers rather than pretending to support millions of events.
+Test scenarios such as:
+100 events/sec
+500 events/sec
+1,000 events/sec
+Measure:
+API latency
+DB latency
+queue depth
+worker throughput
+delivery latency
+retry rate
+CPU
+memory
+The full PRD later calls for 100K/1M-event load scenarios, but you should not claim those results until you actually run and document them.
+
+51. Docker development environment
+Local v0.1:
+docker-compose
+│
+├── postgres
+├── redis
+├── api
+└── worker
+Optional:
+grafana
+prometheus
+But don't build a huge Kubernetes environment locally.
+
+52. Backend environment variables
+Example:
+NODE_ENV=development
+
+PORT=4000
+
+DATABASE_URL=postgresql://...
+
+REDIS_URL=redis://...
+
+API_KEY_PEPPER=...
+
+ENCRYPTION_KEY=...
+
+HMAC_KEY_VERSION=v1
+
+LOG_LEVEL=info
+Secrets should come from secure environment/configuration mechanisms and never be committed to Git.
+
+53. Backend deployment
+Conceptually:
+AWS
+│
+├── API container
+│
+├── Worker container
+│
+├── PostgreSQL
+│
+└── Redis
+For your portfolio project, keep the topology simple.
+The PRD deliberately recommends containerized API/worker services and portable deployment rather than premature infrastructure complexity.
+
+54. CI/CD
+GitHub Actions pipeline:
+Push / PR
+   ↓
+Install
+   ↓
+Lint
+   ↓
+Typecheck
+   ↓
+Unit Tests
+   ↓
+Integration Tests
+   ↓
+Build
+   ↓
+Security Checks
+   ↓
+Docker Build
+   ↓
+Deploy
+The PRD specifies GitHub Actions and says releases should be blocked when reliability/security suites fail.
+
+55. Backend acceptance criteria
+Ingestion
+✓ API authenticates requests
+✓ Authorization is enforced
+✓ Payload validation works
+✓ Idempotency works under concurrency
+✓ Event is persisted before 202
+✓ Delivery is created
+Queue
+✓ Delivery job is created
+✓ Worker consumes job
+✓ Worker crash doesn't lose accepted work
+✓ Queue recovery works
+Delivery
+✓ HTTP request sent
+✓ HMAC signature generated
+✓ Timeout enforced
+✓ Attempt recorded
+✓ HTTP response recorded
+Retry
+✓ 5xx retried
+✓ Timeout retried
+✓ Retry delay uses backoff
+✓ Jitter exists
+✓ Terminal errors aren't blindly retried
+DLQ
+✓ Exhausted delivery enters DLQ
+✓ Failure reason stored
+✓ Attempt history retained
+Replay
+✓ Replay authorized
+✓ New attempt lineage created
+✓ Original history untouched
+✓ Replay is queued
+Security
+✓ Secrets encrypted
+✓ Secrets not logged
+✓ API keys revocable
+✓ SSRF targets blocked
+✓ HMAC verifiable
+Multi-tenancy
+✓ Tenant isolation works
+✓ Tenant concurrency limits work
+✓ Tenant rate limits work
+✓ Noisy tenant cannot exhaust worker capacity
+
+56. Backend v0.1 — what NOT to build
+Keep these out:
+❌ Kafka
+❌ SQS/PubSub abstraction
+❌ Multi-region active-active
+❌ Complex workflow engine
+❌ Advanced transformation engine
+❌ Terraform provider
+❌ Enterprise SSO/SAML
+❌ SCIM
+❌ Dedicated enterprise infrastructure
+❌ Full payment/billing engine
+❌ Advanced customer portal
+❌ Complex routing DSL
+❌ Kubernetes platform
+This isn't because those features are useless; they're simply not required to prove the core product. The original PRD explicitly positions advanced scale, enterprise and broader product capabilities after the MVP/PMF stage.
+
+57. The backend's most important invariant
+This should become the architectural rule behind the entire project:
+                  ACCEPTED EVENT
+                         │
+                         ▼
+                 PostgreSQL COMMIT
+                         │
+                         ▼
+                Delivery becomes
+                   recoverable
+                         │
+                         ▼
+                  Redis / BullMQ
+                         │
+                         ▼
+                      Worker
+                         │
+                         ▼
+                 External Endpoint
+                    │          │
+                   2xx       Failure
+                    │          │
+                    ▼          ▼
+                Delivered     Retry
+                                │
+                         Retry exhausted
+                                │
+                                ▼
+                               DLQ
+                                │
+                                ▼
+                              Replay
+The PRD's reliability model is explicitly based on durable acceptance + at-least-once delivery + idempotency + retry + terminal recovery, not exactly-once HTTP delivery.
+
+58. Final backend architecture
+                        CLIENT
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │   Fastify API    │
+                  ├──────────────────┤
+                  │ Auth             │
+                  │ Authorization    │
+                  │ Validation       │
+                  │ Idempotency      │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │   PostgreSQL     │
+                  │   SOURCE OF      │
+                  │     TRUTH        │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │ Redis + BullMQ   │
+                  │ Execution Layer  │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │      Worker      │
+                  ├──────────────────┤
+                  │ Concurrency      │
+                  │ Rate Limit       │
+                  │ Circuit Breaker  │
+                  │ HMAC             │
+                  │ Timeout          │
+                  │ Retry            │
+                  └────────┬─────────┘
+                           │
+                           ▼
+                  ┌──────────────────┐
+                  │ Customer Endpoint│
+                  └────────┬─────────┘
+                           │
+                 ┌─────────┴─────────┐
+                 │                   │
+                2xx             Failure
+                 │                   │
+                 ▼                   ▼
+             Delivered             Retry
+                                     │
+                            ┌────────┴────────┐
+                            │                 │
+                         Retry              Exhausted
+                            │                 │
+                            ▼                 ▼
+                           Queue              DLQ
+                                               │
+                                               ▼
+                                             Replay
+The backend project you should actually build
+Your backend should ultimately be able to demonstrate this exact story:
+A customer sends an event to Zyvan → the API authenticates and validates it → PostgreSQL durably stores it with idempotency protection → BullMQ schedules asynchronous delivery → a worker enforces tenant concurrency/rate limits and signs the webhook → the destination responds → Zyvan records the attempt → transient failures are retried with exponential backoff and jitter → exhausted failures enter the DLQ → an authorized user can replay the event without destroying historical delivery history.
+That is the backend that makes Zyvan a serious systems project, rather than simply another Node.js + PostgreSQL CRUD application.
+┌────────────────────────────────────────────────────────────┐
+│                    ZYVAN MVP v0.1                           │
+├────────────────────────────────────────────────────────────┤
+│ Frontend        │ Next.js + React + TypeScript              │
+│ Styling         │ Tailwind CSS + shadcn/ui                  │
+│ State/API       │ TanStack Query                            │
+│ Validation      │ Zod                                      │
+├────────────────────────────────────────────────────────────┤
+│ Backend         │ Node.js + TypeScript + express.js           │
+│ API Validation  │ Zod                                      │
+│ Authentication  │ API Keys + Session/Auth+jwt                  │
+├────────────────────────────────────────────────────────────┤
+│ Database        │ PostgreSQL                                │
+│ ORM             │ Prisma                                    │
+│ Queue           │ RabbitmQ                           │
+├────────────────────────────────────────────────────────────┤
+│ Security        │ HMAC-SHA256 + SSRF Protection             │
+│ Secrets         │ Encrypted at rest                         │
+├────────────────────────────────────────────────────────────┤
+│ Observability   │ OpenTelemetry + JSON Logs + Metrics       │
+│ Error Tracking  │ Sentry                                    │
+├────────────────────────────────────────────────────────────┤
+│ Testing         │ Vitest + Supertest + Playwright            │
+│ Load Testing    │ k6 / equivalent                           │
+├────────────────────────────────────────────────────────────┤
+│ Container       │ Docker                                    │
+│ CI/CD           │ GitHub Actions                            │
+│ Cloud           │ AWS                                       │
+└────────────────────────────────────────────────────────────┘
+fd

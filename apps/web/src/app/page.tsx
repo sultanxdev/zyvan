@@ -1,0 +1,29 @@
+import { Navbar } from '@/components/navbar';
+import { Hero } from '@/components/hero';
+import { HowItWorks } from '@/components/how-it-works';
+import { UseCasesBento } from '@/components/use-cases-bento';
+import { FeaturesGrid } from '@/components/features-grid';
+import { Pricing } from '@/components/pricing';
+import { FAQ } from '@/components/faq';
+import { CtaBanner } from '@/components/cta-banner';
+import { Footer } from '@/components/footer';
+
+export default function Home() {
+  return (
+    <div className="flex min-h-screen flex-col bg-background text-foreground antialiased font-geist-mono selection:bg-zinc-950 selection:text-white">
+      <Navbar />
+      <div className="w-full max-w-[1200px] mx-auto bg-grid-pattern relative border-x border-black/[0.04]">
+        <main className="flex-1">
+          <Hero />
+          <HowItWorks />
+          <UseCasesBento />
+          <FeaturesGrid />
+          <Pricing />
+          <FAQ />
+          <CtaBanner />
+        </main>
+      </div>
+      <Footer />
+    </div>
+  );
+}

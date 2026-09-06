@@ -1,62 +1,39 @@
 # Dependencies
 node_modules/
-.pnp
-.pnp.js
 
 # Build output
 dist/
-build/
 .next/
 out/
 
-# Environment variables
+# Environment
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.production
 
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Prisma
+packages/database/prisma/migrations/**/migration_lock.toml
 
-# Runtime
-pids/
-*.pid
-*.seed
-*.pid.lock
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Coverage
-coverage/
-.nyc_output/
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
 
-# Editor
-.vscode/
-.idea/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Prisma
-prisma/migrations/
-
 # Docker
-*.env.docker
-#other files
-.interview
-architecture.md
-explainer.md
+docker-data/
 
+# Logs
+*.log
+logs/
 
-.agents
-.interview
-interview
+# Test coverage
+coverage/
+
+# Misc
+*.tgz
+.turbo
