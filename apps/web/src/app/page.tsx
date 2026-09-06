@@ -10,7 +10,7 @@ import { Footer } from '@/components/footer';
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground antialiased font-mono selection:bg-zinc-950 selection:text-white">
+    <div className="flex min-h-screen flex-col bg-background text-foreground antialiased font-geist-mono selection:bg-zinc-950 selection:text-white">
       <Navbar />
       <div className="w-full max-w-[1200px] mx-auto bg-grid-pattern relative border-x border-black/[0.04]">
         <main className="flex-1">

@@ -26,7 +26,7 @@ const companyLinks = [
 
 export function Footer() {
   return (
-    <footer className="overflow-hidden border-t border-black/[0.06] bg-gray-100/70 backdrop-blur-xl">
+    <footer className="overflow-hidden border-t border-black/[0.06] bg-gray-100/70 backdrop-blur-xl font-geist-mono">
       <div className="mx-auto max-w-[1040px] px-4 pt-14 sm:px-6 sm:pt-16">
         {/* Main footer grid */}
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] lg:gap-8">

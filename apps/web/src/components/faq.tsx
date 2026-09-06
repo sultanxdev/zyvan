@@ -39,16 +39,13 @@ export function FAQ() {
           <Badge variant="pill" className="mb-3.5 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
             Technical FAQ
           </Badge>
-          <h2
-            className="text-3xl sm:text-5xl font-normal tracking-tight text-[#17172B] leading-[1.12]"
-            style={{ fontFamily: "var(--font-serif, 'Newsreader', Georgia, serif)" }}
-          >
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#17172B] leading-[1.12] font-geist-mono">
             Frequently asked{' '}
-            <span className="italic text-[#18181B]">
+            <span className="text-[#18181B]">
               questions.
             </span>
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
+          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal font-geist-mono">
             Clear answers to common questions about Zyvan&apos;s webhook delivery platform.
           </p>
         </div>

@@ -20,16 +20,13 @@ export function UseCasesBento() {
           >
             Who is Zyvan for?
           </Badge>
-          <h2
-            className="text-3xl sm:text-5xl font-normal tracking-tight text-[#17172B] leading-[1.12]"
-            style={{ fontFamily: "var(--font-serif, 'Newsreader', Georgia, serif)" }}
-          >
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#17172B] leading-[1.12] font-geist-mono">
             Built for applications that{' '}
-            <span className="italic text-[#18181B]">
+            <span className="text-[#18181B]">
               rely on webhooks.
             </span>
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
+          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal font-geist-mono">
             Reliable webhook delivery for products, platforms, and services that depend on their integrations working.
           </p>
         </div>

@@ -149,7 +149,7 @@ export function TextHoverEffect({
         }}
         style={{
           fontFamily:
-            'var(--font-geist-sans), system-ui, -apple-system, sans-serif',
+            'var(--font-geist-mono), ui-monospace, monospace',
           fontSize: '150px',
           fontWeight: 900,
           letterSpacing: '-0.055em',
@@ -170,7 +170,7 @@ export function TextHoverEffect({
         mask={`url(#${maskId})`}
         style={{
           fontFamily:
-            'var(--font-geist-sans), system-ui, -apple-system, sans-serif',
+            'var(--font-geist-mono), ui-monospace, monospace',
           fontSize: '150px',
           fontWeight: 900,
           letterSpacing: '-0.055em',
