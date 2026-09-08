@@ -77,24 +77,6 @@
 - Node.js 20+
 - Docker & Docker Compose
 
-### 2. Start Supporting Infrastructure
-```bash
-# Start PostgreSQL (5432), Redis (6379), RabbitMQ (5672, UI: 15672)
-docker compose up -d
-```
-
-### 3. Install Dependencies & Seed Database
-```bash
-npm install
-
-# Generate Prisma Client & push schema
-npm run db:generate
-npm run db:push
-
-# Seed demo user, default project, sample destinations, and realistic events
-npm run db:seed
-```
-
 ### 4. Start Development Servers
 Run the 3 components in separate terminals (or concurrently):
 ```bash
