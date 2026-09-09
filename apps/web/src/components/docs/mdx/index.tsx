@@ -13,7 +13,7 @@ import { CardGroup, Card } from './CardGroup';
 import { MermaidDiagram } from './MermaidDiagram';
 import { ApiPlayground } from './ApiPlayground';
 import { Accordion, AccordionGroup } from './Accordion';
-import { slugify } from '@/lib/mdx';
+import { slugify } from '@/lib/slugify';
 
 // Custom heading generator that attaches IDs for TOC scroll-spy & anchor linking
 function createHeading(level: 1 | 2 | 3 | 4) {
@@ -74,7 +74,7 @@ export const mdxComponents = {
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
     <p
       className="text-[15px] leading-relaxed text-zinc-300 my-4 font-sans font-normal"
-      {...props}
+      ...props
     />
   ),
   strong: (props: React.HTMLAttributes<HTMLElement>) => (
