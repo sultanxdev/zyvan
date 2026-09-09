@@ -1,0 +1,57 @@
+---
+title: "Destinations and Endpoints"
+description: "How to configure webhook destinations in Zyvan, set up signing secrets, configure custom retry policies, and enforce security policies."
+category: "Core Concepts"
+order: 3
+badge: "Configuration"
+readTime: "4 min"
+---
+
+# Destinations and Endpoints
+
+A **Destination** is a registered target URL where Zyvan dispatches webhook payloads when events are emitted.
+
+---
+
+## Destination Configuration Schema
+
+When registering a destination, you configure the target URL, cryptographic signing key, rate limits, and failure handling policies.
+
+<ParamGroup>
+  <ParamField name="url" type="string" required location="body">
+    The public HTTPS endpoint that will receive the webhook `POST` requests. Must begin with `https://` (HTTP allowed only in localhost/development).
+  </ParamField>
+  
+  <ParamField name="secret" type="string" required location="body">
+    The shared secret key used to compute the `HMAC-SHA256` signature sent in the `x-zyvan-signature` header. Zyvan encrypts this secret at rest using **AES-256-GCM**.
+  </ParamField>
+
+  <ParamField name="retry_policy" type="object" location="body">
+    Defines the retry behavior for transient delivery failures:
+    - `max_attempts`: Total attempts before marking as `DEAD_LETTER` (default: 5).
+    - `initial_interval_sec`: Initial delay before attempt 2 (default: 5).
+    - `backoff_multiplier`: Exponential scale factor (default: 2.0).
+    - `max_interval_sec`: Ceiling for delay interval (default: 86400).
+  </ParamField>
+
+  <ParamField name="rate_limit" type="number" location="body" defaultValue="100">
+    Maximum requests per second allowed for this specific destination to prevent overwhelming downstream receiver servers.
+  </ParamField>
+
+  <ParamField name="active" type="boolean" location="body" defaultValue="true">
+    Whether Zyvan should actively dispatch events to this destination. When `false`, events matching this destination will be skipped.
+  </ParamField>
+</ParamGroup>
+
+---
+
+## SSRF (Server-Side Request Forgery) Protection
+
+Zyvan enforces strict network-level SSRF filters on all destination URLs before dispatch:
+- Prohibits internal IP ranges (`127.0.0.1`, `10.0.0.0/8`, `192.168.0.0/16`, `169.254.169.254` AWS metadata).
+- Resolves DNS records prior to connection and prevents DNS rebinding exploits.
+- Rejects non-standard ports (allowing only 443 for HTTPS and 80 for HTTP in local test mode).
+
+<Callout type="security" title="Automatic Secret Encryption">
+  Signing secrets stored in Zyvan are never saved in plaintext. They are encrypted using envelope encryption with **AES-256-GCM** before writing to PostgreSQL.
+</Callout>
