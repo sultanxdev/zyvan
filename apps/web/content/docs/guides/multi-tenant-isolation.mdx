@@ -17,7 +17,7 @@ Zyvan addresses this with **Tenant Isolation Envelopes**.
 
 ## Setting Tenant Limits
 
-<CodeBlock language="typescript" filename="tenant-config.ts">
+```typescript
 import { ZyvanClient } from '@zyvan/sdk';
 
 const zyvan = new ZyvanClient({
@@ -32,7 +32,7 @@ await zyvan.tenants.create({
   concurrencyLimit: 25, // Up to 25 parallel HTTP requests
   rateLimit: 500        // Up to 500 requests per second
 });
-</CodeBlock>
+```
 
 ---
 
@@ -40,7 +40,7 @@ await zyvan.tenants.create({
 
 If a tenant's receiver is failing continuously or under a DDoS attack, you can pause deliveries for just that tenant without affecting anyone else:
 
-<CodeBlock language="bash" filename="pause-tenant.sh">
+```bash
 curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/tenants/tenant_nike_01/pause" \
   -H "Authorization: Bearer zyvan_live_sec_10982347"
-</CodeBlock>
+```

@@ -42,7 +42,7 @@ A **Destination** defines where webhook requests are dispatched. Destinations ca
 
 ## Code Example
 
-<CodeBlock language="typescript" filename="create-destination.ts">
+```typescript
 import { ZyvanClient } from '@zyvan/sdk';
 
 const zyvan = new ZyvanClient({
@@ -63,4 +63,4 @@ const destination = await zyvan.destinations.create({
 
 console.log('Registered Destination ID:', destination.id);
 console.log('Signing Secret (Store this!):', destination.secret);
-</CodeBlock>
+```

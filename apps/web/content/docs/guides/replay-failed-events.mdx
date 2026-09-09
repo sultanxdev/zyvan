@@ -60,7 +60,7 @@ console.log('Replay scheduled:', replayedDelivery.status);`
 
 If an entire destination was down for hours, you can trigger a bulk replay across all failed deliveries:
 
-<CodeBlock language="bash" filename="bulk-replay.sh">
+```bash
 curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/dlq/bulk-replay" \
   -H "Authorization: Bearer zyvan_live_sec_10982347" \
   -H "Content-Type: application/json" \
@@ -68,4 +68,4 @@ curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/dlq/bulk-replay" \
     "destination_id": "dest_acme_corp_01",
     "failed_after": "2026-09-08T00:00:00Z"
   }'
-</CodeBlock>
+```

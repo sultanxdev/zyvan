@@ -37,9 +37,11 @@ graph LR
 
 To prevent downstream endpoints from being overwhelmed by simultaneous retries after an outage (**thundering herd problem**), Zyvan employs **Full Jitter**:
 
-$$\text{Delay} = \text{random}(0, \; \text{min}(\text{max\_interval}, \; \text{initial\_interval} \times \text{multiplier}^{\text{attempt}}))$$
+```
+Delay = random(0, min(max_interval, initial_interval * multiplier^(attempt - 1)))
+```
 
-<CodeBlock language="typescript" filename="retry-calculator.ts">
+```typescript
 export function calculateNextDelay(
   attempt: number,
   initialIntervalSec = 5,
@@ -52,4 +54,4 @@ export function calculateNextDelay(
   const jittered = Math.floor(Math.random() * capped * 1000);
   return jittered; // milliseconds for RabbitMQ message expiration
 }
-</CodeBlock>
+```

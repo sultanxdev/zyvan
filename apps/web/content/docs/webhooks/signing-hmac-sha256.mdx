@@ -17,11 +17,13 @@ Zyvan uses **HMAC-SHA256** signatures to guarantee that outgoing webhook request
 
 The canonical payload passed to HMAC-SHA256 is constructed as:
 
-$$\text{CanonicalString} = \text{Timestamp} + \text{"."} + \text{RawJSONBody}$$
+```
+CanonicalString = Timestamp + "." + RawJSONBody
+```
 
 Where:
-- $\text{Timestamp}$ is the decimal string representation of current Unix epoch in seconds (e.g. `"1718029300"`).
-- $\text{RawJSONBody}$ is the exact UTF-8 byte representation of the HTTP request body.
+- `Timestamp` is the decimal string representation of current Unix epoch in seconds (e.g. `"1718029300"`).
+- `RawJSONBody` is the exact UTF-8 byte representation of the HTTP request body.
 
 ---
 

@@ -30,7 +30,7 @@ Projects serve as top-level containers for environments, tenants, destinations, 
 
 ### Request Example
 
-<CodeBlock language="bash" filename="create-project.sh">
+```bash
 curl -X POST "https://api.zyvan.dev/v1/projects" \
   -H "Authorization: Bearer zyvan_admin_key" \
   -H "Content-Type: application/json" \
@@ -38,7 +38,7 @@ curl -X POST "https://api.zyvan.dev/v1/projects" \
     "name": "Production App",
     "plan": "enterprise"
   }'
-</CodeBlock>
+```
 
 ### Response (`201 Created`)
 

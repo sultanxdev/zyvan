@@ -25,15 +25,15 @@ export ZYVAN_API_URL="https://api.zyvan.dev"
 
 ## Health Check
 
-<CodeBlock language="bash" filename="health.sh">
+```bash
 curl -s "$ZYVAN_API_URL/health" | jq .
-</CodeBlock>
+```
 
 ---
 
 ## Send Event via cURL
 
-<CodeBlock language="bash" filename="send-event.sh">
+```bash
 curl -X POST "$ZYVAN_API_URL/v1/projects/$ZYVAN_PROJECT_ID/events" \
   -H "Authorization: Bearer $ZYVAN_API_KEY" \
   -H "Content-Type: application/json" \
@@ -46,4 +46,4 @@ curl -X POST "$ZYVAN_API_URL/v1/projects/$ZYVAN_PROJECT_ID/events" \
       "environment": "production"
     }
   }'
-</CodeBlock>
+```

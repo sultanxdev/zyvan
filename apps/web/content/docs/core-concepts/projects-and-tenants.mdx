@@ -56,11 +56,11 @@ Zyvan provides granular tenant-level controls:
 - **Rate Limit**: Token bucket rate limit per second (e.g., 200 req/s).
 - **Pause / Resume**: Instantly pause webhook delivery for a misbehaving or compromised tenant without impacting other accounts.
 
-<CodeBlock language="typescript" filename="tenant-limits.ts">
+```typescript
 // Example: Configure Tenant Quotas
 const tenant = await zyvan.tenants.update('tenant_acme_corp', {
   concurrencyLimit: 10,  // Max parallel deliveries
   rateLimit: 250,        // Max 250 req/sec
   status: 'ACTIVE'       // 'ACTIVE' | 'PAUSED'
 });
-</CodeBlock>
+```
