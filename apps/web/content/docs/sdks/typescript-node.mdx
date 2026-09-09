@@ -1,0 +1,62 @@
+---
+title: "TypeScript / Node.js SDK"
+description: "Official TypeScript and Node.js SDK for Zyvan: installation, initialization, event emission, and webhook signature verification."
+category: "SDKs & Tools"
+order: 1
+badge: "Official"
+readTime: "4 min"
+---
+
+# TypeScript & Node.js SDK
+
+The official `@zyvan/sdk` provides strongly-typed interfaces, automatic retries for network timeouts, and zero-dependency webhook verification helpers.
+
+---
+
+## Installation
+
+<CodeTabs
+  tabs={[
+    {
+      label: "npm",
+      language: "bash",
+      code: "npm install @zyvan/sdk"
+    },
+    {
+      label: "pnpm",
+      language: "bash",
+      code: "pnpm add @zyvan/sdk"
+    },
+    {
+      label: "yarn",
+      language: "bash",
+      code: "yarn add @zyvan/sdk"
+    }
+  ]}
+/>
+
+---
+
+## Quick Example
+
+<CodeBlock language="typescript" filename="app.ts">
+import { ZyvanClient } from '@zyvan/sdk';
+
+const zyvan = new ZyvanClient({
+  apiKey: process.env.ZYVAN_API_KEY!,
+  projectId: 'proj_live_99'
+});
+
+// Send an event
+const event = await zyvan.events.send({
+  type: 'customer.subscribed',
+  idempotencyKey: 'sub_evt_49102',
+  tenantId: 'tenant_acme',
+  payload: {
+    plan: 'enterprise',
+    seats: 50
+  }
+});
+
+console.log('Event Queued:', event.id);
+</CodeBlock>

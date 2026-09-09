@@ -1,0 +1,41 @@
+---
+title: "Python SDK"
+description: "Official Python client library for Zyvan: pip installation, synchronous & async client, and Django/FastAPI helpers."
+category: "SDKs & Tools"
+order: 2
+badge: "Official"
+readTime: "4 min"
+---
+
+# Python SDK
+
+The `zyvan` Python package offers full type hinting, asynchronous (`asyncio`) support, and signature verification utilities.
+
+---
+
+## Installation
+
+```bash
+pip install zyvan
+```
+
+---
+
+## Quick Example
+
+<CodeBlock language="python" filename="example.py">
+from zyvan import ZyvanClient
+
+client = ZyvanClient(
+    api_key="zyvan_live_sec_10982347",
+    project_id="proj_live_99"
+)
+
+event = client.events.send(
+    type="subscription.renewed",
+    idempotency_key="sub_renew_9812",
+    payload={"plan": "pro", "price_cents": 4900}
+)
+
+print(f"Sent event ID: {event.id}")
+</CodeBlock>
