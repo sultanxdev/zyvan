@@ -90,7 +90,10 @@ export function CommandPalette({ isOpen, onClose, searchIndex }: CommandPaletteP
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 sm:pt-24 bg-black/80 backdrop-blur-md animate-in fade-in-0 duration-150 font-geist-mono font-mono">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 sm:pt-24 bg-black/80 backdrop-blur-md animate-in fade-in-0 duration-150 font-geist-mono font-mono"
+      onClick={onClose}
+    >
       {/* Modal Container */}
       <div
         className="relative w-full max-w-2xl rounded-2xl border border-white/15 bg-[#0C0C10] shadow-2xl overflow-hidden"

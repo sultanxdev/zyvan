@@ -22,26 +22,31 @@ export function TableOfContents({ toc, title, filePath }: TableOfContentsProps) 
   useEffect(() => {
     if (toc.length === 0) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveId(entry.target.id);
-          }
-        });
-      },
-      {
-        rootMargin: '0px 0px -70% 0px',
-        threshold: 0.1,
+    // Set first heading as initial active if none set
+    if (!activeId && toc[0]) {
+      setActiveId(toc[0].id);
+    }
+
+    const handleScroll = () => {
+      const headingElements = toc
+        .map((item) => document.getElementById(item.id))
+        .filter(Boolean) as HTMLElement[];
+
+      const scrollPosition = window.scrollY + 120;
+
+      for (let i = headingElements.length - 1; i >= 0; i--) {
+        const el = headingElements[i];
+        if (el.offsetTop <= scrollPosition) {
+          setActiveId(el.id);
+          break;
+        }
       }
-    );
+    };
 
-    toc.forEach((item) => {
-      const el = document.getElementById(item.id);
-      if (el) observer.observe(el);
-    });
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Initial check
 
-    return () => observer.disconnect();
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [toc]);
 
   const handleCopyLink = async () => {
@@ -54,6 +59,16 @@ export function TableOfContents({ toc, title, filePath }: TableOfContentsProps) 
     }
   };
 
+  const scrollToHeading = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    e.preventDefault();
+    const target = document.getElementById(id);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth' });
+      setActiveId(id);
+      window.history.pushState(null, '', `#${id}`);
+    }
+  };
+
   const githubEditUrl = filePath
     ? `https://github.com/sultanxdev/zyvan/blob/main/apps/web/content/docs/${filePath}`
     : 'https://github.com/sultanxdev/zyvan';
@@ -63,7 +78,7 @@ export function TableOfContents({ toc, title, filePath }: TableOfContentsProps) 
   }
 
   return (
-    <aside className="sticky top-20 h-[calc(100vh-5rem)] w-64 overflow-y-auto px-4 py-4 font-geist-mono font-mono select-none scrollbar-none hidden xl:block">
+    <aside className="sticky top-14 h-[calc(100vh-3.5rem)] w-64 overflow-y-auto px-4 py-6 font-geist-mono font-mono select-none scrollbar-none hidden xl:block shrink-0">
       {/* Table of Contents Header */}
       <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400">
         <AlignLeft className="w-3.5 h-3.5 text-[#00DC5A]" />
@@ -81,11 +96,12 @@ export function TableOfContents({ toc, title, filePath }: TableOfContentsProps) 
             <a
               key={item.id}
               href={`#${item.id}`}
-              className={`block py-1 transition-all leading-snug ${
+              onClick={(e) => scrollToHeading(e, item.id)}
+              className={`block py-1 transition-all leading-snug cursor-pointer ${
                 isH3 ? 'pl-3' : isH4 ? 'pl-6' : ''
               } ${
                 isActive
-                  ? 'text-[#00DC5A] font-semibold translate-x-0.5'
+                  ? 'text-[#00DC5A] font-semibold translate-x-0.5 border-l-2 -ml-[13px] pl-3 border-[#00DC5A]'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >

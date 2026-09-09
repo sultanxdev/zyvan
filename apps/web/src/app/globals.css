@@ -63,15 +63,23 @@
   border-color: var(--border);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 html, body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color-scheme: light;
 }
 
 code, kbd, samp, pre {
   font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Scroll margin for smooth anchor linking under fixed navigation */
+h1, h2, h3, h4, h5, h6 {
+  scroll-margin-top: 5.5rem;
 }
 
 /* Ambient Subtle Cream Grid Pattern */
@@ -100,4 +108,23 @@ code, kbd, samp, pre {
   border-color: rgba(0, 0, 0, 0.2);
   transform: translateY(-2px);
   box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.08);
+}
+
+/* Custom Sleek Dark Scrollbar for Docs */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 220, 90, 0.4);
 }
