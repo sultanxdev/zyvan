@@ -25,10 +25,10 @@ Endpoints for listing permanently failed deliveries and triggering atomic replay
 
 <EndpointBadge method="POST" path="/v1/projects/:projectId/dlq/:deliveryId/replay" auth="Bearer API Key" />
 
-<CodeBlock language="bash" filename="replay.sh">
+```bash
 curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/dlq/deliv_01HZX87AB9823KJ/replay" \
   -H "Authorization: Bearer zyvan_live_sec_10982347"
-</CodeBlock>
+```
 
 ---
 

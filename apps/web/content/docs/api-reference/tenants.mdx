@@ -36,7 +36,7 @@ Tenants isolate customer workloads and configure distinct concurrency limits and
 
 ### Request Example
 
-<CodeBlock language="bash" filename="create-tenant.sh">
+```bash
 curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/tenants" \
   -H "Authorization: Bearer zyvan_live_sec_10982347" \
   -H "Content-Type: application/json" \
@@ -46,4 +46,4 @@ curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/tenants" \
     "concurrency_limit": 20,
     "rate_limit": 200
   }'
-</CodeBlock>
+```

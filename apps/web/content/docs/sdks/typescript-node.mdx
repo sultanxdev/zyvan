@@ -39,7 +39,7 @@ The official `@zyvan/sdk` provides strongly-typed interfaces, automatic retries 
 
 ## Quick Example
 
-<CodeBlock language="typescript" filename="app.ts">
+```typescript
 import { ZyvanClient } from '@zyvan/sdk';
 
 const zyvan = new ZyvanClient({
@@ -59,4 +59,4 @@ const event = await zyvan.events.send({
 });
 
 console.log('Event Queued:', event.id);
-</CodeBlock>
+```

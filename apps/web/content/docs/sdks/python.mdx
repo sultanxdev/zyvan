@@ -23,7 +23,7 @@ pip install zyvan
 
 ## Quick Example
 
-<CodeBlock language="python" filename="example.py">
+```python
 from zyvan import ZyvanClient
 
 client = ZyvanClient(
@@ -38,4 +38,4 @@ event = client.events.send(
 )
 
 print(f"Sent event ID: {event.id}")
-</CodeBlock>
+```
