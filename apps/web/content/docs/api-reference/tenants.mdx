@@ -1,0 +1,49 @@
+---
+title: "Tenants API"
+description: "Manage multi-tenant isolation: create tenants, set custom concurrency limits, apply rate limit caps, and pause accounts."
+category: "API Reference"
+order: 3
+badge: "Tenants"
+readTime: "4 min"
+apiMethod: "POST"
+apiPath: "/v1/projects/:projectId/tenants"
+---
+
+# Tenants API
+
+Tenants isolate customer workloads and configure distinct concurrency limits and rate bounds.
+
+---
+
+## 1. Create a Tenant
+
+<EndpointBadge method="POST" path="/v1/projects/:projectId/tenants" auth="Bearer API Key" />
+
+<ParamGroup>
+  <ParamField name="external_id" type="string" required location="body">
+    Your own internal customer identifier (e.g. `cust_acme_corp_42`).
+  </ParamField>
+  <ParamField name="name" type="string" required location="body">
+    Display name for the tenant (e.g. `Acme Corp`).
+  </ParamField>
+  <ParamField name="concurrency_limit" type="number" location="body" defaultValue="10">
+    Max simultaneous in-flight HTTP requests for this tenant.
+  </ParamField>
+  <ParamField name="rate_limit" type="number" location="body" defaultValue="100">
+    Max webhook requests per second.
+  </ParamField>
+</ParamGroup>
+
+### Request Example
+
+<CodeBlock language="bash" filename="create-tenant.sh">
+curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/tenants" \
+  -H "Authorization: Bearer zyvan_live_sec_10982347" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_id": "cust_acme_corp_42",
+    "name": "Acme Corporation",
+    "concurrency_limit": 20,
+    "rate_limit": 200
+  }'
+</CodeBlock>
