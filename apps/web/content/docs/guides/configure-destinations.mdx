@@ -1,0 +1,66 @@
+---
+title: "Configure a Destination"
+description: "How to register webhook receiver endpoints, set custom retry thresholds, configure rate limits, and rotate signing secrets in Zyvan."
+category: "Guides"
+order: 2
+badge: "Guide"
+readTime: "4 min"
+apiMethod: "POST"
+apiPath: "/v1/projects/:projectId/destinations"
+---
+
+# Configure a Destination
+
+A **Destination** defines where webhook requests are dispatched. Destinations can be global to a project or isolated to specific tenants.
+
+---
+
+## Endpoint Details
+
+<EndpointBadge method="POST" path="/v1/projects/:projectId/destinations" auth="Bearer API Key" />
+
+---
+
+## Request Parameters
+
+<ParamGroup>
+  <ParamField name="tenant_id" type="string" required location="body">
+    The tenant ID this webhook belongs to (e.g. `tenant_acme_corp`).
+  </ParamField>
+  <ParamField name="url" type="string" required location="body">
+    The receiver URL (`https://your-domain.com/webhooks/zyvan`).
+  </ParamField>
+  <ParamField name="secret" type="string" location="body">
+    Custom signing secret (min 24 characters). If omitted, Zyvan auto-generates a secure 32-byte hexadecimal secret prefixed with `whsec_`.
+  </ParamField>
+  <ParamField name="retry_policy" type="object" location="body">
+    Custom backoff config: `max_attempts` (1-10), `initial_interval_sec` (1-300), `backoff_multiplier` (1.5-3.0).
+  </ParamField>
+</ParamGroup>
+
+---
+
+## Code Example
+
+<CodeBlock language="typescript" filename="create-destination.ts">
+import { ZyvanClient } from '@zyvan/sdk';
+
+const zyvan = new ZyvanClient({
+  apiKey: process.env.ZYVAN_API_KEY!,
+  projectId: 'proj_live_99'
+});
+
+const destination = await zyvan.destinations.create({
+  tenantId: 'tenant_acme_corp',
+  url: 'https://api.acme.com/webhooks',
+  rateLimit: 150, // max 150 req/sec
+  retryPolicy: {
+    maxAttempts: 6,
+    initialIntervalSec: 10,
+    backoffMultiplier: 2
+  }
+});
+
+console.log('Registered Destination ID:', destination.id);
+console.log('Signing Secret (Store this!):', destination.secret);
+</CodeBlock>
