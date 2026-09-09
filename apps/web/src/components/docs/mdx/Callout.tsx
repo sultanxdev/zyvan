@@ -2,12 +2,12 @@
 
 import React from 'react';
 import {
-  InformationCircleIcon,
-  LightBulbIcon,
-  ExclamationTriangleIcon,
-  ShieldCheckIcon,
-  XCircleIcon,
-} from '@heroicons/react/24/outline';
+  Info,
+  Lightbulb,
+  AlertTriangle,
+  ShieldCheck,
+  AlertOctagon,
+} from 'lucide-react';
 
 interface CalloutProps {
   type?: 'note' | 'tip' | 'warning' | 'danger' | 'security';
@@ -24,7 +24,7 @@ export function Callout({ type = 'note', title, children }: CalloutProps) {
       titleColor: 'text-blue-400',
       iconColor: 'text-blue-400',
       defaultTitle: 'Note',
-      Icon: InformationCircleIcon,
+      Icon: Info,
     },
     tip: {
       border: 'border-emerald-500/30',
@@ -33,7 +33,7 @@ export function Callout({ type = 'note', title, children }: CalloutProps) {
       titleColor: 'text-emerald-400',
       iconColor: 'text-emerald-400',
       defaultTitle: 'Pro Tip',
-      Icon: LightBulbIcon,
+      Icon: Lightbulb,
     },
     warning: {
       border: 'border-amber-500/30',
@@ -42,7 +42,7 @@ export function Callout({ type = 'note', title, children }: CalloutProps) {
       titleColor: 'text-amber-400',
       iconColor: 'text-amber-400',
       defaultTitle: 'Warning',
-      Icon: ExclamationTriangleIcon,
+      Icon: AlertTriangle,
     },
     danger: {
       border: 'border-rose-500/30',
@@ -51,7 +51,7 @@ export function Callout({ type = 'note', title, children }: CalloutProps) {
       titleColor: 'text-rose-400',
       iconColor: 'text-rose-400',
       defaultTitle: 'Caution',
-      Icon: XCircleIcon,
+      Icon: AlertOctagon,
     },
     security: {
       border: 'border-violet-500/30',
@@ -60,7 +60,7 @@ export function Callout({ type = 'note', title, children }: CalloutProps) {
       titleColor: 'text-violet-400',
       iconColor: 'text-violet-400',
       defaultTitle: 'Security Best Practice',
-      Icon: ShieldCheckIcon,
+      Icon: ShieldCheck,
     },
   };
 
