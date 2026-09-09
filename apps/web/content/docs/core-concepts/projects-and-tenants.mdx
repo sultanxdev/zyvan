@@ -1,0 +1,66 @@
+---
+title: "Projects and Tenants"
+description: "Understand the multi-tenant hierarchy in Zyvan: Projects as global boundaries, and Tenants as customer-level concurrency and rate limit partitions."
+category: "Core Concepts"
+order: 1
+badge: "Multi-Tenant"
+readTime: "4 min"
+---
+
+# Projects and Tenants
+
+Zyvan is architected from the ground up to support high-throughput, multi-tenant B2B architectures.
+
+---
+
+## The Isolation Hierarchy
+
+```mermaid
+graph TD
+    Org[Your Organization] --> P1[Project: Production]
+    Org --> P2[Project: Staging]
+    
+    P1 --> T1[Tenant: Acme Corp<br/>Rate: 200 req/s, Concurrency: 10]
+    P1 --> T2[Tenant: Beta Systems<br/>Rate: 50 req/s, Concurrency: 2]
+    P1 --> T3[Tenant: Charlie Inc<br/>Rate: 100 req/s, Concurrency: 5]
+
+    T1 --> D1[Destination 1: Primary Webhook]
+    T1 --> D2[Destination 2: Audit Logs]
+    T2 --> D3[Destination 3: ERP Integration]
+```
+
+---
+
+## 1. Projects (Primary Isolation Boundary)
+
+A **Project** is the top-level boundary for:
+- **API Keys & Authentication**: Keys are scoped to specific projects.
+- **Environment Isolation**: Separate `production`, `staging`, and `development` environments into distinct projects.
+- **Billing & Resource Quotas**: Overall throughput and storage quotas are tracked at the project level.
+
+---
+
+## 2. Tenants (Noisy Neighbor Protection)
+
+A **Tenant** represents an individual customer, workspace, or account within your SaaS platform.
+
+Why is tenant-level isolation critical?
+<Callout type="warning" title="The Noisy Neighbor Vulnerability">
+  If one high-volume customer experiences a sudden traffic spike or their destination endpoint crashes and blocks worker connections, a flat FIFO queue would starve all other customers of delivery capacity.
+</Callout>
+
+### Tenant Controls & Limits
+
+Zyvan provides granular tenant-level controls:
+- **Concurrency Limit**: Restricts the number of simultaneous HTTP requests in flight for a single tenant (e.g., maximum 10 parallel connections).
+- **Rate Limit**: Token bucket rate limit per second (e.g., 200 req/s).
+- **Pause / Resume**: Instantly pause webhook delivery for a misbehaving or compromised tenant without impacting other accounts.
+
+<CodeBlock language="typescript" filename="tenant-limits.ts">
+// Example: Configure Tenant Quotas
+const tenant = await zyvan.tenants.update('tenant_acme_corp', {
+  concurrencyLimit: 10,  // Max parallel deliveries
+  rateLimit: 250,        // Max 250 req/sec
+  status: 'ACTIVE'       // 'ACTIVE' | 'PAUSED'
+});
+</CodeBlock>
