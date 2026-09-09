@@ -1,0 +1,136 @@
+---
+title: "Quickstart Guide"
+description: "Get up and running with Zyvan in under 5 minutes. Learn how to authenticate, create a destination, and dispatch your first webhook event."
+category: "Getting Started"
+order: 2
+badge: "5 min"
+readTime: "4 min"
+---
+
+# Quickstart Guide
+
+This guide walks you through sending and delivering your first webhook event through Zyvan in under 5 minutes.
+
+---
+
+## Step-by-Step Onboarding
+
+<Steps>
+  <Step number={1} title="Obtain your API Key" badge="Auth">
+    Log in to the [Zyvan Console](/dashboard) and navigate to **API Keys**. Generate a new key with `events:write` and `destinations:write` permissions.
+    
+    <Callout type="security" title="Keep your API Key Secret">
+      Never expose your Secret Key (`zyvan_live_...`) in client-side code or public repositories. Store it in environment variables.
+    </Callout>
+  </Step>
+
+  <Step number={2} title="Register a Destination Endpoint" badge="Setup">
+    A **Destination** represents the HTTPS endpoint where Zyvan will deliver your webhook events.
+
+    <CodeBlock language="bash" filename="create-destination.sh">
+curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/destinations" \
+  -H "Authorization: Bearer zyvan_live_sec_10982347" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tenant_id": "tenant_default",
+    "url": "https://example.com/api/webhooks",
+    "secret": "whsec_super_secret_signing_key_42",
+    "rate_limit": 100,
+    "retry_policy": {
+      "max_attempts": 5,
+      "initial_interval_sec": 5,
+      "backoff_multiplier": 2
+    }
+  }'
+    </CodeBlock>
+  </Step>
+
+  <Step number={3} title="Send an Event" badge="Dispatch">
+    Publish an event to Zyvan. Zyvan will durably persist the event to PostgreSQL, acknowledge with `202 Accepted`, and immediately schedule delivery to all matching destinations.
+
+    <CodeTabs
+      tabs={[
+        {
+          label: "cURL",
+          language: "bash",
+          code: `curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/events" \\
+  -H "Authorization: Bearer zyvan_live_sec_10982347" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "type": "order.completed",
+    "idempotency_key": "order_evt_998124",
+    "tenant_id": "tenant_default",
+    "payload": {
+      "order_id": "ord_5521",
+      "amount": 25000,
+      "currency": "USD",
+      "customer_email": "user@example.com"
+    }
+  }'`
+        },
+        {
+          label: "TypeScript / Node.js",
+          language: "typescript",
+          filename: "emit.ts",
+          code: `import { ZyvanClient } from '@zyvan/sdk';
+
+const zyvan = new ZyvanClient({
+  apiKey: process.env.ZYVAN_API_KEY!,
+  projectId: 'proj_live_99'
+});
+
+const event = await zyvan.events.send({
+  type: 'order.completed',
+  idempotencyKey: 'order_evt_998124',
+  tenantId: 'tenant_default',
+  payload: {
+    order_id: 'ord_5521',
+    amount: 25000,
+    currency: 'USD',
+    customer_email: 'user@example.com'
+  }
+});
+
+console.log('Event queued:', event.id);`
+        },
+        {
+          label: "Python",
+          language: "python",
+          filename: "emit.py",
+          code: `from zyvan import ZyvanClient
+
+client = ZyvanClient(
+    api_key="zyvan_live_sec_10982347",
+    project_id="proj_live_99"
+)
+
+event = client.events.send(
+    type="order.completed",
+    idempotency_key="order_evt_998124",
+    tenant_id="tenant_default",
+    payload={
+        "order_id": "ord_5521",
+        "amount": 25000,
+        "currency": "USD",
+        "customer_email": "user@example.com"
+    }
+)
+
+print(f"Event queued: {event.id}")`
+        }
+      ]}
+    />
+  </Step>
+
+  <Step number={4} title="Verify Webhook Delivery" badge="Verification">
+    Zyvan signs the payload with HMAC-SHA256 and sends it with `x-zyvan-signature` and `x-zyvan-timestamp` headers. Inspect the response in your server logs or view attempt traces in the [Zyvan Console](/dashboard).
+  </Step>
+</Steps>
+
+---
+
+## Interactive API Sandbox
+
+Test dispatching an event right from this documentation page:
+
+<ApiPlayground />
