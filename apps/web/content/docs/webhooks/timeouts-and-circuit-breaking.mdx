@@ -1,0 +1,33 @@
+---
+title: "Timeouts & Circuit Breaking"
+description: "HTTP connection timeouts, response size limits, and endpoint circuit breakers to protect worker fleet health."
+category: "Webhooks & Reliability"
+order: 6
+badge: "Resilience"
+readTime: "4 min"
+---
+
+# Timeouts & Circuit Breaking
+
+To protect worker fleet stability, Zyvan enforces strict network and execution boundaries on all outbound webhook dispatches.
+
+---
+
+## 1. Request Timeouts
+
+- **Connect Timeout**: 3,000ms (3 seconds) to establish TCP handshake and TLS negotiation.
+- **Read Timeout**: 10,000ms (10 seconds) for the destination server to return the first byte of response.
+- **Total Request Cap**: 15,000ms (15 seconds) hard ceiling.
+
+<Callout type="warning" title="Fast Acknowledgment Pattern">
+  Your webhook endpoint should return `200 OK` or `202 Accepted` within **under 500ms** by queuing heavy asynchronous jobs (e.g. sending emails or processing video) in your own background workers rather than doing synchronous work in the HTTP request thread.
+</Callout>
+
+---
+
+## 2. Automatic Circuit Breaking
+
+If a destination endpoint returns `5xx` errors or times out continuously on **50 consecutive deliveries**, Zyvan temporarily trips the destination's circuit breaker to status `DEGRADED`:
+- Stops dispatching new events to the endpoint for a 5-minute cool-down period.
+- Sends a single probe request after 5 minutes to test endpoint health.
+- Automatically recovers to `ACTIVE` once the endpoint returns `200 OK`.
