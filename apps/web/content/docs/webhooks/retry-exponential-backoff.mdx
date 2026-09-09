@@ -1,0 +1,48 @@
+---
+title: "Retry Policy & Exponential Backoff"
+description: "Mathematical formulation of Zyvan's exponential backoff with full jitter, retry tiers, and custom destination policies."
+category: "Webhooks & Reliability"
+order: 3
+badge: "Math & Queues"
+readTime: "4 min"
+---
+
+# Retry Policy & Backoff Formulation
+
+To avoid overwhelming recovering servers with synchronized retries, Zyvan implements **Exponential Backoff with Full Jitter** (based on AWS research on contention resolution).
+
+---
+
+## The Mathematical Model
+
+For attempt number $i \in \{1, 2, \dots, N\}$:
+
+$$\text{BaseDelay}_i = \text{InitialInterval} \times \text{Multiplier}^{(i - 1)}$$
+
+$$\text{CappedDelay}_i = \min(\text{MaxInterval}, \; \text{BaseDelay}_i)$$
+
+$$\text{ActualDelay}_i = \text{UniformRandom}(0, \; \text{CappedDelay}_i)$$
+
+---
+
+## Configurable Destination Policy
+
+```json
+{
+  "retry_policy": {
+    "max_attempts": 6,
+    "initial_interval_sec": 10,
+    "backoff_multiplier": 2.0,
+    "max_interval_sec": 43200
+  }
+}
+```
+
+<AccordionGroup>
+  <Accordion title="What happens when an endpoint responds with 429 Too Many Requests?">
+    If the endpoint includes a standard `Retry-After: <seconds>` HTTP header, Zyvan respects the server's requested delay instead of standard exponential calculation, provided it falls within the destination's `max_interval_sec` boundary.
+  </Accordion>
+  <Accordion title="Why is Jitter mandatory in high-scale systems?">
+    Without jitter, if 1,000 deliveries fail simultaneously during a network hiccup, all 1,000 retries would fire at the exact same millisecond 5 seconds later, instantly crashing the destination again. Jitter spreads the 1,000 retries evenly across the delay window.
+  </Accordion>
+</AccordionGroup>

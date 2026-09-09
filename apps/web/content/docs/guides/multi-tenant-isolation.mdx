@@ -1,0 +1,46 @@
+---
+title: "Multi-Tenant Isolation"
+description: "How to configure customer-level concurrency limits, dynamic rate limits, and tenant pausing to prevent noisy neighbors in B2B applications."
+category: "Guides"
+order: 6
+badge: "Enterprise"
+readTime: "4 min"
+---
+
+# Multi-Tenant Isolation
+
+For multi-tenant SaaS platforms, giving your customers the ability to register their own webhook destinations introduces unpredictable traffic dynamics. A single high-volume customer could flood your delivery workers and starve other customers.
+
+Zyvan addresses this with **Tenant Isolation Envelopes**.
+
+---
+
+## Setting Tenant Limits
+
+<CodeBlock language="typescript" filename="tenant-config.ts">
+import { ZyvanClient } from '@zyvan/sdk';
+
+const zyvan = new ZyvanClient({
+  apiKey: process.env.ZYVAN_API_KEY!,
+  projectId: 'proj_live_99'
+});
+
+// Configure custom concurrency and rate limits for an enterprise customer
+await zyvan.tenants.create({
+  externalId: 'cust_enterprise_nike',
+  name: 'Nike Global Operations',
+  concurrencyLimit: 25, // Up to 25 parallel HTTP requests
+  rateLimit: 500        // Up to 500 requests per second
+});
+</CodeBlock>
+
+---
+
+## Pausing a Compromised Tenant
+
+If a tenant's receiver is failing continuously or under a DDoS attack, you can pause deliveries for just that tenant without affecting anyone else:
+
+<CodeBlock language="bash" filename="pause-tenant.sh">
+curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/tenants/tenant_nike_01/pause" \
+  -H "Authorization: Bearer zyvan_live_sec_10982347"
+</CodeBlock>

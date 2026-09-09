@@ -1,0 +1,71 @@
+---
+title: "Replay Failed Events"
+description: "How to safely replay failed webhook deliveries from the Dead Letter Queue (DLQ) without duplicate events or data loss."
+category: "Guides"
+order: 5
+badge: "DLQ"
+readTime: "4 min"
+apiMethod: "POST"
+apiPath: "/v1/projects/:projectId/dlq/:deliveryId/replay"
+---
+
+# Replay Failed Events from DLQ
+
+When a webhook destination experiences an extended outage and exhausts all configured retries, Zyvan marks the delivery as `DEAD_LETTER` and moves it to the **Dead Letter Queue (DLQ)**.
+
+Once you or your customer resolves the downstream issue, you can replay the delivery with **1 click or an API call**.
+
+---
+
+## Zero-Overwrite Guarantee
+
+<Callout type="tip" title="Audit Trail Preservation">
+  Replaying a failed delivery **never overwrites or clears past failed attempts**. Zyvan creates a new execution branch while preserving the complete historical trace of every previous failure for auditing and compliance.
+</Callout>
+
+---
+
+## Replay via API
+
+<EndpointBadge method="POST" path="/v1/projects/:projectId/dlq/:deliveryId/replay" auth="Bearer API Key" />
+
+<CodeTabs
+  tabs={[
+    {
+      label: "cURL",
+      language: "bash",
+      code: `curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/dlq/deliv_01HZX87AB9823KJ/replay" \\
+  -H "Authorization: Bearer zyvan_live_sec_10982347"`
+    },
+    {
+      label: "TypeScript",
+      language: "typescript",
+      filename: "replay.ts",
+      code: `import { ZyvanClient } from '@zyvan/sdk';
+
+const zyvan = new ZyvanClient({
+  apiKey: process.env.ZYVAN_API_KEY!,
+  projectId: 'proj_live_99'
+});
+
+const replayedDelivery = await zyvan.dlq.replay('deliv_01HZX87AB9823KJ');
+console.log('Replay scheduled:', replayedDelivery.status);`
+    }
+  ]}
+/>
+
+---
+
+## Bulk Replay (Disaster Recovery)
+
+If an entire destination was down for hours, you can trigger a bulk replay across all failed deliveries:
+
+<CodeBlock language="bash" filename="bulk-replay.sh">
+curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/dlq/bulk-replay" \
+  -H "Authorization: Bearer zyvan_live_sec_10982347" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "destination_id": "dest_acme_corp_01",
+    "failed_after": "2026-09-08T00:00:00Z"
+  }'
+</CodeBlock>

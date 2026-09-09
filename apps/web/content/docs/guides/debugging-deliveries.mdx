@@ -1,0 +1,60 @@
+---
+title: "Debugging Deliveries"
+description: "How to inspect physical attempt traces, HTTP status codes, response headers, and latency metrics to debug failed webhook deliveries."
+category: "Guides"
+order: 7
+badge: "Observability"
+readTime: "4 min"
+apiMethod: "GET"
+apiPath: "/v1/projects/:projectId/deliveries/:deliveryId/attempts"
+---
+
+# Debugging Failed Deliveries
+
+When a webhook fails, you need precise observability into what happened on the wire: what status code was returned, how long the request took, and what response body the server sent.
+
+---
+
+## Fetching Attempt Traces
+
+<EndpointBadge method="GET" path="/v1/projects/:projectId/deliveries/:deliveryId/attempts" auth="Bearer API Key" />
+
+<CodeBlock language="bash" filename="get-attempts.sh">
+curl -X GET "https://api.zyvan.dev/v1/projects/proj_live_99/deliveries/deliv_01HZX87AB9823KJ/attempts" \
+  -H "Authorization: Bearer zyvan_live_sec_10982347"
+</CodeBlock>
+
+---
+
+## Sample Response
+
+```json
+{
+  "delivery_id": "deliv_01HZX87AB9823KJ",
+  "status": "RETRYING",
+  "current_attempt": 2,
+  "next_retry_at": "2026-09-09T17:15:30.000Z",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "executed_at": "2026-09-09T17:10:00.120Z",
+      "status_code": 503,
+      "latency_ms": 1240,
+      "error_code": "HTTP_503_SERVICE_UNAVAILABLE",
+      "response_body": "{\"error\":\"Database connection pool exhausted\"}"
+    },
+    {
+      "attempt_number": 2,
+      "executed_at": "2026-09-09T17:10:15.450Z",
+      "status_code": 504,
+      "latency_ms": 10002,
+      "error_code": "REQUEST_TIMED_OUT",
+      "response_body": null
+    }
+  ]
+}
+```
+
+<Callout type="tip" title="Response Truncation">
+  To protect against memory bloat from rogue endpoints that return massive HTML error pages, Zyvan automatically truncates captured response bodies to the first 4KB.
+</Callout>

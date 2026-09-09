@@ -1,0 +1,39 @@
+---
+title: "HMAC-SHA256 Signing Spec"
+description: "Detailed cryptographic signing specification for Zyvan webhooks: canonical payload construction, timestamping, and header format."
+category: "Webhooks & Reliability"
+order: 2
+badge: "Crypto"
+readTime: "4 min"
+---
+
+# HMAC-SHA256 Signing Specification
+
+Zyvan uses **HMAC-SHA256** signatures to guarantee that outgoing webhook requests cannot be forged or tampered with by intermediaries.
+
+---
+
+## Canonical String Construction
+
+The canonical payload passed to HMAC-SHA256 is constructed as:
+
+$$\text{CanonicalString} = \text{Timestamp} + \text{"."} + \text{RawJSONBody}$$
+
+Where:
+- $\text{Timestamp}$ is the decimal string representation of current Unix epoch in seconds (e.g. `"1718029300"`).
+- $\text{RawJSONBody}$ is the exact UTF-8 byte representation of the HTTP request body.
+
+---
+
+## Output Header
+
+The resulting signature is formatted with a version prefix:
+
+```http
+x-zyvan-timestamp: 1718029300
+x-zyvan-signature: v1=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+```
+
+<Callout type="warning" title="Raw Buffer Requirement">
+  When receiving webhooks in frameworks like Express, Fastify, or Next.js API routes, do NOT parse the body into JSON before signature verification. You must compute HMAC over the raw UTF-8 string or Buffer.
+</Callout>
