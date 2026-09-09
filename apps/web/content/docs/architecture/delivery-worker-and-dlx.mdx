@@ -1,0 +1,55 @@
+---
+title: "Delivery Workers and RabbitMQ DLX"
+description: "How Zyvan implements non-blocking delayed retries using RabbitMQ TTL and Dead Letter Exchanges (DLX) instead of slow DB polling."
+category: "Architecture"
+order: 3
+badge: "Workers"
+readTime: "5 min"
+---
+
+# Delivery Workers & RabbitMQ DLX
+
+Traditional webhook systems rely on cron loops or background tickers querying database tables (`SELECT * FROM deliveries WHERE next_retry <= NOW()`). As volume scales to millions of webhooks, this causes:
+- Database table locks and index bloat.
+- High query latency and CPU saturation.
+- Unpredictable delay drift (a 5-second retry might wait 45 seconds).
+
+**Zyvan solves this using RabbitMQ Per-Message TTL and Dead Letter Exchanges (DLX).**
+
+---
+
+## The Delayed Retry Queue Topology
+
+```mermaid
+graph LR
+    Worker[Delivery Worker] -->|HTTP Request Failed| Calc[Compute Exponential Backoff + Jitter<br/>e.g. Delay = 15,000ms]
+    Calc -->|Publish with expiration=15000| DelayQ[Delay Queue<br/>x-dead-letter-exchange: zyvan.delivery.direct]
+    
+    DelayQ -->|15s Passes: Message Expires| DLX[Dead Letter Exchange]
+    DLX -->|Re-route to active queue| ActiveQ[Active Delivery Queue]
+    ActiveQ --> Worker2[Available Delivery Worker]
+    Worker2 -->|Attempt 2 HTTP Request| Endpoint[Target Webhook Endpoint]
+```
+
+---
+
+## The Jitter Algorithm
+
+To prevent downstream endpoints from being overwhelmed by simultaneous retries after an outage (**thundering herd problem**), Zyvan employs **Full Jitter**:
+
+$$\text{Delay} = \text{random}(0, \; \text{min}(\text{max\_interval}, \; \text{initial\_interval} \times \text{multiplier}^{\text{attempt}}))$$
+
+<CodeBlock language="typescript" filename="retry-calculator.ts">
+export function calculateNextDelay(
+  attempt: number,
+  initialIntervalSec = 5,
+  multiplier = 2,
+  maxIntervalSec = 86400
+): number {
+  const exponential = initialIntervalSec * Math.pow(multiplier, attempt - 1);
+  const capped = Math.min(exponential, maxIntervalSec);
+  // Apply full jitter: random between 0 and capped
+  const jittered = Math.floor(Math.random() * capped * 1000);
+  return jittered; // milliseconds for RabbitMQ message expiration
+}
+</CodeBlock>
