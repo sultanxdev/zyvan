@@ -18,7 +18,7 @@ export default function DocsLandingPage() {
 
   if (!doc) {
     return (
-      <div className="py-12 text-center text-zinc-400">
+      <div className="py-12 text-center text-zinc-400 font-geist-mono font-mono">
         Loading documentation...
       </div>
     );
@@ -27,45 +27,45 @@ export default function DocsLandingPage() {
   const { prev, next } = getAdjacentDocs(doc.slug);
 
   return (
-    <div className="flex w-full justify-between gap-8">
+    <div className="flex w-full justify-between gap-8 font-geist-mono font-mono">
       {/* Center Reading Column */}
       <div className="min-w-0 max-w-4xl flex-1">
         {/* Breadcrumb Trail */}
-        <nav className="flex items-center gap-1.5 text-xs text-zinc-400 font-mono mb-6">
+        <nav className="flex items-center gap-1.5 text-xs text-zinc-400 mb-6">
           <Link href="/docs" className="text-zinc-400 hover:text-zinc-200 transition-colors">
             Docs
           </Link>
           <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
           <span className="text-zinc-400">{doc.frontmatter.category}</span>
           <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-          <span className="text-indigo-400 font-medium truncate">{doc.frontmatter.title}</span>
+          <span className="text-[#00DC5A] font-medium truncate">{doc.frontmatter.title}</span>
         </nav>
 
         {/* Document Header */}
-        <div className="mb-8 border-b border-white/10 pb-6">
+        <div className="mb-8 border-b border-white/[0.08] pb-6">
           <div className="flex flex-wrap items-center gap-2 mb-3">
             {doc.frontmatter.category && (
-              <span className="rounded-full bg-indigo-500/10 border border-indigo-500/30 px-2.5 py-0.5 text-xs font-mono text-indigo-300 font-medium">
+              <span className="rounded-full bg-zinc-900 border border-zinc-800 px-2.5 py-0.5 text-xs text-zinc-300 font-medium">
                 {doc.frontmatter.category}
               </span>
             )}
             {doc.frontmatter.badge && (
-              <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-mono text-emerald-400 font-medium">
+              <span className="rounded-full bg-[#00DC5A]/10 border border-[#00DC5A]/30 px-2.5 py-0.5 text-xs text-[#00DC5A] font-medium">
                 {doc.frontmatter.badge}
               </span>
             )}
-            <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-mono ml-auto">
+            <div className="flex items-center gap-1.5 text-xs text-zinc-400 ml-auto">
               <Clock className="w-3.5 h-3.5" />
               <span>{doc.readingTime}</span>
             </div>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white font-sans">
+          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
             {doc.frontmatter.title}
           </h1>
 
           {doc.frontmatter.description && (
-            <p className="mt-3 text-base text-zinc-400 font-sans leading-relaxed">
+            <p className="mt-3 text-sm sm:text-base text-zinc-400 leading-relaxed">
               {doc.frontmatter.description}
             </p>
           )}
