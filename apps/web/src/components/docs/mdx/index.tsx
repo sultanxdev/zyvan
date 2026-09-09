@@ -74,7 +74,7 @@ export const mdxComponents = {
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
     <p
       className="text-[15px] leading-relaxed text-zinc-300 my-4 font-sans font-normal"
-      ...props
+      {...props}
     />
   ),
   strong: (props: React.HTMLAttributes<HTMLElement>) => (
