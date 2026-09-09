@@ -1,0 +1,54 @@
+---
+title: "Projects API"
+description: "Manage projects in Zyvan: create projects, retrieve details, update settings, and generate scoped API keys."
+category: "API Reference"
+order: 2
+badge: "Projects"
+readTime: "4 min"
+apiMethod: "POST"
+apiPath: "/v1/projects"
+---
+
+# Projects API
+
+Projects serve as top-level containers for environments, tenants, destinations, and billing.
+
+---
+
+## 1. Create a Project
+
+<EndpointBadge method="POST" path="/v1/projects" auth="Bearer Master Key" />
+
+<ParamGroup>
+  <ParamField name="name" type="string" required location="body">
+    A human-readable name for the project (e.g. `Production SaaS`).
+  </ParamField>
+  <ParamField name="plan" type="string" location="body" defaultValue="pro">
+    The tier plan for the project: `free`, `pro`, `enterprise`.
+  </ParamField>
+</ParamGroup>
+
+### Request Example
+
+<CodeBlock language="bash" filename="create-project.sh">
+curl -X POST "https://api.zyvan.dev/v1/projects" \
+  -H "Authorization: Bearer zyvan_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Production App",
+    "plan": "enterprise"
+  }'
+</CodeBlock>
+
+### Response (`201 Created`)
+
+```json
+{
+  "id": "proj_live_99",
+  "name": "Production App",
+  "plan": "enterprise",
+  "status": "ACTIVE",
+  "created_at": "2026-09-09T17:00:00.000Z",
+  "api_key": "zyvan_live_sec_10982347"
+}
+```
