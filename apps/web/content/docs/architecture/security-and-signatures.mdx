@@ -1,0 +1,46 @@
+---
+title: "Security and Signatures"
+description: "How Zyvan secures webhook deliveries: HMAC-SHA256 signatures, timestamp replay protection, AES-256-GCM secret encryption, and SSRF defenses."
+category: "Architecture"
+order: 5
+badge: "Security"
+readTime: "5 min"
+---
+
+# Security and Signatures
+
+Webhook delivery crosses network and trust boundaries. Zyvan implements defense-in-depth security standards to ensure integrity, confidentiality, and anti-tampering.
+
+---
+
+## 1. HMAC-SHA256 Signature Specification
+
+Every webhook request sent by Zyvan includes two authentication headers:
+- `x-zyvan-timestamp`: Unix timestamp (in seconds) of when the request was generated.
+- `x-zyvan-signature`: Hex-encoded HMAC-SHA256 signature calculated over `${timestamp}.${raw_json_payload}` using the destination's secret key.
+
+```mermaid
+graph LR
+    Payload[Raw JSON Payload] + Timestamp[x-zyvan-timestamp: 1718029300] --> SignaturePayload["1718029300.{\"type\":\"order.completed\",...}"]
+    SignaturePayload + Secret[whsec_...] --> HMAC[HMAC-SHA256 Engine]
+    HMAC --> Header["x-zyvan-signature: v1=9f8a6b2c..."]
+```
+
+---
+
+## 2. Replay Attack Prevention
+
+To prevent attackers from intercepting a valid signed request and replaying it against your endpoint:
+1. Extract the `x-zyvan-timestamp` header.
+2. Compare with `Math.floor(Date.now() / 1000)`.
+3. Reject any requests where the timestamp differs by more than **300 seconds (5 minutes)**.
+
+<Callout type="security" title="Constant-Time Comparison">
+  Always use constant-time comparison (`crypto.timingSafeEqual` in Node.js, `hmac.compare_digest` in Python) when verifying signatures to prevent **timing attack vulnerabilities**.
+</Callout>
+
+---
+
+## 3. Secret Encryption at Rest (AES-256-GCM)
+
+All destination signing secrets are encrypted before persisting to the database using **AES-256-GCM** authenticated encryption with unique per-record Initialization Vectors (IVs) and authentication tags. Plaintext secrets are never logged or stored in memory longer than the duration of the signing calculation.
