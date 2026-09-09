@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Play, RotateCcw, Check, Sparkles } from 'lucide-react';
+import { Play, RotateCcw, Sparkles } from 'lucide-react';
 
 interface ApiPlaygroundProps {
   defaultMethod?: 'POST' | 'GET' | 'PUT' | 'DELETE';
@@ -75,17 +75,17 @@ export function ApiPlayground({
   };
 
   return (
-    <div className="my-8 rounded-xl border border-indigo-500/20 bg-[#0c0c12] shadow-2xl overflow-hidden font-mono text-[13px]">
+    <div className="my-8 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden font-geist-mono font-mono text-[13px]">
       {/* Top Header */}
-      <div className="flex flex-wrap items-center justify-between border-b border-white/10 bg-zinc-950 px-4 py-3 gap-3">
+      <div className="flex flex-wrap items-center justify-between border-b border-white/[0.06] bg-zinc-950 px-4 py-3 gap-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-500/20 text-indigo-400">
+          <div className="flex h-6 w-6 items-center justify-center rounded bg-[#00DC5A]/15 text-[#00DC5A]">
             <Sparkles className="w-3.5 h-3.5" />
           </div>
-          <span className="font-sans font-semibold text-sm text-zinc-100">
+          <span className="font-semibold text-sm text-zinc-100">
             Interactive API Playground
           </span>
-          <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-400 font-mono uppercase">
+          <span className="rounded bg-[#00DC5A]/10 border border-[#00DC5A]/20 px-1.5 py-0.5 text-[10px] text-[#00DC5A] uppercase">
             Live Sandbox
           </span>
         </div>
@@ -93,7 +93,7 @@ export function ApiPlayground({
         <div className="flex items-center gap-2">
           <button
             onClick={handleReset}
-            className="flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors"
+            className="flex items-center gap-1 rounded-md border border-white/[0.08] px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 transition-colors"
           >
             <RotateCcw className="w-3 h-3" />
             <span>Reset</span>
@@ -101,7 +101,7 @@ export function ApiPlayground({
           <button
             onClick={handleSend}
             disabled={isLoading}
-            className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1 text-xs font-semibold text-white hover:bg-indigo-500 transition-all active:scale-95 disabled:opacity-50 shadow-md shadow-indigo-600/20"
+            className="flex items-center gap-1.5 rounded-md bg-[#00DC5A] text-black font-bold px-3.5 py-1.2 text-xs hover:bg-[#00c751] transition-all active:scale-95 disabled:opacity-50 shadow-md shadow-[#00DC5A]/20"
           >
             {isLoading ? (
               <span className="animate-spin text-xs">⟳</span>
@@ -114,13 +114,13 @@ export function ApiPlayground({
       </div>
 
       {/* Endpoint and Auth bar */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 border-b border-white/5 bg-zinc-900/30">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 border-b border-white/[0.06] bg-zinc-900/40">
         <div>
           <label className="block text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-1">
             Method & Endpoint
           </label>
-          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-300">
-            <span className="text-emerald-400 font-bold">{method}</span>
+          <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-zinc-950 px-3 py-1.5 text-xs text-zinc-300">
+            <span className="text-[#00DC5A] font-bold">{method}</span>
             <span className="truncate text-zinc-300">{endpoint}</span>
           </div>
         </div>
@@ -133,26 +133,26 @@ export function ApiPlayground({
             type="text"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-zinc-950 px-3 py-1.5 text-xs text-indigo-300 font-mono focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-white/[0.08] bg-zinc-950 px-3 py-1.5 text-xs text-[#00DC5A] font-mono focus:border-[#00DC5A] focus:outline-none"
           />
         </div>
       </div>
 
       {/* Body & Response split */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/[0.06]">
         {/* Request Payload Editor */}
         <div className="p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
               Request JSON Body
             </span>
-            <span className="text-[10px] text-zinc-400">application/json</span>
+            <span className="text-[10px] text-zinc-500">application/json</span>
           </div>
           <textarea
             value={payloadText}
             onChange={(e) => setPayloadText(e.target.value)}
             rows={10}
-            className="w-full resize-none rounded-lg border border-white/10 bg-zinc-950/80 p-3 font-mono text-xs text-emerald-300 focus:border-indigo-500 focus:outline-none"
+            className="w-full resize-none rounded-lg border border-white/[0.08] bg-zinc-950/90 p-3 text-xs text-emerald-300 focus:border-[#00DC5A] focus:outline-none"
           />
         </div>
 
@@ -164,11 +164,11 @@ export function ApiPlayground({
             </span>
             {statusCode && (
               <div className="flex items-center gap-2">
-                <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[11px] text-emerald-400 font-bold">
+                <span className="rounded bg-[#00DC5A]/10 border border-[#00DC5A]/20 px-1.5 py-0.5 text-[11px] text-[#00DC5A] font-bold">
                   {statusCode} Accepted
                 </span>
                 {latencyMs && (
-                  <span className="text-[11px] text-zinc-400 font-mono">
+                  <span className="text-[11px] text-zinc-400">
                     {latencyMs}ms
                   </span>
                 )}
@@ -176,7 +176,7 @@ export function ApiPlayground({
             )}
           </div>
 
-          <div className="h-[200px] overflow-auto rounded-lg border border-white/10 bg-zinc-950/90 p-3 font-mono text-xs text-zinc-300">
+          <div className="h-[200px] overflow-auto rounded-lg border border-white/[0.08] bg-zinc-950/90 p-3 text-xs text-zinc-300">
             {isLoading ? (
               <div className="flex h-full items-center justify-center text-zinc-400 animate-pulse">
                 Sending event to Zyvan Ingestion Plane...
@@ -184,7 +184,7 @@ export function ApiPlayground({
             ) : response ? (
               <pre>{JSON.stringify(response, null, 2)}</pre>
             ) : (
-              <div className="flex h-full flex-col items-center justify-center text-zinc-400 text-center">
+              <div className="flex h-full flex-col items-center justify-center text-zinc-500 text-center">
                 <p>Click &quot;Send Request&quot; to test this endpoint live.</p>
               </div>
             )}

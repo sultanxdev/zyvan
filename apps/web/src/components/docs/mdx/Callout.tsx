@@ -18,11 +18,11 @@ interface CalloutProps {
 export function Callout({ type = 'note', title, children }: CalloutProps) {
   const configs = {
     note: {
-      border: 'border-blue-500/30',
-      bg: 'bg-blue-950/20',
-      glow: 'shadow-[0_0_20px_rgba(59,130,246,0.08)]',
-      titleColor: 'text-blue-400',
-      iconColor: 'text-blue-400',
+      border: 'border-[#00DC5A]/30',
+      bg: 'bg-[#00DC5A]/[0.06]',
+      glow: 'shadow-[0_0_20px_rgba(0,220,90,0.06)]',
+      titleColor: 'text-[#00DC5A]',
+      iconColor: 'text-[#00DC5A]',
       defaultTitle: 'Note',
       Icon: Info,
     },
@@ -54,11 +54,11 @@ export function Callout({ type = 'note', title, children }: CalloutProps) {
       Icon: AlertOctagon,
     },
     security: {
-      border: 'border-violet-500/30',
-      bg: 'bg-violet-950/20',
-      glow: 'shadow-[0_0_20px_rgba(139,92,246,0.08)]',
-      titleColor: 'text-violet-400',
-      iconColor: 'text-violet-400',
+      border: 'border-[#00DC5A]/40',
+      bg: 'bg-[#00DC5A]/[0.08]',
+      glow: 'shadow-[0_0_20px_rgba(0,220,90,0.08)]',
+      titleColor: 'text-[#00DC5A]',
+      iconColor: 'text-[#00DC5A]',
       defaultTitle: 'Security Best Practice',
       Icon: ShieldCheck,
     },
@@ -69,7 +69,7 @@ export function Callout({ type = 'note', title, children }: CalloutProps) {
 
   return (
     <div
-      className={`my-6 rounded-xl border ${config.border} ${config.bg} ${config.glow} p-4.5 backdrop-blur-sm transition-all`}
+      className={`my-6 rounded-xl border ${config.border} ${config.bg} ${config.glow} p-4.5 backdrop-blur-sm transition-all font-geist-mono font-mono`}
     >
       <div className="flex items-start gap-3">
         <div className={`mt-0.5 shrink-0 ${config.iconColor}`}>
@@ -79,7 +79,7 @@ export function Callout({ type = 'note', title, children }: CalloutProps) {
           <h5 className={`text-sm font-semibold tracking-tight ${config.titleColor} mb-1.5`}>
             {title || config.defaultTitle}
           </h5>
-          <div className="text-sm text-zinc-300 leading-relaxed font-sans prose-strong:text-zinc-100 prose-code:text-amber-300">
+          <div className="text-sm text-zinc-300 leading-relaxed prose-strong:text-zinc-100 prose-code:text-emerald-300">
             {children}
           </div>
         </div>

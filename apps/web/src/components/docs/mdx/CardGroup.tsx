@@ -28,7 +28,7 @@ export function CardGroup({ cols = 2, children }: CardGroupProps) {
   };
 
   return (
-    <div className={`my-8 grid gap-4 ${colClass[cols] || colClass[2]}`}>
+    <div className={`my-8 grid gap-4 ${colClass[cols] || colClass[2]} font-geist-mono font-mono`}>
       {children}
     </div>
   );
@@ -60,35 +60,35 @@ export function Card({ title, href, icon, badge, children }: CardProps) {
   return (
     <Link
       href={href}
-      className="group relative flex flex-col justify-between rounded-xl border border-white/10 bg-zinc-950/60 p-5 backdrop-blur-md transition-all duration-200 hover:border-indigo-500/50 hover:bg-zinc-900/60 hover:shadow-[0_0_25px_rgba(99,102,241,0.15)] overflow-hidden"
+      className="group relative flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#0E0E12]/80 p-5 backdrop-blur-md transition-all duration-200 hover:border-[#00DC5A]/40 hover:bg-zinc-900/60 hover:shadow-[0_0_20px_rgba(0,220,90,0.1)] overflow-hidden"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#00DC5A]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
       <div>
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2.5">
             {Icon && (
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-500/20 bg-indigo-950/30 text-indigo-400 group-hover:border-indigo-500/40 group-hover:text-indigo-300 transition-colors">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#00DC5A]/20 bg-[#00DC5A]/10 text-[#00DC5A] group-hover:border-[#00DC5A]/40 transition-colors">
                 <Icon className="w-4 h-4" />
               </div>
             )}
-            <h4 className="text-sm font-semibold text-zinc-100 font-sans group-hover:text-white transition-colors">
+            <h4 className="text-sm font-semibold text-zinc-100 group-hover:text-white transition-colors">
               {title}
             </h4>
           </div>
           {badge && (
-            <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-mono text-emerald-400">
+            <span className="rounded-full bg-[#00DC5A]/10 border border-[#00DC5A]/20 px-2 py-0.5 text-[10px] text-[#00DC5A]">
               {badge}
             </span>
           )}
         </div>
 
-        <div className="text-xs text-zinc-400 leading-relaxed font-sans line-clamp-3">
+        <div className="text-xs text-zinc-400 leading-relaxed line-clamp-3">
           {children}
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-indigo-400 opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all">
+      <div className="mt-4 flex items-center gap-1.5 text-xs font-medium text-[#00DC5A] opacity-80 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all">
         <span>Learn more</span>
         <ArrowRight className="w-3.5 h-3.5" />
       </div>

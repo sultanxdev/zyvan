@@ -21,7 +21,6 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [copied, setCopied] = useState(false);
 
-  // If tabs are passed as structured data
   if (tabs.length > 0) {
     const currentTab = tabs[activeTab] || tabs[0];
 
@@ -39,9 +38,9 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
     const lines = currentTab.code.trim().split('\n');
 
     return (
-      <div className="group relative my-6 rounded-xl border border-white/10 bg-[#0d0d12] shadow-2xl overflow-hidden font-mono text-[13px]">
+      <div className="group relative my-6 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden font-geist-mono font-mono text-[13px]">
         {/* Tab Headers */}
-        <div className="flex items-center justify-between border-b border-white/5 bg-zinc-950/90 px-3 py-1.5 backdrop-blur-md">
+        <div className="flex items-center justify-between border-b border-white/[0.06] bg-zinc-950 px-3 py-1.5 backdrop-blur-md">
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
             {tabs.map((tab, idx) => {
               const isActive = idx === activeTab;
@@ -51,13 +50,13 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
                   onClick={() => setActiveTab(idx)}
                   className={`relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                     isActive
-                      ? 'bg-zinc-800/80 text-white shadow-sm border border-white/10'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                      ? 'bg-zinc-850 text-[#00DC5A] shadow-sm border border-white/[0.08]'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
                   }`}
                 >
                   <span>{tab.label}</span>
                   {isActive && (
-                    <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-indigo-500 rounded-full" />
+                    <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-[#00DC5A] rounded-full" />
                   )}
                 </button>
               );
@@ -68,12 +67,12 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
           <button
             onClick={handleCopy}
             aria-label="Copy snippet"
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-300 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all active:scale-95 shrink-0"
+            className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-all active:scale-95 shrink-0"
           >
             {copied ? (
               <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400 text-[11px] font-medium">Copied!</span>
+                <Check className="w-3.5 h-3.5 text-[#00DC5A]" />
+                <span className="text-[#00DC5A] text-[11px] font-medium">Copied!</span>
               </>
             ) : (
               <>
@@ -87,11 +86,11 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
         {/* Code Content */}
         <div className="overflow-x-auto p-4 leading-relaxed text-zinc-200">
           {currentTab.filename && (
-            <div className="mb-2 text-xs text-zinc-400 font-mono">
+            <div className="mb-2 text-xs text-zinc-500 font-mono">
               // {currentTab.filename}
             </div>
           )}
-          <pre className="font-mono text-[13px]">
+          <pre className="font-geist-mono font-mono text-[13px]">
             <code>
               {lines.map((line, idx) => {
                 const lineNum = idx + 1;
@@ -100,7 +99,7 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
                   <div
                     key={idx}
                     className={`flex items-start ${
-                      isHighlighted ? 'bg-indigo-500/15 -mx-4 px-4 border-l-2 border-indigo-400' : ''
+                      isHighlighted ? 'bg-[#00DC5A]/10 -mx-4 px-4 border-l-2 border-[#00DC5A]' : ''
                     }`}
                   >
                     <span className="w-8 shrink-0 select-none text-right pr-4 text-zinc-600 text-xs">
@@ -117,13 +116,12 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
     );
   }
 
-  // If passed as JSX children with items
   const tabTitles = items || [];
   const childArray = React.Children.toArray(children);
 
   return (
-    <div className="my-6 rounded-xl border border-white/10 bg-[#0d0d12] shadow-2xl overflow-hidden font-mono text-[13px]">
-      <div className="flex items-center border-b border-white/5 bg-zinc-950/90 px-3 py-1.5 backdrop-blur-md">
+    <div className="my-6 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden font-geist-mono font-mono text-[13px]">
+      <div className="flex items-center border-b border-white/[0.06] bg-zinc-950 px-3 py-1.5 backdrop-blur-md">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           {tabTitles.map((title, idx) => (
             <button
@@ -131,8 +129,8 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
               onClick={() => setActiveTab(idx)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                 idx === activeTab
-                  ? 'bg-zinc-800/80 text-white shadow-sm border border-white/10'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                  ? 'bg-zinc-850 text-[#00DC5A] shadow-sm border border-white/[0.08]'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
               }`}
             >
               {title}

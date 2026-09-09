@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { DocsHeader } from './DocsHeader';
 import { DocsSidebar } from './DocsSidebar';
 import { CommandPalette } from './CommandPalette';
-import { NavCategory, SearchResultItem } from '@/lib/mdx';
+import { NavCategory, SearchResultItem } from '@/lib/docs-types';
 
 interface DocsLayoutClientProps {
   categories: NavCategory[];
@@ -21,11 +21,14 @@ export function DocsLayoutClient({
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#09090d] text-zinc-100 font-sans selection:bg-indigo-500/30 selection:text-white relative overflow-x-hidden">
-      {/* Top Ambient Gradient Glow */}
-      <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 h-[350px] w-full max-w-7xl bg-[radial-gradient(ellipse_at_top,_rgba(99,102,241,0.15),_rgba(168,85,247,0.05),_transparent_70%)] z-0" />
+    <div className="min-h-screen bg-[#0A0A0D] text-zinc-100 font-geist-mono font-mono selection:bg-[#00DC5A]/30 selection:text-white relative overflow-x-hidden">
+      {/* Top Ambient Emerald Green Radial Glow matching landing page */}
+      <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 h-[450px] w-full max-w-7xl bg-[radial-gradient(ellipse_at_top,_rgba(0,220,90,0.14),_rgba(0,220,90,0.03),_transparent_70%)] z-0" />
 
-      {/* Trigger.dev Style Header */}
+      {/* Grid Pattern matching landing page */}
+      <div className="pointer-events-none fixed inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:32px_32px] z-0" />
+
+      {/* Header */}
       <DocsHeader
         onOpenSearch={() => setIsSearchOpen(true)}
         onToggleMobileSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
@@ -36,14 +39,14 @@ export function DocsLayoutClient({
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="flex">
           {/* Desktop Left Sidebar */}
-          <div className="hidden lg:block w-64 shrink-0 border-r border-white/10 pr-3 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
+          <div className="hidden lg:block w-64 shrink-0 border-r border-white/[0.08] pr-3 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
             <DocsSidebar categories={categories} />
           </div>
 
           {/* Mobile Drawer Sidebar */}
           {isMobileSidebarOpen && (
             <div className="fixed inset-0 z-50 flex lg:hidden bg-black/80 backdrop-blur-md">
-              <div className="relative w-4/5 max-w-xs h-full bg-[#0d0d12] border-r border-white/10 p-4 shadow-2xl overflow-y-auto">
+              <div className="relative w-4/5 max-w-xs h-full bg-[#0C0C10] border-r border-white/[0.08] p-4 shadow-2xl overflow-y-auto">
                 <DocsSidebar
                   categories={categories}
                   onItemClick={() => setIsMobileSidebarOpen(false)}

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronRight, Filter, BookOpen, Layers, Terminal, Sparkles, Shield, Cpu, Code2 } from 'lucide-react';
-import { NavCategory } from '@/lib/mdx';
+import { NavCategory } from '@/lib/docs-types';
 
 interface DocsSidebarProps {
   categories: NavCategory[];
@@ -45,14 +45,14 @@ export function DocsSidebar({ categories, onItemClick }: DocsSidebarProps) {
   };
 
   const methodColors: Record<string, string> = {
-    GET: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-    POST: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+    GET: 'text-sky-400 bg-sky-500/10 border-sky-500/20',
+    POST: 'text-[#00DC5A] bg-[#00DC5A]/10 border-[#00DC5A]/30',
     PUT: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
     DELETE: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
   };
 
   return (
-    <aside className="h-full w-full flex flex-col font-sans select-none">
+    <aside className="h-full w-full flex flex-col font-geist-mono font-mono select-none">
       {/* Quick sidebar filter */}
       <div className="px-3 pt-4 pb-2">
         <div className="relative flex items-center">
@@ -62,7 +62,7 @@ export function DocsSidebar({ categories, onItemClick }: DocsSidebarProps) {
             placeholder="Filter sections..."
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-zinc-900/60 pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-indigo-500 focus:bg-zinc-900 focus:outline-none transition-colors"
+            className="w-full rounded-lg border border-white/[0.08] bg-zinc-900/70 pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:border-[#00DC5A]/50 focus:bg-zinc-900 focus:outline-none transition-colors"
           />
           {filterQuery && (
             <button
@@ -100,19 +100,19 @@ export function DocsSidebar({ categories, onItemClick }: DocsSidebarProps) {
                 className="flex w-full items-center justify-between px-2 py-1 text-xs font-bold uppercase tracking-wider text-zinc-400 hover:text-zinc-200 transition-colors group"
               >
                 <div className="flex items-center gap-2">
-                  <Icon className="w-3.5 h-3.5 text-indigo-400 group-hover:text-indigo-300" />
-                  <span className="font-mono text-[11px]">{cat.title}</span>
+                  <Icon className="w-3.5 h-3.5 text-[#00DC5A] group-hover:text-emerald-400 transition-colors" />
+                  <span className="text-[11px] font-semibold">{cat.title}</span>
                 </div>
                 <ChevronRight
                   className={`w-3.5 h-3.5 text-zinc-500 transition-transform duration-150 ${
-                    !isCollapsed ? 'rotate-90' : ''
+                    !isCollapsed ? 'rotate-90 text-[#00DC5A]' : ''
                   }`}
                 />
               </button>
 
               {/* Items List */}
               {!isCollapsed && (
-                <div className="space-y-0.5 pt-1 pl-2 border-l border-zinc-800/80 ml-3">
+                <div className="space-y-0.5 pt-1 pl-2 border-l border-zinc-800 ml-3">
                   {items.map((item) => {
                     const href = `/docs/${item.slug}`;
                     const isActive =
@@ -124,10 +124,10 @@ export function DocsSidebar({ categories, onItemClick }: DocsSidebarProps) {
                         key={item.slug}
                         href={href}
                         onClick={onItemClick}
-                        className={`group flex items-center justify-between rounded-lg px-2.5 py-1.5 text-[13px] transition-all duration-150 ${
+                        className={`group flex items-center justify-between rounded-lg px-2.5 py-1.5 text-[12.5px] transition-all duration-150 ${
                           isActive
-                            ? 'bg-indigo-600/15 text-indigo-300 font-medium shadow-[inset_0_0_12px_rgba(99,102,241,0.15)] border-l-2 border-indigo-500 pl-2'
-                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+                            ? 'bg-[#00DC5A]/10 text-[#00DC5A] font-semibold shadow-[inset_0_0_12px_rgba(0,220,90,0.1)] border-l-2 border-[#00DC5A] pl-2'
+                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
                         }`}
                       >
                         <span className="truncate">{item.title}</span>
@@ -135,7 +135,7 @@ export function DocsSidebar({ categories, onItemClick }: DocsSidebarProps) {
                         <div className="flex items-center gap-1.5 shrink-0 ml-2">
                           {item.apiMethod && (
                             <span
-                              className={`rounded px-1.5 py-0.2 text-[9px] font-mono font-bold uppercase border ${
+                              className={`rounded px-1.5 py-0.2 text-[9px] font-bold uppercase border ${
                                 methodColors[item.apiMethod] || 'text-zinc-400 border-zinc-800'
                               }`}
                             >
@@ -143,7 +143,7 @@ export function DocsSidebar({ categories, onItemClick }: DocsSidebarProps) {
                             </span>
                           )}
                           {item.badge && (
-                            <span className="rounded-full bg-zinc-800 border border-zinc-700/60 px-1.5 py-0.2 text-[9px] font-mono text-zinc-400">
+                            <span className="rounded-full bg-zinc-900 border border-zinc-800 px-1.5 py-0.2 text-[9px] text-zinc-400">
                               {item.badge}
                             </span>
                           )}
