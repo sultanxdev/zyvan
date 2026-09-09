@@ -1,0 +1,56 @@
+---
+title: "Go Client Library"
+description: "Idiomatic Go package for interacting with Zyvan APIs and verifying webhooks in Go HTTP handlers."
+category: "SDKs & Tools"
+order: 3
+badge: "Official"
+readTime: "4 min"
+---
+
+# Go Client Library
+
+The `github.com/zyvan-dev/zyvan-go` package provides an idiomatic, high-concurrency Go client.
+
+---
+
+## Installation
+
+```bash
+go get github.com/zyvan-dev/zyvan-go
+```
+
+---
+
+## Quick Example
+
+<CodeBlock language="go" filename="main.go">
+package main
+
+import (
+    "context"
+    "fmt"
+    "os"
+
+    "github.com/zyvan-dev/zyvan-go"
+)
+
+func main() {
+    client := zyvan.NewClient(zyvan.Config{
+        APIKey:    os.Getenv("ZYVAN_API_KEY"),
+        ProjectID: "proj_live_99",
+    })
+
+    event, err := client.Events.Send(context.Background(), zyvan.SendEventParams{
+        Type:           "order.placed",
+        IdempotencyKey: "ord_tx_8819",
+        Payload: map[string]interface{}{
+            "amount": 12000,
+        },
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Println("Queued event:", event.ID)
+}
+</CodeBlock>

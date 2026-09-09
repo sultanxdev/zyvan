@@ -1,0 +1,49 @@
+---
+title: "cURL & Automation Guide"
+description: "Quick reference for interacting with Zyvan via cURL, shell scripts, CI/CD pipelines, and HTTP clients."
+category: "SDKs & Tools"
+order: 4
+badge: "CLI"
+readTime: "3 min"
+---
+
+# cURL & CLI Automation
+
+You can interact directly with the Zyvan REST API using `curl` or any HTTP client without installing external SDKs.
+
+---
+
+## Setting up Environment Variables
+
+```bash
+export ZYVAN_API_KEY="zyvan_live_sec_10982347"
+export ZYVAN_PROJECT_ID="proj_live_99"
+export ZYVAN_API_URL="https://api.zyvan.dev"
+```
+
+---
+
+## Health Check
+
+<CodeBlock language="bash" filename="health.sh">
+curl -s "$ZYVAN_API_URL/health" | jq .
+</CodeBlock>
+
+---
+
+## Send Event via cURL
+
+<CodeBlock language="bash" filename="send-event.sh">
+curl -X POST "$ZYVAN_API_URL/v1/projects/$ZYVAN_PROJECT_ID/events" \
+  -H "Authorization: Bearer $ZYVAN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "deploy.succeeded",
+    "idempotency_key": "dep_20260909_01",
+    "payload": {
+      "commit": "8f31b8a",
+      "branch": "main",
+      "environment": "production"
+    }
+  }'
+</CodeBlock>
