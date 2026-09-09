@@ -1,27 +1,54 @@
 import React from 'react';
+import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { ChevronRight, Clock } from 'lucide-react';
-import { getDocBySlug, getAdjacentDocs } from '@/lib/mdx';
+import { ChevronRight, Clock, Sparkles } from 'lucide-react';
+import { getAllDocs, getDocBySlug, getAdjacentDocs } from '@/lib/mdx';
 import { MdxContentRenderer } from '@/components/docs/MdxContentRenderer';
 import { TableOfContents } from '@/components/docs/TableOfContents';
 import { DocsPagination } from '@/components/docs/DocsPagination';
 import { FeedbackWidget } from '@/components/docs/FeedbackWidget';
 
-export const metadata: Metadata = {
-  title: 'Documentation — Zyvan',
-  description: 'Production-ready webhook and event delivery infrastructure documentation.',
-};
+interface PageProps {
+  params: Promise<{
+    slug: string[];
+  }>;
+}
 
-export default function DocsLandingPage() {
-  const doc = getDocBySlug('getting-started/introduction');
+export async function generateStaticParams() {
+  const docs = getAllDocs();
+  return docs.map((doc) => ({
+    slug: doc.slugArray,
+  }));
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const doc = getDocBySlug(slug);
 
   if (!doc) {
-    return (
-      <div className="py-12 text-center text-zinc-400">
-        Loading documentation...
-      </div>
-    );
+    return {
+      title: 'Documentation Not Found | Zyvan',
+    };
+  }
+
+  return {
+    title: `${doc.frontmatter.title} | Zyvan Documentation`,
+    description: doc.frontmatter.description,
+    openGraph: {
+      title: `${doc.frontmatter.title} — Zyvan Docs`,
+      description: doc.frontmatter.description,
+      type: 'article',
+    },
+  };
+}
+
+export default async function DocSlugPage({ params }: PageProps) {
+  const { slug } = await params;
+  const doc = getDocBySlug(slug);
+
+  if (!doc) {
+    notFound();
   }
 
   const { prev, next } = getAdjacentDocs(doc.slug);
@@ -32,7 +59,7 @@ export default function DocsLandingPage() {
       <div className="min-w-0 max-w-4xl flex-1">
         {/* Breadcrumb Trail */}
         <nav className="flex items-center gap-1.5 text-xs text-zinc-400 font-mono mb-6">
-          <Link href="/docs" className="text-zinc-400 hover:text-zinc-200 transition-colors">
+          <Link href="/docs/getting-started/introduction" className="hover:text-zinc-200 transition-colors">
             Docs
           </Link>
           <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
@@ -85,7 +112,7 @@ export default function DocsLandingPage() {
       <TableOfContents
         toc={doc.toc}
         title={doc.frontmatter.title}
-        filePath="getting-started/introduction.mdx"
+        filePath={doc.slug + '.mdx'}
       />
     </div>
   );
