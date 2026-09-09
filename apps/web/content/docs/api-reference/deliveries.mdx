@@ -1,0 +1,43 @@
+---
+title: "Deliveries API"
+description: "Query webhook delivery jobs, check current retry status, and retrieve detailed physical HTTP attempt execution logs."
+category: "API Reference"
+order: 6
+badge: "Deliveries"
+readTime: "4 min"
+apiMethod: "GET"
+apiPath: "/v1/projects/:projectId/deliveries"
+---
+
+# Deliveries API
+
+Query individual delivery jobs and physical execution attempts.
+
+---
+
+## 1. List Deliveries
+
+<EndpointBadge method="GET" path="/v1/projects/:projectId/deliveries" auth="Bearer API Key" />
+
+<ParamGroup>
+  <ParamField name="status" type="string" location="query">
+    Filter by delivery state: `PENDING`, `DELIVERED`, `RETRYING`, `DEAD_LETTER`.
+  </ParamField>
+  <ParamField name="destination_id" type="string" location="query">
+    Filter deliveries targeting a specific destination.
+  </ParamField>
+  <ParamField name="limit" type="number" location="query" defaultValue="50">
+    Pagination limit (1-100).
+  </ParamField>
+</ParamGroup>
+
+---
+
+## 2. Get Delivery Attempts
+
+<EndpointBadge method="GET" path="/v1/projects/:projectId/deliveries/:deliveryId/attempts" auth="Bearer API Key" />
+
+<CodeBlock language="bash" filename="get-attempts.sh">
+curl -X GET "https://api.zyvan.dev/v1/projects/proj_live_99/deliveries/deliv_01HZX87AB9823KJ/attempts" \
+  -H "Authorization: Bearer zyvan_live_sec_10982347"
+</CodeBlock>

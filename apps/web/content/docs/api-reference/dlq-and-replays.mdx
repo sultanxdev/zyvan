@@ -1,0 +1,46 @@
+---
+title: "DLQ & Replays API"
+description: "Inspect Dead Letter Queue entries and trigger single or bulk atomic replays without overwriting past attempts."
+category: "API Reference"
+order: 7
+badge: "Recovery"
+readTime: "4 min"
+apiMethod: "POST"
+apiPath: "/v1/projects/:projectId/dlq/:deliveryId/replay"
+---
+
+# Dead Letter Queue & Replays API
+
+Endpoints for listing permanently failed deliveries and triggering atomic replay jobs.
+
+---
+
+## 1. List DLQ Deliveries
+
+<EndpointBadge method="GET" path="/v1/projects/:projectId/dlq" auth="Bearer API Key" />
+
+---
+
+## 2. Replay Single Delivery
+
+<EndpointBadge method="POST" path="/v1/projects/:projectId/dlq/:deliveryId/replay" auth="Bearer API Key" />
+
+<CodeBlock language="bash" filename="replay.sh">
+curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/dlq/deliv_01HZX87AB9823KJ/replay" \
+  -H "Authorization: Bearer zyvan_live_sec_10982347"
+</CodeBlock>
+
+---
+
+## 3. Bulk Replay
+
+<EndpointBadge method="POST" path="/v1/projects/:projectId/dlq/bulk-replay" auth="Bearer API Key" />
+
+<ParamGroup>
+  <ParamField name="destination_id" type="string" location="body">
+    Replay all DLQ items for a specific destination.
+  </ParamField>
+  <ParamField name="failed_after" type="string" location="body">
+    ISO 8601 timestamp filter (e.g. `2026-09-09T00:00:00Z`).
+  </ParamField>
+</ParamGroup>
