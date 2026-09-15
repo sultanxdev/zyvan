@@ -71,24 +71,7 @@
 
 ---
 
-## 💻 Quick Start (Local Development)
 
-### 1. Prerequisites
-- Node.js 20+
-- Docker & Docker Compose
-
-### 4. Start Development Servers
-Run the 3 components in separate terminals (or concurrently):
-```bash
-# Terminal 1 — Express Ingestion API (Port 4000)
-npm run dev:api
-
-# Terminal 2 — RabbitMQ Delivery Worker
-npm run dev:worker
-
-# Terminal 3 — Next.js Dashboard & Simulator (Port 3000)
-npm run dev:web
-```
 
 Visit the dashboard at `http://localhost:3000`. Use **Quick Demo Login** (`developer@zyvan.dev` / `zyvan_secure_2026`) or sign up with a new account.
 
