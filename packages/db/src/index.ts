@@ -1,23 +1,26 @@
 // ─────────────────────────────────────────────────────────────
-// Zyvan Database Package
-// Re-exports Prisma Client and all generated types
+// Zyvan Database Package — Prisma Client & Generated Types
 // ─────────────────────────────────────────────────────────────
 
 export { PrismaClient } from '@prisma/client';
 export type {
   User,
-  ProjectMember,
+  Session,
+  Account,
+  Verification,
+  Organization,
+  Member,
+  Invitation,
   Project,
   ApiKey,
-  Tenant,
   Destination,
   Event,
   Delivery,
   Attempt,
   Replay,
   DeadLetter,
+  AuditLog,
   ProjectStatus,
-  TenantStatus,
   EventStatus,
   DeliveryStatus,
   AttemptOutcome,
@@ -26,7 +29,6 @@ export type {
 
 import { PrismaClient } from '@prisma/client';
 
-// Singleton Prisma client for the application
 let prisma: PrismaClient;
 
 export function getPrismaClient(): PrismaClient {
