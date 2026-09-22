@@ -1,0 +1,14 @@
+{
+  "name": "@zyvan/queue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared AMQP/RabbitMQ queue topology contracts and message definitions for Zyvan",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
