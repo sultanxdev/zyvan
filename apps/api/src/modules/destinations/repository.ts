@@ -1,108 +1,91 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Destination Repository
-// Data access layer for the destinations table.
-// Destinations define where Zyvan sends webhooks.
+// Multi-tenant data access layer for webhook destinations.
+// All queries scoped by organizationId.
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient } from '@zyvan/database';
-import type { Destination } from '@zyvan/database';
+import { getPrismaClient } from '@zyvan/db';
+import type { Destination } from '@zyvan/db';
 
 export interface CreateDestinationData {
-  tenantId: string;
+  organizationId: string;
+  projectId: string;
+  name: string;
   url: string;
   secretRef?: string | null;
   retryPolicy?: any;
   rateLimit?: number;
+  events?: string[];
 }
 
 export interface UpdateDestinationData {
+  name?: string;
   url?: string;
   secretRef?: string | null;
   retryPolicy?: any;
   rateLimit?: number;
+  events?: string[];
+  active?: boolean;
 }
 
 /**
- * Create a new destination.
+ * Create a new destination within an organization.
  */
 export async function create(data: CreateDestinationData): Promise<Destination> {
   const prisma = getPrismaClient();
   return prisma.destination.create({
     data: {
-      tenantId: data.tenantId,
+      organizationId: data.organizationId,
+      projectId: data.projectId,
+      name: data.name,
       url: data.url,
       secretRef: data.secretRef || null,
       retryPolicy: data.retryPolicy || {},
       rateLimit: data.rateLimit ?? 20,
+      events: data.events || ['*'],
+      active: true,
     },
   });
 }
 
 /**
- * Find a destination by ID.
+ * Find a destination by ID scoped to organization.
  */
-export async function findById(id: string): Promise<Destination | null> {
-  const prisma = getPrismaClient();
-  return prisma.destination.findUnique({
-    where: { id },
-    include: {
-      tenant: { select: { id: true, projectId: true } },
-    },
-  });
-}
-
-/**
- * Find a destination by ID with project ownership check.
- * Returns null if the destination doesn't belong to the project.
- */
-export async function findByIdWithProject(
-  id: string,
-  projectId: string
-): Promise<(Destination & { tenant: { id: string; projectId: string } }) | null> {
+export async function findById(id: string, organizationId: string): Promise<Destination | null> {
   const prisma = getPrismaClient();
   return prisma.destination.findFirst({
-    where: {
-      id,
-      tenant: { projectId },
-    },
+    where: { id, organizationId },
     include: {
-      tenant: { select: { id: true, projectId: true } },
+      project: { select: { id: true, name: true } },
     },
   });
 }
 
 /**
- * List all destinations for a tenant.
+ * List all destinations for an organization, optionally filtered by project.
  */
-export async function listByTenant(tenantId: string): Promise<Destination[]> {
-  const prisma = getPrismaClient();
-  return prisma.destination.findMany({
-    where: { tenantId },
-    orderBy: { createdAt: 'desc' },
-  });
-}
-
-/**
- * List all destinations for a project (across all tenants).
- */
-export async function listByProject(projectId: string): Promise<Destination[]> {
+export async function listByOrganization(organizationId: string, projectId?: string): Promise<Destination[]> {
   const prisma = getPrismaClient();
   return prisma.destination.findMany({
     where: {
-      tenant: { projectId },
+      organizationId,
+      ...(projectId ? { projectId } : {}),
     },
     include: {
-      tenant: { select: { id: true, name: true, externalId: true } },
+      project: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
 }
 
 /**
- * Update a destination.
+ * Update a destination scoped to organization.
  */
-export async function update(id: string, data: UpdateDestinationData): Promise<Destination> {
+export async function update(id: string, organizationId: string, data: UpdateDestinationData): Promise<Destination | null> {
   const prisma = getPrismaClient();
+  const existing = await prisma.destination.findFirst({ where: { id, organizationId } });
+  if (!existing) return null;
+
   return prisma.destination.update({
     where: { id },
     data,
@@ -110,10 +93,13 @@ export async function update(id: string, data: UpdateDestinationData): Promise<D
 }
 
 /**
- * Set the active status of a destination (pause/resume).
+ * Set active status (pause/resume) scoped to organization.
  */
-export async function setActive(id: string, active: boolean): Promise<Destination> {
+export async function setActive(id: string, organizationId: string, active: boolean): Promise<Destination | null> {
   const prisma = getPrismaClient();
+  const existing = await prisma.destination.findFirst({ where: { id, organizationId } });
+  if (!existing) return null;
+
   return prisma.destination.update({
     where: { id },
     data: { active },
@@ -121,10 +107,13 @@ export async function setActive(id: string, active: boolean): Promise<Destinatio
 }
 
 /**
- * Delete a destination.
+ * Delete a destination scoped to organization.
  */
-export async function remove(id: string): Promise<Destination> {
+export async function remove(id: string, organizationId: string): Promise<Destination | null> {
   const prisma = getPrismaClient();
+  const existing = await prisma.destination.findFirst({ where: { id, organizationId } });
+  if (!existing) return null;
+
   return prisma.destination.delete({
     where: { id },
   });
