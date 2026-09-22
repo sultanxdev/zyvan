@@ -420,13 +420,14 @@ model DeadLetter {
   errorMessage   String?          @map("error_message") @db.Text
   statusCode     Int?             @map("status_code")
   attemptCount   Int              @default(1) @map("attempt_count")
-  replayedAt     DateTime?        @map("replayed_at")
-  resolvedAt     DateTime?        @map("resolved_at")
-  resolvedBy     String?          @map("resolved_by")
-  dismissedAt    DateTime?        @map("dismissed_at")
-  dismissedBy    String?          @map("dismissed_by")
-  resolution     String?          @db.Text
-  createdAt      DateTime         @default(now()) @map("created_at")
+  replayedAt      DateTime?        @map("replayed_at")
+  resolvedAt      DateTime?        @map("resolved_at")
+  resolvedBy      String?          @map("resolved_by")
+  resolution      String?          @db.Text
+  dismissedAt     DateTime?        @map("dismissed_at")
+  dismissedBy     String?          @map("dismissed_by")
+  dismissalReason String?          @map("dismissal_reason") @db.Text
+  createdAt       DateTime         @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   event        Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
