@@ -181,7 +181,7 @@ export function createZyvanErrorFromResponse(params: {
   const { statusCode, rawText, headers } = params;
   const headerRequestId = headers.get('x-request-id') || undefined;
 
-  let parsedBody: any = null;
+  let parsedBody: unknown = null;
   if (rawText && rawText.trim().length > 0) {
     try {
       parsedBody = JSON.parse(rawText);
@@ -191,16 +191,19 @@ export function createZyvanErrorFromResponse(params: {
     }
   }
 
+  const isRecord = parsedBody !== null && typeof parsedBody === 'object';
+  const bodyRecord = isRecord ? (parsedBody as Record<string, unknown>) : null;
   const isHtml = rawText && /^\s*<(!DOCTYPE|html)/i.test(rawText);
   const message =
-    parsedBody?.message ||
+    (typeof bodyRecord?.message === 'string' ? bodyRecord.message : null) ||
     (typeof parsedBody === 'string' ? parsedBody : null) ||
     (!isHtml && rawText && rawText.length < 200 ? rawText.trim() : null) ||
     `HTTP ${statusCode} error`;
 
-  const code = parsedBody?.code || undefined;
-  const requestId = parsedBody?.request_id || headerRequestId;
-  const details = parsedBody?.details !== undefined ? parsedBody.details : undefined;
+  const code = typeof bodyRecord?.code === 'string' ? bodyRecord.code : undefined;
+  const requestId =
+    typeof bodyRecord?.request_id === 'string' ? bodyRecord.request_id : headerRequestId;
+  const details = bodyRecord?.details !== undefined ? bodyRecord.details : undefined;
   const rawBody = parsedBody !== null ? parsedBody : (rawText || undefined);
 
   const errorOptions: ZyvanErrorOptions = {

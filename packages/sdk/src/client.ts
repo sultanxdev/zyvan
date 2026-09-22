@@ -1,25 +1,18 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan SDK — Official Client
+// Strongly typed API client with resource namespaces.
 // ─────────────────────────────────────────────────────────────
 
 import crypto from 'crypto';
 import type { ZyvanClientOptions, RequestOptions, ApiResponse } from './types';
 import { HttpTransport } from './transport';
-
-// Legacy compatibility types retained until PR 4.2 / PR 4.4
-export interface SendEventInput {
-  type: string;
-  idempotencyKey?: string;
-  payload: Record<string, unknown>;
-  headers?: Record<string, string>;
-}
-
-export interface IngestResponse {
-  event_id: string;
-  status: string;
-  created_at: string;
-  duplicate: boolean;
-}
+import {
+  ProjectsResource,
+  EventsResource,
+  DestinationsResource,
+  DeliveriesResource,
+  DeadLettersResource,
+} from './resources';
 
 export interface WebhookVerifyOptions {
   payload: string | Buffer;
@@ -36,6 +29,31 @@ export class ZyvanClient {
   private readonly projectId?: string;
   private readonly timeoutMs: number;
 
+  /**
+   * Projects resource: inspect organizations and projects accessible via API key.
+   */
+  public readonly projects: ProjectsResource;
+
+  /**
+   * Events resource: ingest webhook events and query event delivery history.
+   */
+  public readonly events: EventsResource;
+
+  /**
+   * Destinations resource: manage webhook destinations, rate limits, and retry policies.
+   */
+  public readonly destinations: DestinationsResource;
+
+  /**
+   * Deliveries resource: inspect destination delivery logs and attempts.
+   */
+  public readonly deliveries: DeliveriesResource;
+
+  /**
+   * DeadLetters resource: inspect, triage, replay, dismiss, or resolve DLQ failures.
+   */
+  public readonly deadLetters: DeadLettersResource;
+
   constructor(options: ZyvanClientOptions) {
     if (!options?.apiKey || typeof options.apiKey !== 'string' || options.apiKey.trim() === '') {
       throw new Error('ZyvanClient requires a non-empty apiKey');
@@ -46,6 +64,13 @@ export class ZyvanClient {
     this.baseUrl = (options.baseUrl || 'https://api.zyvan.dev').replace(/\/$/, '');
     this.projectId = options.projectId?.trim() || undefined;
     this.timeoutMs = options.timeoutMs ?? 10000;
+
+    // Initialize typed resource clients
+    this.projects = new ProjectsResource(this.transport);
+    this.events = new EventsResource(this.transport);
+    this.destinations = new DestinationsResource(this.transport);
+    this.deliveries = new DeliveriesResource(this.transport);
+    this.deadLetters = new DeadLettersResource(this.transport);
   }
 
   /**
@@ -56,7 +81,7 @@ export class ZyvanClient {
   }
 
   /**
-   * HTTP GET convenience method.
+   * HTTP GET convenience method returning the ApiResponse<T> envelope.
    */
   public async get<T>(
     path: string,
@@ -66,7 +91,7 @@ export class ZyvanClient {
   }
 
   /**
-   * HTTP POST convenience method.
+   * HTTP POST convenience method returning the ApiResponse<T> envelope.
    */
   public async post<T>(
     path: string,
@@ -77,7 +102,7 @@ export class ZyvanClient {
   }
 
   /**
-   * HTTP PUT convenience method.
+   * HTTP PUT convenience method returning the ApiResponse<T> envelope.
    */
   public async put<T>(
     path: string,
@@ -88,7 +113,7 @@ export class ZyvanClient {
   }
 
   /**
-   * HTTP PATCH convenience method.
+   * HTTP PATCH convenience method returning the ApiResponse<T> envelope.
    */
   public async patch<T>(
     path: string,
@@ -99,7 +124,7 @@ export class ZyvanClient {
   }
 
   /**
-   * HTTP DELETE convenience method.
+   * HTTP DELETE convenience method returning the ApiResponse<T> envelope.
    */
   public async delete<T>(
     path: string,
@@ -108,32 +133,8 @@ export class ZyvanClient {
     return this.transport.request<T>({ ...options, path, method: 'DELETE' });
   }
 
-  // ─── Legacy / Compatibility Surface (Migrated in PR 4.2 & PR 4.4) ─────
-
-  public events = {
-    send: async (input: SendEventInput): Promise<IngestResponse> => {
-      const idempotencyKey =
-        input.idempotencyKey || `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-      const response = await this.post<IngestResponse>(
-        '/v1/events',
-        {
-          eventType: input.type,
-          idempotencyKey,
-          data: input.payload,
-        },
-        {
-          idempotencyKey,
-          headers: input.headers,
-        }
-      );
-
-      return response.data;
-    },
-  };
-
   /**
-   * Zero-dependency Webhook Signature Verification (retained untouched for PR 4.1).
+   * Zero-dependency Webhook Signature Verification.
    */
   public static webhooks = {
     verify(options: WebhookVerifyOptions): boolean {

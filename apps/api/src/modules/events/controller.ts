@@ -16,7 +16,16 @@ import * as eventService from './service';
 export async function createEvent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const orgId = req.auth!.organizationId;
-    const parsed = CreateEventSchema.parse(req.body);
+    const idempotencyKey =
+      req.body?.idempotency_key ||
+      (req.headers['idempotency-key'] as string)?.trim();
+
+    const rawBody = {
+      ...req.body,
+      idempotency_key: idempotencyKey,
+      tenant_id: req.body?.tenant_id || (req.headers['x-tenant-id'] as string) || 'default',
+    };
+    const parsed = CreateEventSchema.parse(rawBody);
 
     let projectId = (req.auth as any).projectId || (req.body.projectId as string) || (req.headers['x-project-id'] as string);
 
