@@ -1,48 +1,60 @@
 // ─────────────────────────────────────────────────────────────
-// Zyvan API — RabbitMQ Connection Manager
+// Zyvan API — RabbitMQ Connection & Confirmed Publisher Manager
 //
-// Singleton AMQP connection + channel via amqplib.
+// Singleton AMQP connection + ConfirmChannel via amqplib.
 // Topology:
 //   Exchange: zyvan.events (topic, durable)
-//   Queue:    zyvan.delivery (durable, DLX → zyvan.retry.exchange)
-//   Queue:    zyvan.delivery.retry (durable, TTL + DLX back to zyvan.events)
+//   Queue:    zyvan.delivery (durable, bound to delivery.process)
+//   Queues:   zyvan.delivery.retry.<tier> (durable, DLX back to zyvan.events)
 //
-// The API only publishes — consuming is done by the Worker.
+// The API publishes with publisher confirms — ensuring messages are safely
+// persisted on disk by RabbitMQ before deleting transactional outbox records.
 // ─────────────────────────────────────────────────────────────
 
 import amqplib from 'amqplib';
-import type { ChannelModel, Channel } from 'amqplib';
+import type { ChannelModel, ConfirmChannel } from 'amqplib';
+import {
+  EXCHANGE_EVENTS,
+  QUEUE_DELIVERY,
+  ROUTING_KEY_DELIVERY,
+  RETRY_TIERS,
+} from '@zyvan/queue';
+import type { DeliveryJobMessage } from '@zyvan/queue';
 import { config } from '../config';
 import { logger } from './logger';
 
-// ─── Constants ───────────────────────────────────────────────
+export {
+  EXCHANGE_EVENTS,
+  QUEUE_DELIVERY,
+  ROUTING_KEY_DELIVERY,
+  RETRY_TIERS,
+};
+export type { DeliveryJobMessage };
 
-export const EXCHANGE_EVENTS = 'zyvan.events';
-export const QUEUE_DELIVERY = 'zyvan.delivery';
+// Legacy backward-compatibility constants
 export const QUEUE_RETRY = 'zyvan.delivery.retry';
-export const ROUTING_KEY_DELIVERY = 'delivery.process';
 
 // ─── Singleton State ─────────────────────────────────────────
 
 let connection: ChannelModel | null = null;
-let channel: Channel | null = null;
+let confirmChannel: ConfirmChannel | null = null;
 
 // ─── Connect & Assert Topology ───────────────────────────────
 
 /**
- * Connect to RabbitMQ and assert the exchange/queue topology.
+ * Connect to RabbitMQ with a ConfirmChannel and assert the exchange/queue topology.
  * Safe to call multiple times — returns existing connection.
  */
 export async function connectRabbitMQ(): Promise<void> {
-  if (connection && channel) return;
+  if (connection && confirmChannel) return;
 
-  logger.info({ url: config.rabbitmqUrl.replace(/\/\/.*@/, '//***@') }, 'Connecting to RabbitMQ...');
+  logger.info({ url: config.rabbitmqUrl.replace(/\/\/.*@/, '//***@') }, 'Connecting to RabbitMQ with publisher confirms...');
 
   const conn = await amqplib.connect(config.rabbitmqUrl);
-  const ch = await conn.createChannel();
+  const ch = await conn.createConfirmChannel();
 
   connection = conn;
-  channel = ch;
+  confirmChannel = ch;
 
   // Handle unexpected connection close
   conn.on('error', (err: any) => {
@@ -51,17 +63,15 @@ export async function connectRabbitMQ(): Promise<void> {
   conn.on('close', () => {
     logger.warn('RabbitMQ connection closed');
     connection = null;
-    channel = null;
+    confirmChannel = null;
   });
 
   // ─── Assert Exchange: zyvan.events ─────────────────────
-  // Main exchange — API publishes delivery jobs here
   await ch.assertExchange(EXCHANGE_EVENTS, 'topic', {
     durable: true,
   });
 
   // ─── Assert Queue: zyvan.delivery ──────────────────────
-  // Main delivery queue — consumed by workers
   await ch.assertQueue(QUEUE_DELIVERY, {
     durable: true,
     arguments: {},
@@ -70,95 +80,133 @@ export async function connectRabbitMQ(): Promise<void> {
   // Bind delivery queue to exchange
   await ch.bindQueue(QUEUE_DELIVERY, EXCHANGE_EVENTS, ROUTING_KEY_DELIVERY);
 
-  // ─── Assert Queue: zyvan.delivery.retry ────────────────
-  // Retry queue — messages sit here until their per-message TTL expires,
-  // then RabbitMQ routes them back to zyvan.events via DLX
-  await ch.assertQueue(QUEUE_RETRY, {
-    durable: true,
-    arguments: {
-      'x-dead-letter-exchange': EXCHANGE_EVENTS,
-      'x-dead-letter-routing-key': ROUTING_KEY_DELIVERY,
-    },
-  });
+  // ─── Assert Tiered Retry Queues ────────────────────────
+  for (const tier of RETRY_TIERS) {
+    await ch.assertQueue(tier.queue, {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': EXCHANGE_EVENTS,
+        'x-dead-letter-routing-key': ROUTING_KEY_DELIVERY,
+        'x-message-ttl': tier.ttlMs,
+      },
+    });
+  }
 
-  logger.info('✅ RabbitMQ connected — topology asserted');
+  logger.info('✅ RabbitMQ connected — topology asserted with publisher confirms');
 }
 
-// ─── Publish ─────────────────────────────────────────────────
-
-export interface DeliveryJobMessage {
-  deliveryId: string;
-  eventId: string;
-  destinationId: string;
-  attemptNo: number;
-}
+// ─── Confirmed Publishing ────────────────────────────────────
 
 /**
- * Publish a delivery job to the main delivery queue.
- * Called after persisting event + delivery records in PostgreSQL.
+ * Publish a single delivery job and await broker confirmation.
+ * Rejects if broker NACKs or times out.
  */
-export function publishDeliveryJob(job: DeliveryJobMessage): void {
-  if (!channel) {
-    throw new Error('RabbitMQ channel not available — call connectRabbitMQ() first');
+export function publishDeliveryJobConfirmed(
+  job: DeliveryJobMessage,
+  timeoutMs = 5000
+): Promise<void> {
+  if (!confirmChannel) {
+    return Promise.reject(
+      new Error('RabbitMQ confirm channel not available — call connectRabbitMQ() first')
+    );
   }
 
   const message = Buffer.from(JSON.stringify(job));
 
-  channel.publish(EXCHANGE_EVENTS, ROUTING_KEY_DELIVERY, message, {
-    persistent: true, // Survive broker restart
-    contentType: 'application/json',
-    messageId: job.deliveryId,
-    timestamp: Math.floor(Date.now() / 1000),
-  });
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        reject(new Error(`RabbitMQ publish confirm timed out after ${timeoutMs}ms for delivery ${job.deliveryId}`));
+      }
+    }, timeoutMs);
 
-  logger.debug(
-    { deliveryId: job.deliveryId, eventId: job.eventId },
-    'Published delivery job to RabbitMQ'
-  );
+    confirmChannel!.publish(
+      EXCHANGE_EVENTS,
+      ROUTING_KEY_DELIVERY,
+      message,
+      {
+        persistent: true,
+        contentType: 'application/json',
+        messageId: job.deliveryId,
+        timestamp: Math.floor(Date.now() / 1000),
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+
+        if (err) {
+          logger.error({ err, deliveryId: job.deliveryId }, 'RabbitMQ broker NACKed delivery job');
+          return reject(err);
+        }
+
+        logger.debug({ deliveryId: job.deliveryId }, 'RabbitMQ confirmed delivery job publish');
+        resolve();
+      }
+    );
+  });
 }
 
 /**
- * Publish a message to the retry queue with a per-message TTL.
- * When the TTL expires, RabbitMQ routes it back to zyvan.delivery via DLX.
+ * Convenience wrapper for publishDeliveryJobConfirmed.
  */
-export function publishRetryJob(job: DeliveryJobMessage, delayMs: number): void {
-  if (!channel) {
-    throw new Error('RabbitMQ channel not available — call connectRabbitMQ() first');
+export async function publishDeliveryJob(job: DeliveryJobMessage): Promise<void> {
+  return publishDeliveryJobConfirmed(job);
+}
+
+/**
+ * Batch-publish delivery jobs concurrently with broker confirms.
+ * Returns arrays of confirmed and failed delivery IDs.
+ */
+export async function publishDeliveryJobsConfirmed(
+  jobs: DeliveryJobMessage[]
+): Promise<{ confirmed: string[]; failed: string[] }> {
+  const confirmed: string[] = [];
+  const failed: string[] = [];
+
+  const results = await Promise.allSettled(
+    jobs.map(async (job) => {
+      await publishDeliveryJobConfirmed(job);
+      return job.deliveryId;
+    })
+  );
+
+  for (let i = 0; i < results.length; i++) {
+    const res = results[i];
+    const deliveryId = jobs[i].deliveryId;
+    if (res.status === 'fulfilled') {
+      confirmed.push(deliveryId);
+    } else {
+      logger.warn(
+        { deliveryId, reason: res.reason?.message || res.reason },
+        'Failed to confirm delivery job publish'
+      );
+      failed.push(deliveryId);
+    }
   }
 
-  const message = Buffer.from(JSON.stringify(job));
-
-  channel.sendToQueue(QUEUE_RETRY, message, {
-    persistent: true,
-    contentType: 'application/json',
-    messageId: job.deliveryId,
-    timestamp: Math.floor(Date.now() / 1000),
-    expiration: String(delayMs), // Per-message TTL in milliseconds
-  });
-
-  logger.debug(
-    { deliveryId: job.deliveryId, delayMs },
-    'Published retry job to RabbitMQ'
-  );
+  return { confirmed, failed };
 }
 
 // ─── Health / Accessors ──────────────────────────────────────
 
 /**
- * Get the current channel. Throws if not connected.
+ * Get the current ConfirmChannel. Throws if not connected.
  */
-export function getChannel(): Channel {
-  if (!channel) {
-    throw new Error('RabbitMQ channel not available');
+export function getChannel(): ConfirmChannel {
+  if (!confirmChannel) {
+    throw new Error('RabbitMQ confirm channel not available');
   }
-  return channel;
+  return confirmChannel;
 }
 
 /**
  * Check whether the RabbitMQ connection is alive.
  */
 export function isRabbitMQConnected(): boolean {
-  return connection !== null && channel !== null;
+  return connection !== null && confirmChannel !== null;
 }
 
 // ─── Graceful Shutdown ───────────────────────────────────────
@@ -168,9 +216,9 @@ export function isRabbitMQConnected(): boolean {
  */
 export async function disconnectRabbitMQ(): Promise<void> {
   try {
-    if (channel) {
-      await channel.close();
-      channel = null;
+    if (confirmChannel) {
+      await confirmChannel.close();
+      confirmChannel = null;
     }
     if (connection) {
       await connection.close();

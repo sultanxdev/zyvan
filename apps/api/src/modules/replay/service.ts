@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { getPrismaClient } from '@zyvan/db';
-import { publishDeliveryJob } from '../../lib/rabbitmq';
+import { publishDeliveryJobsConfirmed } from '../../lib/rabbitmq';
 import { logger } from '../../lib/logger';
 
 export interface ReplayEventResult {
@@ -87,7 +87,7 @@ export async function replayEvent(
     throw err;
   }
 
-  // 3. Create new deliveries and replays in a transaction
+  // 3. Create new deliveries, replays, and outbox messages in a transaction
   const results = await prisma.$transaction(async (tx) => {
     const created: Array<{ replayId: string; deliveryId: string; destinationId: string }> = [];
 
@@ -100,6 +100,14 @@ export async function replayEvent(
           destinationId: destId,
           status: 'queued',
           attemptCount: 0,
+        },
+      });
+
+      // Outbox message for reliable delivery sync
+      await tx.outboxMessage.create({
+        data: {
+          organizationId: event.organizationId,
+          deliveryId: newDelivery.id,
         },
       });
 
@@ -128,19 +136,38 @@ export async function replayEvent(
     return created;
   });
 
-  // 4. Publish newly created deliveries to RabbitMQ (using each item's actual destinationId)
-  for (const item of results) {
+  // 4. Publish newly created deliveries to RabbitMQ with publisher confirms
+  if (results.length > 0) {
+    const jobs = results.map((item) => ({
+      deliveryId: item.deliveryId,
+      attemptNo: 1,
+    }));
+
     try {
-      publishDeliveryJob({
-        deliveryId: item.deliveryId,
-        eventId: event.id,
-        destinationId: item.destinationId,
-        attemptNo: 1,
-      });
+      const { confirmed, failed } = await publishDeliveryJobsConfirmed(jobs);
+
+      if (confirmed.length > 0) {
+        await prisma.outboxMessage.deleteMany({
+          where: {
+            deliveryId: { in: confirmed },
+          },
+        });
+        logger.debug(
+          { confirmedCount: confirmed.length, eventId: event.id },
+          'Confirmed replayed delivery jobs published and removed from outbox'
+        );
+      }
+
+      if (failed.length > 0) {
+        logger.warn(
+          { failedCount: failed.length, eventId: event.id },
+          'Some replayed delivery jobs failed broker confirmation — outbox reconciler will recover'
+        );
+      }
     } catch (err) {
       logger.error(
-        { err, deliveryId: item.deliveryId, eventId: event.id, destinationId: item.destinationId },
-        'Failed to publish replayed delivery job to RabbitMQ'
+        { err, eventId: event.id },
+        'Error publishing replayed deliveries — outbox reconciler will recover'
       );
     }
   }
