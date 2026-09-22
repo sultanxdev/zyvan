@@ -36,6 +36,7 @@ import { dlqRoutes } from './modules/dlq/routes';
 import { replayRoutes } from './modules/replay/routes';
 import { usageRoutes } from './modules/usage/routes';
 import { getPrismaClient, disconnectPrisma } from '@zyvan/db';
+import { outboxReconciler } from './services/outbox-reconciler';
 
 // ─── Validate Config ─────────────────────────────────────────
 
@@ -178,9 +179,10 @@ if (process.env.NODE_ENV !== 'test') {
       logger.warn({ err }, '⚠️  Database not available — start PostgreSQL and retry');
     }
 
-    // Initialize RabbitMQ connection (non-blocking — API serves health even without MQ)
+    // Initialize RabbitMQ connection and start outbox reconciler
     try {
       await connectRabbitMQ();
+      outboxReconciler.start();
     } catch (err) {
       logger.warn({ err }, '⚠️  RabbitMQ not available — start RabbitMQ and retry');
     }
@@ -188,7 +190,7 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // ─── Graceful Shutdown ───────────────────────────────────────
-// Stop accepting new requests → finish active → close DB pool → exit
+// Stop accepting new requests → finish active → stop reconciler → close connections → exit
 
 async function gracefulShutdown(signal: string): Promise<void> {
   logger.info({ signal }, 'Received shutdown signal, starting graceful shutdown...');
@@ -203,6 +205,13 @@ async function gracefulShutdown(signal: string): Promise<void> {
 
   closeServer(async () => {
     logger.info('HTTP server closed');
+
+    // Stop outbox reconciler and release locks
+    try {
+      await outboxReconciler.stop();
+    } catch (err) {
+      logger.error({ err }, 'Error stopping outbox reconciler');
+    }
 
     try {
       await disconnectPrisma();
