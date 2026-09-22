@@ -137,7 +137,6 @@ export async function getEvent(id: string, organizationId: string) {
       id: d.id,
       destinationId: d.destinationId,
       destinationUrl: d.destination.url,
-      destinationName: d.destination.name,
       status: d.status,
       attemptCount: d.attemptCount,
       lastStatusCode: d.lastStatusCode,

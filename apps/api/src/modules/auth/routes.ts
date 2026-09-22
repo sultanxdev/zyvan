@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { SignupSchema, LoginSchema } from '@zyvan/schemas';
+import { SignupSchema, LoginSchema } from '@zyvan/validation';
 import * as userService from './user-service';
 import { authenticate } from '../../middleware/authenticate';
 

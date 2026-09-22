@@ -5,7 +5,7 @@ import {
   CreateDestinationSchema,
   CreateApiKeySchema,
   EventFilterSchema,
-} from '@zyvan/schemas';
+} from '@zyvan/validation';
 
 describe('API Validation Schemas', () => {
   describe('CreateEventSchema', () => {

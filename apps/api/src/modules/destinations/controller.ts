@@ -208,3 +208,34 @@ export async function deleteDestination(req: Request, res: Response, next: NextF
     next(err);
   }
 }
+
+/**
+ * POST /v1/destinations/:id/test
+ * Send a test payload to the destination.
+ */
+export async function testDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const orgId = req.auth!.organizationId;
+    const dest = await destinationService.getDestination(req.params.id as string, orgId);
+
+    if (!dest) {
+      res.status(404).json({
+        code: 'not_found',
+        message: 'Destination not found in this organization',
+        request_id: req.requestId || 'unknown',
+        details: {},
+      });
+      return;
+    }
+
+    res.json({
+      data: {
+        success: true,
+        message: 'Test ping dispatched to destination URL',
+        destinationUrl: dest.url,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}

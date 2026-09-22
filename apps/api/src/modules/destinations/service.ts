@@ -51,7 +51,7 @@ export async function createDestination(
   rateLimit?: number
 ): Promise<SafeDestination> {
   // 1. SSRF check
-  const ssrfCheck = validateUrl(url);
+  const ssrfCheck = await validateUrl(url);
   if (!ssrfCheck.valid) {
     const err = new Error(`SSRF blocked: ${ssrfCheck.reason}`);
     (err as any).code = 'invalid_request';
@@ -108,7 +108,7 @@ export async function updateDestination(
   }
 ): Promise<SafeDestination | null> {
   if (data.url) {
-    const ssrfCheck = validateUrl(data.url);
+    const ssrfCheck = await validateUrl(data.url);
     if (!ssrfCheck.valid) {
       const err = new Error(`SSRF blocked: ${ssrfCheck.reason}`);
       (err as any).code = 'invalid_request';

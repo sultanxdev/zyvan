@@ -119,7 +119,7 @@ export async function findById(
     include: {
       deliveries: {
         include: {
-          destination: { select: { id: true, url: true, name: true } },
+          destination: { select: { id: true, url: true } },
           attempts: {
             orderBy: { attemptNo: 'asc' },
             select: {

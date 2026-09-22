@@ -44,7 +44,7 @@ export async function listByOrganization(
       delivery: {
         include: {
           destination: {
-            select: { id: true, url: true, name: true },
+            select: { id: true, url: true },
           },
           attempts: {
             orderBy: { attemptNo: 'desc' },
@@ -92,7 +92,7 @@ export async function findById(
       delivery: {
         include: {
           destination: {
-            select: { id: true, url: true, name: true, retryPolicy: true, rateLimit: true },
+            select: { id: true, url: true, retryPolicy: true, rateLimit: true },
           },
           attempts: {
             orderBy: { attemptNo: 'asc' },

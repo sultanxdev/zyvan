@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SignupSchema, LoginSchema } from '@zyvan/schemas';
+import { SignupSchema, LoginSchema } from '@zyvan/validation';
 import { signUserToken, verifyUserToken } from '../../modules/auth/user-service';
 import { authorize } from '../../middleware/authorize';
 

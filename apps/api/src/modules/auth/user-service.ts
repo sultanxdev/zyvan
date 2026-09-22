@@ -1,14 +1,16 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — User Authentication Service
-// Handles user signup, login, demo authentication, and session JWTs.
+// Multi-tenant user signup, login, demo authentication, and session JWTs.
+// Uses Better Auth schema models (User, Account, Organization, Member).
 // ─────────────────────────────────────────────────────────────
 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { getPrismaClient } from '@zyvan/database';
+import { v4 as uuidv4 } from 'uuid';
+import { getPrismaClient } from '@zyvan/db';
 import { generateApiKey, hashApiKey } from '@zyvan/crypto';
-import { API_KEY_SCOPES } from '@zyvan/schemas';
-import type { SignupInput, LoginInput } from '@zyvan/schemas';
+import { API_KEY_SCOPES } from '@zyvan/validation';
+import type { SignupInput, LoginInput } from '@zyvan/validation';
 import { config } from '../../config';
 import { logger } from '../../lib/logger';
 
@@ -28,6 +30,10 @@ export interface AuthSessionResponse {
     plan: string;
     status: string;
   };
+  organization?: {
+    id: string;
+    name: string;
+  };
   apiKey?: {
     id: string;
     key: string;
@@ -46,7 +52,8 @@ export interface UserTokenPayload {
  * Generate a signed JWT session token for a dashboard user.
  */
 export function signUserToken(payload: UserTokenPayload): string {
-  return jwt.sign(payload, config.jwtSecret, {
+  const secret = config.jwtSecret || process.env.BETTER_AUTH_SECRET || 'zyvan_dev_jwt_secret_minimum_32_chars';
+  return jwt.sign(payload, secret, {
     expiresIn: '7d',
     issuer: 'zyvan-api',
   });
@@ -57,7 +64,8 @@ export function signUserToken(payload: UserTokenPayload): string {
  */
 export function verifyUserToken(token: string): UserTokenPayload | null {
   try {
-    const decoded = jwt.verify(token, config.jwtSecret, {
+    const secret = config.jwtSecret || process.env.BETTER_AUTH_SECRET || 'zyvan_dev_jwt_secret_minimum_32_chars';
+    const decoded = jwt.verify(token, secret, {
       issuer: 'zyvan-api',
     }) as UserTokenPayload;
     return decoded;
@@ -67,7 +75,7 @@ export function verifyUserToken(token: string): UserTokenPayload | null {
 }
 
 /**
- * Register a new user account with default project, membership, tenant, and API key.
+ * Register a new user account with default organization, member, project, and API key.
  */
 export async function signup(input: SignupInput): Promise<AuthSessionResponse> {
   const prisma = getPrismaClient();
@@ -85,49 +93,69 @@ export async function signup(input: SignupInput): Promise<AuthSessionResponse> {
 
   const passwordHash = await bcrypt.hash(input.password, 10);
   const { key, prefix } = generateApiKey();
-  const keyHash = hashApiKey(key, config.apiKeyPepper);
+  const pepper = config.apiKeyPepper || process.env.API_KEY_PEPPER || 'zyvan_dev_pepper';
+  const keyHash = hashApiKey(key, pepper);
+
+  const userId = uuidv4();
+  const orgId = uuidv4();
+  const accountId = uuidv4();
 
   const result = await prisma.$transaction(async (tx: any) => {
+    // 1. Create User
     const user = await tx.user.create({
       data: {
+        id: userId,
         email: input.email.toLowerCase(),
         name: input.name,
-        passwordHash,
-        avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(input.email)}`,
-        role: 'member',
+        image: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(input.email)}`,
+        emailVerified: true,
       },
     });
 
+    // 2. Create Credential Account for password auth
+    await tx.account.create({
+      data: {
+        id: accountId,
+        accountId: userId,
+        providerId: 'credential',
+        userId: user.id,
+        password: passwordHash,
+      },
+    });
+
+    // 3. Create Default Organization
+    const organization = await tx.organization.create({
+      data: {
+        id: orgId,
+        name: `${input.name}'s Organization`,
+        slug: `${input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`,
+      },
+    });
+
+    // 4. Create Owner Membership
+    const member = await tx.member.create({
+      data: {
+        id: uuidv4(),
+        organizationId: organization.id,
+        userId: user.id,
+        role: 'owner',
+      },
+    });
+
+    // 5. Create Default Project
     const project = await tx.project.create({
       data: {
+        organizationId: organization.id,
         name: `${input.name}'s Project`,
         plan: 'scale',
         status: 'active',
-        ownerId: user.id,
-        members: {
-          create: {
-            userId: user.id,
-            role: 'owner',
-          },
-        },
       },
     });
 
-    // Default tenant for immediate webhook ingestion
-    await tx.tenant.create({
-      data: {
-        projectId: project.id,
-        externalId: 'tenant_default',
-        name: 'Default Tenant',
-        concurrencyLimit: 10,
-        rateLimit: 100,
-        status: 'active',
-      },
-    });
-
-    // Initial root API key
+    // 6. Initial Root API Key
     const apiKey = await tx.apiKey.create({
       data: {
+        organizationId: organization.id,
         projectId: project.id,
         keyHash,
         keyPrefix: prefix,
@@ -136,7 +164,7 @@ export async function signup(input: SignupInput): Promise<AuthSessionResponse> {
       },
     });
 
-    return { user, project, apiKey };
+    return { user, organization, member, project, apiKey };
   });
 
   const token = signUserToken({
@@ -145,18 +173,22 @@ export async function signup(input: SignupInput): Promise<AuthSessionResponse> {
     projectId: result.project.id,
   });
 
-  logger.info({ userId: result.user.id, projectId: result.project.id }, 'User registered successfully');
+  logger.info({ userId: result.user.id, organizationId: result.organization.id }, 'User registered successfully');
 
   return {
     user: {
       id: result.user.id,
       email: result.user.email,
       name: result.user.name,
-      avatar: result.user.avatar,
-      role: result.user.role,
+      avatar: result.user.image,
+      role: 'owner',
       createdAt: result.user.createdAt,
     },
     token,
+    organization: {
+      id: result.organization.id,
+      name: result.organization.name,
+    },
     project: {
       id: result.project.id,
       name: result.project.name,
@@ -181,23 +213,27 @@ export async function login(input: LoginInput): Promise<AuthSessionResponse> {
   const user = await prisma.user.findUnique({
     where: { email: input.email.toLowerCase() },
     include: {
-      memberships: {
+      accounts: { where: { providerId: 'credential' } },
+      members: {
         include: {
-          project: true,
+          organization: {
+            include: {
+              projects: true,
+            },
+          },
         },
       },
-      ownedProjects: true,
     },
   });
 
-  if (!user) {
+  if (!user || user.accounts.length === 0 || !user.accounts[0].password) {
     const err = new Error('Invalid email or password');
     (err as any).code = 'authentication_failed';
     (err as any).statusCode = 401;
     throw err;
   }
 
-  const validPassword = await bcrypt.compare(input.password, user.passwordHash);
+  const validPassword = await bcrypt.compare(input.password, user.accounts[0].password);
   if (!validPassword) {
     const err = new Error('Invalid email or password');
     (err as any).code = 'authentication_failed';
@@ -205,23 +241,38 @@ export async function login(input: LoginInput): Promise<AuthSessionResponse> {
     throw err;
   }
 
-  // Find user's active project (first owned or membership project)
-  let project = user.memberships[0]?.project || user.ownedProjects[0];
+  const primaryMember = user.members[0];
+  let organization = primaryMember?.organization;
+  let project = organization?.projects[0];
+
+  if (!organization) {
+    // Auto-create default organization if missing
+    organization = await prisma.organization.create({
+      data: {
+        id: uuidv4(),
+        name: `${user.name}'s Organization`,
+        slug: `${user.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`,
+      },
+      include: { projects: true },
+    });
+
+    await prisma.member.create({
+      data: {
+        id: uuidv4(),
+        organizationId: organization.id,
+        userId: user.id,
+        role: 'owner',
+      },
+    });
+  }
 
   if (!project) {
-    // Auto-create a project if somehow none exists
     project = await prisma.project.create({
       data: {
+        organizationId: organization.id,
         name: `${user.name}'s Project`,
         plan: 'scale',
         status: 'active',
-        ownerId: user.id,
-        members: {
-          create: {
-            userId: user.id,
-            role: 'owner',
-          },
-        },
       },
     });
   }
@@ -237,11 +288,15 @@ export async function login(input: LoginInput): Promise<AuthSessionResponse> {
       id: user.id,
       email: user.email,
       name: user.name,
-      avatar: user.avatar,
-      role: user.role,
+      avatar: user.image,
+      role: primaryMember?.role || 'owner',
       createdAt: user.createdAt,
     },
     token,
+    organization: {
+      id: organization.id,
+      name: organization.name,
+    },
     project: {
       id: project.id,
       name: project.name,
@@ -253,20 +308,13 @@ export async function login(input: LoginInput): Promise<AuthSessionResponse> {
 
 /**
  * Instant demo login for portfolio reviewers and testing.
- * Automatically provisions the demo account and pre-seeds a tenant if not already existing.
  */
 export async function demoLogin(): Promise<AuthSessionResponse> {
   const prisma = getPrismaClient();
   const demoEmail = 'developer@zyvan.dev';
 
-  let user = await prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { email: demoEmail },
-    include: {
-      memberships: {
-        include: { project: true },
-      },
-      ownedProjects: true,
-    },
   });
 
   if (!user) {
@@ -277,64 +325,10 @@ export async function demoLogin(): Promise<AuthSessionResponse> {
     });
   }
 
-  let project = user.memberships[0]?.project || user.ownedProjects[0];
-  if (!project) {
-    project = await prisma.project.create({
-      data: {
-        name: 'Default Production Project',
-        plan: 'scale',
-        status: 'active',
-        ownerId: user.id,
-        members: {
-          create: {
-            userId: user.id,
-            role: 'owner',
-          },
-        },
-      },
-    });
-  }
-
-  // Ensure default tenant exists
-  const tenant = await prisma.tenant.findFirst({
-    where: { projectId: project.id, externalId: 'tenant_default' },
+  return login({
+    email: demoEmail,
+    password: 'zyvan_secure_2026',
   });
-  if (!tenant) {
-    await prisma.tenant.create({
-      data: {
-        projectId: project.id,
-        externalId: 'tenant_default',
-        name: 'Default Tenant',
-        concurrencyLimit: 10,
-        rateLimit: 100,
-        status: 'active',
-      },
-    });
-  }
-
-  const token = signUserToken({
-    userId: user.id,
-    email: user.email,
-    projectId: project.id,
-  });
-
-  return {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatar: user.avatar,
-      role: user.role,
-      createdAt: user.createdAt,
-    },
-    token,
-    project: {
-      id: project.id,
-      name: project.name,
-      plan: project.plan,
-      status: project.status,
-    },
-  };
 }
 
 /**
@@ -346,12 +340,15 @@ export async function getCurrentUser(userId: string, currentProjectId?: string) 
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
-      memberships: {
+      members: {
         include: {
-          project: true,
+          organization: {
+            include: {
+              projects: true,
+            },
+          },
         },
       },
-      ownedProjects: true,
     },
   });
 
@@ -359,33 +356,30 @@ export async function getCurrentUser(userId: string, currentProjectId?: string) 
     return null;
   }
 
-  // Combine owned projects and member projects
-  const projectsMap = new Map<string, any>();
-  for (const op of user.ownedProjects) {
-    projectsMap.set(op.id, op);
-  }
-  for (const m of user.memberships) {
-    if (!projectsMap.has(m.project.id)) {
-      projectsMap.set(m.project.id, m.project);
-    }
-  }
+  const organizations = user.members.map((m) => ({
+    id: m.organization.id,
+    name: m.organization.name,
+    slug: m.organization.slug,
+    role: m.role,
+  }));
 
-  const projects = Array.from(projectsMap.values());
+  const allProjects = user.members.flatMap((m) => m.organization.projects);
   const activeProject = currentProjectId
-    ? projects.find((p) => p.id === currentProjectId) || projects[0]
-    : projects[0];
+    ? allProjects.find((p) => p.id === currentProjectId) || allProjects[0]
+    : allProjects[0];
 
   return {
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
-      avatar: user.avatar,
-      role: user.role,
+      avatar: user.image,
+      role: user.members[0]?.role || 'member',
       createdAt: user.createdAt,
     },
     activeProject: activeProject || null,
-    projects: projects.map((p) => ({
+    organizations,
+    projects: allProjects.map((p) => ({
       id: p.id,
       name: p.name,
       plan: p.plan,
