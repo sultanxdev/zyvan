@@ -3,8 +3,20 @@
 // ─────────────────────────────────────────────────────────────
 
 export { ZyvanClient } from './client';
+export type { WebhookVerifyOptions } from './client';
 export { HttpTransport } from './transport';
 
+// Resources
+export {
+  Resource,
+  ProjectsResource,
+  EventsResource,
+  DestinationsResource,
+  DeliveriesResource,
+  DeadLettersResource,
+} from './resources';
+
+// Errors
 export {
   ZyvanError,
   AuthenticationError,
@@ -26,6 +38,7 @@ export type {
   NetworkErrorOptions,
 } from './errors';
 
+// Transport & Client Types
 export type {
   ZyvanClientOptions,
   RequestOptions,
@@ -34,9 +47,44 @@ export type {
   ZyvanApiErrorBody,
 } from './types';
 
-// Legacy compatibility exports (migrated under structured modules in PR 4.2 / PR 4.4)
+// Public API DTOs & Resource Types
 export type {
+  PaginationCursor,
+  Project,
   SendEventInput,
+  SendEventOptions,
   IngestResponse,
-  WebhookVerifyOptions,
-} from './client';
+  EventFilterInput,
+  EventSummary,
+  DeliveryAttemptSummary,
+  EventDeliverySummary,
+  EventDetail,
+  PaginatedEventsResponse,
+  RetryPolicy,
+  RateLimitPolicy,
+  CreateDestinationInput,
+  UpdateDestinationInput,
+  Destination,
+  DestinationListInput,
+  TestDestinationInput,
+  TestDestinationResponse,
+  Delivery,
+  ListDeliveriesInput,
+  PaginatedDeliveriesResponse,
+  DeadLetter,
+  DeadLetterDetail,
+  DLQFilterInput,
+  DLQSummaryFilterInput,
+  DLQSummaryResponse,
+  PaginatedDeadLettersResponse,
+  ReplayDeadLetterOptions,
+  ReplayResponse,
+  ReplayBulkFilter,
+  ReplayBulkInput,
+  ReplayBulkResponse,
+  DismissDLQInput,
+  DismissBulkDLQInput,
+  ResolveDLQInput,
+  ResolveBulkDLQInput,
+  BulkMutationResponse,
+} from './resources';

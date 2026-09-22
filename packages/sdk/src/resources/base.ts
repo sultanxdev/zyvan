@@ -7,7 +7,7 @@ import type { HttpTransport } from '../transport';
 import type { RequestOptions, ApiResponse } from '../types';
 
 export abstract class Resource {
-  protected constructor(protected readonly transport: HttpTransport) {}
+  public constructor(protected readonly transport: HttpTransport) {}
 
   /**
    * Dispatches a raw request through the injected transport, returning
@@ -20,7 +20,7 @@ export abstract class Resource {
   /**
    * Dispatches a GET request and returns the parsed payload.
    */
-  protected async get<T>(
+  protected async httpGet<T>(
     path: string,
     options?: Omit<RequestOptions, 'path' | 'method'>
   ): Promise<T> {
@@ -35,7 +35,7 @@ export abstract class Resource {
   /**
    * Dispatches a POST request with an optional JSON body and returns the parsed payload.
    */
-  protected async post<T>(
+  protected async httpPost<T>(
     path: string,
     body?: unknown,
     options?: Omit<RequestOptions, 'path' | 'method' | 'body'>
@@ -52,7 +52,7 @@ export abstract class Resource {
   /**
    * Dispatches a PATCH request with an optional JSON body and returns the parsed payload.
    */
-  protected async patch<T>(
+  protected async httpPatch<T>(
     path: string,
     body?: unknown,
     options?: Omit<RequestOptions, 'path' | 'method' | 'body'>
@@ -69,7 +69,7 @@ export abstract class Resource {
   /**
    * Dispatches a DELETE request and returns the parsed payload (or void).
    */
-  protected async delete<T = void>(
+  protected async httpDelete<T = void>(
     path: string,
     options?: Omit<RequestOptions, 'path' | 'method'>
   ): Promise<T> {
