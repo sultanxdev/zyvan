@@ -178,13 +178,19 @@ export const CreateReplaySchema = z.object({
 
 export type CreateReplayInput = z.infer<typeof CreateReplaySchema>;
 
-export const ReplayBulkFilterSchema = z.object({
+export const DLQMutationFilterSchema = z.object({
+  projectId: z.string().uuid().optional(),
   destinationId: z.string().uuid().optional(),
   reason: DeadLetterReasonEnum.optional(),
-  eventType: z.string().optional(),
+  eventType: z.string().trim().min(1).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
 });
+
+// Alias for replay compatibility
+export const ReplayBulkFilterSchema = DLQMutationFilterSchema;
+export type ReplayBulkFilterInput = z.infer<typeof ReplayBulkFilterSchema>;
+export type DLQMutationFilterInput = z.infer<typeof DLQMutationFilterSchema>;
 
 export const ReplayBulkSchema = z.object({
   filter: ReplayBulkFilterSchema.optional().default({}),
@@ -192,13 +198,111 @@ export const ReplayBulkSchema = z.object({
     .number()
     .int()
     .positive()
+    .max(100)
     .optional()
-    .default(100)
-    .transform((val) => Math.min(val, 100)),
+    .default(100),
 });
 
-export type ReplayBulkFilterInput = z.infer<typeof ReplayBulkFilterSchema>;
 export type ReplayBulkInput = z.infer<typeof ReplayBulkSchema>;
+
+// ─── DLQ Dismissal & Resolution Schemas ───────────────────────
+
+export const DismissDLQSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .default('Dismissed by operator'),
+});
+
+export const ResolveDLQSchema = z.object({
+  resolution: z
+    .string()
+    .trim()
+    .min(3, 'Resolution note must be at least 3 characters')
+    .max(1000),
+});
+
+export function validateExclusiveTarget<T extends { ids?: string[]; filter?: Record<string, unknown> }>(
+  data: T,
+  ctx: z.RefinementCtx
+) {
+  const hasIds = Array.isArray(data.ids) && data.ids.length > 0;
+  const hasFilter =
+    data.filter !== undefined &&
+    typeof data.filter === 'object' &&
+    data.filter !== null &&
+    Object.values(data.filter).some((v) => v !== undefined && v !== null && v !== '');
+
+  if (!hasIds && !hasFilter) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Must provide exactly one targeting mode: either "ids" or "filter"',
+      path: ['ids'],
+    });
+  } else if (hasIds && hasFilter) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Cannot provide both "ids" and "filter". Provide only one targeting mode',
+      path: ['filter'],
+    });
+  }
+}
+
+export const DismissBulkDLQSchema = z
+  .object({
+    filter: DLQMutationFilterSchema.optional(),
+    ids: z
+      .array(z.string().uuid())
+      .min(1)
+      .max(100)
+      .optional()
+      .transform((ids) => (ids ? Array.from(new Set(ids)) : undefined)),
+    reason: z
+      .string()
+      .trim()
+      .max(500)
+      .optional()
+      .default('Dismissed in bulk by operator'),
+    limit: z
+      .number()
+      .int()
+      .positive()
+      .max(100)
+      .optional()
+      .default(100),
+  })
+  .superRefine(validateExclusiveTarget);
+
+export const ResolveBulkDLQSchema = z
+  .object({
+    filter: DLQMutationFilterSchema.optional(),
+    ids: z
+      .array(z.string().uuid())
+      .min(1)
+      .max(100)
+      .optional()
+      .transform((ids) => (ids ? Array.from(new Set(ids)) : undefined)),
+    resolution: z
+      .string()
+      .trim()
+      .min(3, 'Resolution note must be at least 3 characters')
+      .max(1000),
+    limit: z
+      .number()
+      .int()
+      .positive()
+      .max(100)
+      .optional()
+      .default(100),
+  })
+  .superRefine(validateExclusiveTarget);
+
+export type DismissDLQInput = z.infer<typeof DismissDLQSchema>;
+export type ResolveDLQInput = z.infer<typeof ResolveDLQSchema>;
+export type DismissBulkDLQInput = z.infer<typeof DismissBulkDLQSchema>;
+export type ResolveBulkDLQInput = z.infer<typeof ResolveBulkDLQSchema>;
 
 // ─── Pagination Schema ───────────────────────────────────────
 
