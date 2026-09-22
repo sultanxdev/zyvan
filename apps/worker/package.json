@@ -17,6 +17,7 @@
     "@zyvan/crypto": "workspace:*",
     "@zyvan/db": "workspace:*",
     "@zyvan/logger": "workspace:*",
+    "@zyvan/queue": "workspace:*",
     "@zyvan/types": "workspace:*",
     "@zyvan/validation": "workspace:*",
     "amqplib": "^0.10.5",
