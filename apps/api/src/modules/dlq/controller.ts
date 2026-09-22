@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Dead Letter Queue (DLQ) Controller
 // HTTP request handling for inspecting dead letter deliveries.
+// Scoped to organizationId.
 // ─────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
@@ -8,14 +9,16 @@ import * as dlqService from './service';
 
 /**
  * GET /v1/dead-letters
- * List dead-lettered deliveries with event and destination summary.
+ * List dead-lettered deliveries for caller's organization.
  */
 export async function listDeadLetters(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const orgId = req.auth!.organizationId;
+    const projectId = (req.query.projectId as string) || (req.auth as any).projectId;
     const cursor = req.query.cursor as string | undefined;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
 
-    const result = await dlqService.listDeadLetters(req.auth!.projectId, cursor, limit);
+    const result = await dlqService.listDeadLetters(orgId, projectId, cursor, limit);
     res.json(result);
   } catch (err) {
     next(err);
@@ -28,12 +31,13 @@ export async function listDeadLetters(req: Request, res: Response, next: NextFun
  */
 export async function getDeadLetter(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const deadLetter = await dlqService.getDeadLetter(req.params.id as string, req.auth!.projectId);
+    const orgId = req.auth!.organizationId;
+    const deadLetter = await dlqService.getDeadLetter(req.params.id as string, orgId);
 
     if (!deadLetter) {
       res.status(404).json({
         code: 'not_found',
-        message: 'Dead letter record not found',
+        message: 'Dead letter record not found in this organization',
         request_id: req.requestId || 'unknown',
         details: {},
       });
