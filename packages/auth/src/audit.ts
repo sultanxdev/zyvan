@@ -45,7 +45,7 @@ export async function logAuditEvent(params: AuditLogParams): Promise<void> {
         action: params.action,
         resourceType: params.resourceType,
         resourceId: params.resourceId,
-        metadata: sanitizedMetadata,
+        metadata: sanitizedMetadata as any,
         ipAddress: params.ipAddress,
       },
     });

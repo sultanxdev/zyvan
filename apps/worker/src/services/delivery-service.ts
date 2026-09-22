@@ -11,7 +11,7 @@
 // This is the reliability backbone of Zyvan.
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient } from '@zyvan/database';
+import { getPrismaClient } from '@zyvan/db';
 import { sendWebhook } from './http-client';
 import { createAttempt, completeAttempt } from './attempt-service';
 import {

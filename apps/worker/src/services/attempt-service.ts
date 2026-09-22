@@ -5,7 +5,7 @@
 // reconstruct incidents from these records.
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient } from '@zyvan/database';
+import { getPrismaClient } from '@zyvan/db';
 import type { Attempt, AttemptOutcome } from '@prisma/client';
 
 /**
