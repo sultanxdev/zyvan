@@ -10,7 +10,6 @@ import {
   getSummary,
   findById,
 } from '../../modules/dlq/repository';
-import * as dlqService from '../../modules/dlq/service';
 
 vi.mock('@zyvan/db', () => {
   const mockPrisma = {
@@ -312,7 +311,7 @@ describe('PR 3.1: Dead Letter Queue (DLQ) Triage Unit Tests', () => {
       mockPrisma.apiKey.findUnique.mockResolvedValue({
         id: 'key-1',
         keyHash: 'fake-hash',
-        projectId: 'proj-1',
+        projectId: '11111111-1111-1111-1111-111111111111',
         organizationId: 'org-1',
         scopes: ['delivery:read'],
         revokedAt: null,
