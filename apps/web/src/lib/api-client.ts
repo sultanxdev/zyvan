@@ -1142,6 +1142,8 @@ class ZyvanApiClient {
     } catch {
       return false;
     }
+  }
+
   // ─── Organization Management ────────────────────────────────
   async listOrganizations(): Promise<OrganizationInfo[]> {
     const baseUrl = this.getBaseUrl();
