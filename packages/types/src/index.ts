@@ -22,6 +22,8 @@ export const RESOURCES = {
   AUDIT_LOG: 'auditLog',
 } as const;
 
+export type BaseResource = typeof RESOURCES[keyof typeof RESOURCES];
+
 export type Resource =
   | 'organization' | 'organizations'
   | 'member' | 'members'

@@ -3,18 +3,55 @@
 // ─────────────────────────────────────────────────────────────
 
 import { ROLES, Role } from './roles';
-import { Resource, Action } from '@zyvan/types';
+import { Resource, BaseResource, Action } from '@zyvan/types';
 
 export interface PermissionStatement {
   resource: Resource;
   action: Action;
 }
 
+export function normalizeResource(resource: Resource): BaseResource {
+  switch (resource) {
+    case 'organizations':
+    case 'organization':
+      return 'organization';
+    case 'members':
+    case 'member':
+      return 'member';
+    case 'projects':
+    case 'project':
+      return 'project';
+    case 'destinations':
+    case 'destination':
+      return 'destination';
+    case 'events':
+    case 'event':
+      return 'event';
+    case 'deliveries':
+    case 'delivery':
+    case 'replay':
+      return 'delivery';
+    case 'api_keys':
+    case 'api_key':
+    case 'api-keys':
+    case 'apiKey':
+      return 'apiKey';
+    case 'audit_logs':
+    case 'audit_log':
+    case 'auditLog':
+      return 'auditLog';
+    case 'usage':
+      return 'project';
+    default:
+      return resource as BaseResource;
+  }
+}
+
 /**
  * Explicit permission matrix mapping each organization-scoped Role
  * to permitted (resource, action) pairs.
  */
-const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
+const ROLE_PERMISSIONS: Record<Role, Record<BaseResource, Action[]>> = {
   [ROLES.OWNER]: {
     organization: ['read', 'create', 'update', 'delete', 'manage'],
     member: ['read', 'create', 'update', 'delete', 'manage'],
@@ -62,7 +99,8 @@ const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
  * Evaluates whether an organization-scoped role has permission for an action on a resource.
  */
 export function hasPermission(role: Role, resource: Resource, action: Action): boolean {
-  const resourcePermissions = ROLE_PERMISSIONS[role]?.[resource];
+  const normalized = normalizeResource(resource);
+  const resourcePermissions = ROLE_PERMISSIONS[role]?.[normalized];
   if (!resourcePermissions) return false;
 
   // 'manage' grants all actions on that resource
@@ -81,4 +119,20 @@ export function assertPermission(role: Role, resource: Resource, action: Action)
     (error as any).code = 'authorization_denied';
     throw error;
   }
+}
+
+/**
+ * Returns all permission strings formatted as `${resource}:${action}` for a role.
+ */
+export function getRolePermissions(role: Role): string[] {
+  const roleMap = ROLE_PERMISSIONS[role];
+  if (!roleMap) return [];
+
+  const permissions: string[] = [];
+  for (const [res, actions] of Object.entries(roleMap)) {
+    for (const act of actions) {
+      permissions.push(`${res}:${act}`);
+    }
+  }
+  return permissions;
 }
