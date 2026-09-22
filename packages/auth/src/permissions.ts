@@ -68,7 +68,7 @@ const ROLE_PERMISSIONS: Record<Role, Record<BaseResource, Action[]>> = {
     project: ['read', 'create', 'update', 'delete'],
     destination: ['read', 'create', 'update', 'delete'],
     event: ['read', 'create'],
-    delivery: ['read', 'replay'],
+    delivery: ['read', 'replay', 'manage'],
     apiKey: ['read', 'create', 'delete'],
     auditLog: ['read'],
   },
