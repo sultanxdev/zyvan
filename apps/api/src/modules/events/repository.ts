@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { getPrismaClient } from '@zyvan/db';
-import type { Event, EventStatus, Delivery } from '@zyvan/db';
+import type { Event, EventStatus, Delivery, OutboxMessage } from '@zyvan/db';
 
 export interface CreateEventData {
   organizationId: string;
