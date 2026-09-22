@@ -29,6 +29,19 @@ export const DeliveryStatusEnum = z.enum([
 ]);
 export const AttemptOutcomeEnum = z.enum(['success', 'failed', 'timeout', 'error']);
 export const ReplayStatusEnum = z.enum(['queued', 'delivering', 'delivered', 'failed']);
+export const DeadLetterReasonEnum = z.enum([
+  'terminal_4xx',
+  'retries_exhausted',
+  'ssrf_blocked',
+  'timeout',
+  'other',
+]);
+export const DeadLetterStatusEnum = z.enum([
+  'open',
+  'replaying',
+  'resolved',
+  'dismissed',
+]);
 
 export type ProjectStatus = z.infer<typeof ProjectStatusEnum>;
 export type TenantStatus = z.infer<typeof TenantStatusEnum>;
@@ -36,6 +49,8 @@ export type EventStatus = z.infer<typeof EventStatusEnum>;
 export type DeliveryStatus = z.infer<typeof DeliveryStatusEnum>;
 export type AttemptOutcome = z.infer<typeof AttemptOutcomeEnum>;
 export type ReplayStatus = z.infer<typeof ReplayStatusEnum>;
+export type DeadLetterReason = z.infer<typeof DeadLetterReasonEnum>;
+export type DeadLetterStatus = z.infer<typeof DeadLetterStatusEnum>;
 
 // ─── User Schemas ────────────────────────────────────────────
 
