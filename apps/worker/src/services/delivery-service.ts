@@ -48,7 +48,7 @@ export async function processDelivery(
       event: true,
       destination: {
         include: {
-          tenant: { select: { id: true, status: true, concurrencyLimit: true, rateLimit: true } },
+          organization: { select: { id: true, name: true } },
         },
       },
     },
@@ -67,24 +67,10 @@ export async function processDelivery(
 
   const { event, destination } = delivery;
 
-  // ─── 2. Check destination and tenant status ──────────────
+  // ─── 2. Check destination status ─────────────────────────
   if (!destination.active) {
     logger.info({ deliveryId: job.deliveryId }, 'Destination paused — nacking for later');
     return false; // Nack — will be redelivered when destination is resumed
-  }
-
-  if (destination.tenant.status === 'paused') {
-    logger.info({ deliveryId: job.deliveryId }, 'Tenant paused — nacking for later');
-    return false;
-  }
-
-  if (destination.tenant.status === 'disabled') {
-    logger.warn({ deliveryId: job.deliveryId }, 'Tenant disabled — marking delivery failed');
-    await prisma.delivery.update({
-      where: { id: delivery.id },
-      data: { status: 'failed' },
-    });
-    return true;
   }
 
   // ─── 3. Update delivery status to delivering ─────────────
