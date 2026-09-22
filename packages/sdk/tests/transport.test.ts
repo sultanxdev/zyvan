@@ -13,11 +13,10 @@ import {
 
 describe('PR 4.1: SDK Transport Layer (HttpTransport)', () => {
   const apiKey = 'zyvan_test_mock_key_xyz123';
-  let mockFetch: ReturnType<typeof vi.fn>;
+  const mockFetch = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockFetch = vi.fn();
+    mockFetch.mockReset();
   });
 
   describe('Initialization & URL Construction', () => {
