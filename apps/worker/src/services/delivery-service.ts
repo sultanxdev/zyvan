@@ -11,7 +11,7 @@
 //   7. DB-first retry transition + confirmed retry publish before ACK
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient } from '@zyvan/db';
+import { getPrismaClient, type DeadLetterReason } from '@zyvan/db';
 import { sendWebhook } from './http-client';
 import { createAttempt, completeAttempt } from './attempt-service';
 import {
@@ -30,6 +30,21 @@ import { checkRateLimit } from './destination-rate-limiter';
 import type { DeliveryJobMessage } from '@zyvan/queue';
 
 export type { DeliveryJobMessage as DeliveryJob };
+
+export interface DeliveryForDLQ {
+  id: string;
+  organizationId: string;
+  eventId: string;
+  destinationId: string;
+}
+
+export interface MoveToDLQParams {
+  delivery: DeliveryForDLQ;
+  reason: DeadLetterReason;
+  errorMessage: string | null;
+  statusCode: number | null;
+  attemptCount: number; // Number of completed HTTP delivery attempts performed
+}
 
 export const HTTP_TIMEOUT_MS = 15_000;
 export const PROCESSING_LEASE_MS = 60_000; // 4x HTTP timeout
