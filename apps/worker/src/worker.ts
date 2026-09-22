@@ -93,6 +93,9 @@ async function start(): Promise<void> {
 
       try {
         job = JSON.parse(msg.content.toString());
+        if (typeof job.attemptNo !== 'number') {
+          job.attemptNo = 1;
+        }
       } catch (err) {
         logger.error({ err, content: msg.content.toString() }, 'Invalid job payload — discarding');
         channel.ack(msg);
@@ -110,12 +113,12 @@ async function start(): Promise<void> {
         if (processed) {
           channel.ack(msg);
         } else {
-          // Nack with requeue — destination/tenant paused, retry later
+          // Nack with requeue — destination paused or transient lease conflict
           channel.nack(msg, false, true);
         }
       } catch (err) {
         logger.error(
-          { err, deliveryId: job.deliveryId, eventId: job.eventId },
+          { err, deliveryId: job.deliveryId },
           'Unexpected error processing delivery'
         );
         // Nack with requeue on unexpected errors — don't lose the message

@@ -33,6 +33,7 @@ enum EventStatus {
 
 enum DeliveryStatus {
   queued
+  processing
   delivering
   retrying
   delivered
@@ -142,8 +143,9 @@ model Organization {
   destinations Destination[]
   events       Event[]
   deliveries   Delivery[]
-  apiKeys      ApiKey[]
-  auditLogs    AuditLog[]
+  apiKeys        ApiKey[]
+  auditLogs      AuditLog[]
+  outboxMessages OutboxMessage[]
 
   @@map("organizations")
 }
@@ -290,21 +292,25 @@ model Delivery {
   attemptCount   Int            @default(0) @map("attempt_count")
   nextRetryAt    DateTime?      @map("next_retry_at")
   lastStatusCode Int?           @map("last_status_code")
+  processingAt   DateTime?      @map("processing_at")
+  leaseExpiresAt DateTime?      @map("lease_expires_at")
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  destination  Destination  @relation(fields: [destinationId], references: [id], onDelete: Cascade)
-  attempts     Attempt[]
-  replay       Replay?
-  deadLetter   DeadLetter?
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  destination   Destination    @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  attempts      Attempt[]
+  replay        Replay?
+  deadLetter    DeadLetter?
+  outboxMessage OutboxMessage?
 
   @@index([organizationId])
   @@index([eventId])
   @@index([destinationId])
   @@index([status])
   @@index([nextRetryAt])
+  @@index([leaseExpiresAt])
   @@map("deliveries")
 }
 
@@ -381,3 +387,25 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_logs")
 }
+
+// ─── Outbox Messages (Durable Transactional Synchronization) ─────────────────
+
+model OutboxMessage {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id")
+  deliveryId     String    @unique @map("delivery_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  lockedAt       DateTime? @map("locked_at")
+  lockedBy       String?   @map("locked_by") @db.VarChar(255)
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error") @db.Text
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  delivery       Delivery     @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([lockedAt, createdAt])
+  @@index([organizationId, createdAt])
+  @@map("outbox_messages")
+}
+

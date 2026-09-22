@@ -9,7 +9,8 @@
     "build": "tsc",
     "start": "node dist/worker.js",
     "test": "vitest run",
-    "test:unit": "vitest run --dir src/__tests__/unit"
+    "test:unit": "vitest run --dir src/__tests__/unit",
+    "test:reliability": "vitest run --dir src/__tests__/reliability"
   },
   "dependencies": {
     "@prisma/client": "^6.8.0",
@@ -17,6 +18,7 @@
     "@zyvan/crypto": "workspace:*",
     "@zyvan/db": "workspace:*",
     "@zyvan/logger": "workspace:*",
+    "@zyvan/queue": "workspace:*",
     "@zyvan/types": "workspace:*",
     "@zyvan/validation": "workspace:*",
     "amqplib": "^0.10.5",

@@ -8,10 +8,10 @@
 //   4. Publish delivery jobs to RabbitMQ
 // ─────────────────────────────────────────────────────────────
 
-import { Prisma } from '@zyvan/db';
+import { Prisma, getPrismaClient } from '@zyvan/db';
 import * as eventRepo from './repository';
 import * as destRepo from '../destinations/repository';
-import { publishDeliveryJob } from '../../lib/rabbitmq';
+import { publishDeliveryJobsConfirmed } from '../../lib/rabbitmq';
 import { logger } from '../../lib/logger';
 
 export interface IngestEventResult {
@@ -81,19 +81,40 @@ export async function ingestEvent(
     throw err;
   }
 
-  // 4. Publish delivery jobs to RabbitMQ
-  for (const delivery of result.deliveries) {
+  // 4. Publish delivery jobs to RabbitMQ with publisher confirms
+  if (result.deliveries.length > 0) {
+    const jobs = result.deliveries.map((delivery) => ({
+      deliveryId: delivery.id,
+      attemptNo: 1,
+    }));
+
     try {
-      publishDeliveryJob({
-        deliveryId: delivery.id,
-        eventId: result.event.id,
-        destinationId: delivery.destinationId,
-        attemptNo: 1,
-      });
+      const { confirmed, failed } = await publishDeliveryJobsConfirmed(jobs);
+
+      // Delete confirmed outbox records immediately
+      if (confirmed.length > 0) {
+        const prisma = getPrismaClient();
+        await prisma.outboxMessage.deleteMany({
+          where: {
+            deliveryId: { in: confirmed },
+          },
+        });
+        logger.debug(
+          { confirmedCount: confirmed.length, eventId: result.event.id },
+          'Confirmed delivery jobs published and removed from outbox'
+        );
+      }
+
+      if (failed.length > 0) {
+        logger.warn(
+          { failedCount: failed.length, eventId: result.event.id },
+          'Some delivery jobs failed broker confirmation — outbox reconciler will recover'
+        );
+      }
     } catch (err) {
       logger.error(
-        { err, deliveryId: delivery.id, eventId: result.event.id },
-        'Failed to publish delivery job — event is persisted and will be retried'
+        { err, eventId: result.event.id },
+        'Error during confirmed publish — outbox records remain for reconciler recovery'
       );
     }
   }

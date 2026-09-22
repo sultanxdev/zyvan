@@ -16,6 +16,7 @@ export type {
   Destination,
   Event,
   Delivery,
+  OutboxMessage,
   Attempt,
   Replay,
   DeadLetter,

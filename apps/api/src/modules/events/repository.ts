@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { getPrismaClient } from '@zyvan/db';
-import type { Event, EventStatus, Delivery } from '@zyvan/db';
+import type { Event, EventStatus, Delivery, OutboxMessage } from '@zyvan/db';
 
 export interface CreateEventData {
   organizationId: string;
@@ -45,14 +45,20 @@ export interface EventWithDeliveries extends Event {
   })[];
 }
 
+export interface CreateEventResult {
+  event: Event;
+  deliveries: Delivery[];
+  outboxMessages: OutboxMessage[];
+}
+
 /**
- * Create a new event with delivery records in a single transaction.
- * Returns the created event and deliveries.
+ * Create a new event with delivery records and transactional outbox messages in a single transaction.
+ * Returns the created event, deliveries, and outbox messages.
  */
 export async function createWithDeliveries(
   data: CreateEventData,
   destinationIds: string[]
-): Promise<{ event: Event; deliveries: Delivery[] }> {
+): Promise<CreateEventResult> {
   const prisma = getPrismaClient();
 
   return prisma.$transaction(async (tx) => {
@@ -69,8 +75,9 @@ export async function createWithDeliveries(
       },
     });
 
-    // Create one Delivery per destination with organizationId
+    // Create one Delivery and one OutboxMessage per destination with organizationId
     const deliveries: Delivery[] = [];
+    const outboxMessages: OutboxMessage[] = [];
     for (const destId of destinationIds) {
       const delivery = await tx.delivery.create({
         data: {
@@ -82,9 +89,17 @@ export async function createWithDeliveries(
         },
       });
       deliveries.push(delivery);
+
+      const outbox = await tx.outboxMessage.create({
+        data: {
+          organizationId: data.organizationId,
+          deliveryId: delivery.id,
+        },
+      });
+      outboxMessages.push(outbox);
     }
 
-    return { event, deliveries };
+    return { event, deliveries, outboxMessages };
   });
 }
 

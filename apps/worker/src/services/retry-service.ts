@@ -12,6 +12,9 @@
 // Backoff: min(baseDelay * 2^attempt + jitter, maxDelay)
 // ─────────────────────────────────────────────────────────────
 
+import { getRetryTier, MAX_RETRY_ATTEMPTS, RETRY_TIERS } from '@zyvan/queue';
+export { getRetryTier, MAX_RETRY_ATTEMPTS, RETRY_TIERS };
+
 export interface RetryPolicy {
   maxAttempts: number;
   baseDelay: number;  // seconds
@@ -19,7 +22,7 @@ export interface RetryPolicy {
 }
 
 const DEFAULT_POLICY: RetryPolicy = {
-  maxAttempts: 5,
+  maxAttempts: MAX_RETRY_ATTEMPTS,
   baseDelay: 1,
   maxDelay: 3600,
 };
