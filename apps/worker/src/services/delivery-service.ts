@@ -21,6 +21,12 @@ import {
   parseRetryPolicy,
 } from './retry-service';
 import { publishTieredRetryJobConfirmed } from '../lib/rabbitmq';
+import {
+  acquireSlotLease,
+  releaseSlotLease,
+  DEFAULT_CONCURRENCY_LIMIT,
+} from './destination-concurrency';
+import { checkRateLimit } from './destination-rate-limiter';
 import type { DeliveryJobMessage } from '@zyvan/queue';
 
 export type { DeliveryJobMessage as DeliveryJob };
@@ -159,12 +165,51 @@ export async function processDelivery(
     return true; // Ack
   }
 
-  // ─── 5. Record attempt ───────────────────────────────────
-  const attemptNo = job.attemptNo;
-  const attempt = await createAttempt({
-    deliveryId: delivery.id,
-    attemptNo,
-  });
+  // ─── 4b. Check destination rate limit ────────────────────
+  const rateLimit = destination.rateLimit || 50;
+  const rateCheck = await checkRateLimit(destination.id, rateLimit);
+  if (!rateCheck.allowed) {
+    logger.warn(
+      { destinationId: destination.id, currentCount: rateCheck.currentCount, limit: rateLimit },
+      'Destination rate limit reached — rescheduling to 10s retry queue'
+    );
+    await publishTieredRetryJobConfirmed(
+      { deliveryId: delivery.id, attemptNo: job.attemptNo },
+      'zyvan.delivery.retry.10s'
+    );
+    await prisma.delivery.update({
+      where: { id: delivery.id },
+      data: { status: 'retrying', leaseExpiresAt: null },
+    });
+    return true; // Ack original — safely rescheduled
+  }
+
+  // ─── 4c. Acquire destination concurrency slot lease ──────
+  const concurrencyLimit = (destination as any).concurrencyLimit || DEFAULT_CONCURRENCY_LIMIT;
+  const slotLease = await acquireSlotLease(destination.id, concurrencyLimit);
+  if (!slotLease.acquired) {
+    logger.warn(
+      { destinationId: destination.id, limit: concurrencyLimit },
+      'Destination concurrency limit reached — rescheduling to 10s retry queue'
+    );
+    await publishTieredRetryJobConfirmed(
+      { deliveryId: delivery.id, attemptNo: job.attemptNo },
+      'zyvan.delivery.retry.10s'
+    );
+    await prisma.delivery.update({
+      where: { id: delivery.id },
+      data: { status: 'retrying', leaseExpiresAt: null },
+    });
+    return true; // Ack original — safely rescheduled
+  }
+
+  try {
+    // ─── 5. Record attempt ───────────────────────────────────
+    const attemptNo = job.attemptNo;
+    const attempt = await createAttempt({
+      deliveryId: delivery.id,
+      attemptNo,
+    });
 
   // ─── 6. Send webhook via HTTP client ─────────────────────
   const payload = JSON.stringify(event.payload);
@@ -305,12 +350,15 @@ export async function processDelivery(
     );
 
     return true; // Only ACK original message after broker confirms retry publish!
-  } catch (pubErr) {
-    logger.error(
-      { pubErr, deliveryId: delivery.id, queue: tier.queue },
-      'Failed to publish retry job with publisher confirm — nacking original message with requeue'
-    );
-    return false; // Nack with requeue so message is redelivered
+    } catch (pubErr) {
+      logger.error(
+        { pubErr, deliveryId: delivery.id, queue: tier.queue },
+        'Failed to publish retry job with publisher confirm — nacking original message with requeue'
+      );
+      return false; // Nack with requeue so message is redelivered
+    }
+  } finally {
+    await releaseSlotLease(slotLease.slotKey, slotLease.token);
   }
 }
 
