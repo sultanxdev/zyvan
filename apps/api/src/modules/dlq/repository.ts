@@ -5,7 +5,7 @@
 // and unified filtering for list and summary operations.
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient, type Prisma, type DeadLetterStatus, type DeadLetterReason } from '@zyvan/db';
+import { getPrismaClient, Prisma, type DeadLetter, type DeadLetterStatus, type DeadLetterReason } from '@zyvan/db';
 import type { DLQFilterInput, DLQSummaryFilterInput } from '@zyvan/validation';
 
 export interface DLQCursor {
@@ -636,3 +636,311 @@ export async function createBulkReplayTransaction(params: {
     };
   });
 }
+
+// ─── Manual Dismissal & Resolution Operations ──────────────────
+
+export interface DLQMutationResult {
+  status: 'updated' | 'already_terminal' | 'conflict' | 'not_found';
+  currentStatus?: DeadLetterStatus;
+  record?: DeadLetter;
+}
+
+export interface DLQBulkMutationResult {
+  requested: number;
+  affected: number;
+  skipped: number;
+  ids: string[];
+}
+
+/**
+ * Atomically dismiss an open dead letter and create an audit log entry in a single transaction.
+ * Concurrency primitive: UPDATE WHERE status = 'open'.
+ */
+export async function dismissDeadLetter(params: {
+  id: string;
+  organizationId: string;
+  reason: string;
+  dismissedBy: string;
+  userId?: string | null;
+  actorType?: string;
+}): Promise<DLQMutationResult> {
+  const prisma = getPrismaClient();
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Atomic conditional update
+    const updated = await tx.$queryRaw<DeadLetter[]>`
+      UPDATE dead_letters
+      SET
+        status = 'dismissed'::"DeadLetterStatus",
+        dismissed_at = NOW(),
+        dismissed_by = ${params.dismissedBy},
+        dismissal_reason = ${params.reason}
+      WHERE
+        id = ${params.id}::uuid
+        AND organization_id = ${params.organizationId}
+        AND status = 'open'::"DeadLetterStatus"
+      RETURNING *
+    `;
+
+    if (updated.length > 0) {
+      // Record audit log
+      await tx.auditLog.create({
+        data: {
+          organizationId: params.organizationId,
+          userId: params.userId || null,
+          action: 'dead_letter.dismissed',
+          resourceType: 'dead_letter',
+          resourceId: params.id,
+          metadata: {
+            previousStatus: 'open',
+            newStatus: 'dismissed',
+            dismissalReason: params.reason,
+            actorType: params.actorType || 'user',
+            actorId: params.dismissedBy,
+          },
+        },
+      });
+
+      return { status: 'updated', record: updated[0] };
+    }
+
+    // 2. Handle zero rows updated: find existing record
+    const existing = await tx.deadLetter.findFirst({
+      where: {
+        id: params.id,
+        organizationId: params.organizationId,
+      },
+    });
+
+    if (!existing) {
+      return { status: 'not_found' };
+    }
+
+    if (existing.status === 'dismissed') {
+      return { status: 'already_terminal', currentStatus: 'dismissed', record: existing };
+    }
+
+    return { status: 'conflict', currentStatus: existing.status };
+  });
+}
+
+/**
+ * Atomically manually resolve an open dead letter with an audit note in a single transaction.
+ * Concurrency primitive: UPDATE WHERE status = 'open'.
+ */
+export async function resolveDeadLetter(params: {
+  id: string;
+  organizationId: string;
+  resolution: string;
+  resolvedBy: string;
+  userId?: string | null;
+  actorType?: string;
+}): Promise<DLQMutationResult> {
+  const prisma = getPrismaClient();
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Atomic conditional update
+    const updated = await tx.$queryRaw<DeadLetter[]>`
+      UPDATE dead_letters
+      SET
+        status = 'resolved'::"DeadLetterStatus",
+        resolved_at = NOW(),
+        resolved_by = ${params.resolvedBy},
+        resolution = ${params.resolution}
+      WHERE
+        id = ${params.id}::uuid
+        AND organization_id = ${params.organizationId}
+        AND status = 'open'::"DeadLetterStatus"
+      RETURNING *
+    `;
+
+    if (updated.length > 0) {
+      // Record audit log
+      await tx.auditLog.create({
+        data: {
+          organizationId: params.organizationId,
+          userId: params.userId || null,
+          action: 'dead_letter.resolved',
+          resourceType: 'dead_letter',
+          resourceId: params.id,
+          metadata: {
+            previousStatus: 'open',
+            newStatus: 'resolved',
+            resolution: params.resolution,
+            actorType: params.actorType || 'user',
+            actorId: params.resolvedBy,
+          },
+        },
+      });
+
+      return { status: 'updated', record: updated[0] };
+    }
+
+    // 2. Handle zero rows updated: find existing record
+    const existing = await tx.deadLetter.findFirst({
+      where: {
+        id: params.id,
+        organizationId: params.organizationId,
+      },
+    });
+
+    if (!existing) {
+      return { status: 'not_found' };
+    }
+
+    if (existing.status === 'resolved') {
+      return { status: 'already_terminal', currentStatus: 'resolved', record: existing };
+    }
+
+    return { status: 'conflict', currentStatus: existing.status };
+  });
+}
+
+/**
+ * Bulk dismiss candidate dead letters in an atomic transaction.
+ * Only open dead letters belonging to organizationId are affected.
+ */
+export async function dismissBulkDeadLetters(params: {
+  organizationId: string;
+  candidateIds: string[];
+  reason: string;
+  dismissedBy: string;
+  userId?: string | null;
+  actorType?: string;
+}): Promise<DLQBulkMutationResult> {
+  if (params.candidateIds.length === 0) {
+    return { requested: 0, affected: 0, skipped: 0, ids: [] };
+  }
+
+  const prisma = getPrismaClient();
+
+  return prisma.$transaction(async (tx) => {
+    const affected = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE dead_letters
+      SET
+        status = 'dismissed'::"DeadLetterStatus",
+        dismissed_at = NOW(),
+        dismissed_by = ${params.dismissedBy},
+        dismissal_reason = ${params.reason}
+      WHERE
+        id IN (${Prisma.join(params.candidateIds.map((id) => Prisma.sql`${id}::uuid`))})
+        AND organization_id = ${params.organizationId}
+        AND status = 'open'::"DeadLetterStatus"
+      RETURNING id
+    `;
+
+    const affectedIds = affected.map((r) => r.id);
+
+    if (affectedIds.length > 0) {
+      await tx.auditLog.createMany({
+        data: affectedIds.map((id) => ({
+          organizationId: params.organizationId,
+          userId: params.userId || null,
+          action: 'dead_letter.dismissed',
+          resourceType: 'dead_letter',
+          resourceId: id,
+          metadata: {
+            mode: 'bulk',
+            previousStatus: 'open',
+            newStatus: 'dismissed',
+            dismissalReason: params.reason,
+            actorType: params.actorType || 'user',
+            actorId: params.dismissedBy,
+          },
+        })),
+      });
+    }
+
+    return {
+      requested: params.candidateIds.length,
+      affected: affectedIds.length,
+      skipped: params.candidateIds.length - affectedIds.length,
+      ids: affectedIds,
+    };
+  });
+}
+
+/**
+ * Bulk manually resolve candidate dead letters in an atomic transaction.
+ * Only open dead letters belonging to organizationId are affected.
+ */
+export async function resolveBulkDeadLetters(params: {
+  organizationId: string;
+  candidateIds: string[];
+  resolution: string;
+  resolvedBy: string;
+  userId?: string | null;
+  actorType?: string;
+}): Promise<DLQBulkMutationResult> {
+  if (params.candidateIds.length === 0) {
+    return { requested: 0, affected: 0, skipped: 0, ids: [] };
+  }
+
+  const prisma = getPrismaClient();
+
+  return prisma.$transaction(async (tx) => {
+    const affected = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE dead_letters
+      SET
+        status = 'resolved'::"DeadLetterStatus",
+        resolved_at = NOW(),
+        resolved_by = ${params.resolvedBy},
+        resolution = ${params.resolution}
+      WHERE
+        id IN (${Prisma.join(params.candidateIds.map((id) => Prisma.sql`${id}::uuid`))})
+        AND organization_id = ${params.organizationId}
+        AND status = 'open'::"DeadLetterStatus"
+      RETURNING id
+    `;
+
+    const affectedIds = affected.map((r) => r.id);
+
+    if (affectedIds.length > 0) {
+      await tx.auditLog.createMany({
+        data: affectedIds.map((id) => ({
+          organizationId: params.organizationId,
+          userId: params.userId || null,
+          action: 'dead_letter.resolved',
+          resourceType: 'dead_letter',
+          resourceId: id,
+          metadata: {
+            mode: 'bulk',
+            previousStatus: 'open',
+            newStatus: 'resolved',
+            resolution: params.resolution,
+            actorType: params.actorType || 'user',
+            actorId: params.resolvedBy,
+          },
+        })),
+      });
+    }
+
+    return {
+      requested: params.candidateIds.length,
+      affected: affectedIds.length,
+      skipped: params.candidateIds.length - affectedIds.length,
+      ids: affectedIds,
+    };
+  });
+}
+
+/**
+ * Load open dead letters from an explicit list of IDs scoped to organizationId.
+ */
+export async function findOpenDeadLettersByIds(
+  organizationId: string,
+  ids: string[]
+): Promise<DeadLetter[]> {
+  if (ids.length === 0) return [];
+  const prisma = getPrismaClient();
+  return prisma.deadLetter.findMany({
+    where: {
+      organizationId,
+      id: { in: ids },
+      status: 'open',
+    },
+    take: 100,
+  });
+}
+
+export const findOpenDeadLettersForBulk = findOpenDeadLettersForBulkReplay;
