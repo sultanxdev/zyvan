@@ -413,25 +413,20 @@ describe('PR 3.2: Dead Letter Queue (DLQ) Replay Unit & Concurrency Tests', () =
   // ─── 3. Atomic Transaction Rollback & Concurrency ──────────────
   describe('Transactional Atomicity & Concurrency', () => {
     it('rolls back completely if Delivery creation fails during claim', async () => {
-      const mockTx = {
-        deadLetter: {
-          findFirst: vi.fn().mockResolvedValue({
-            id: 'dl-1',
-            status: 'open',
-            destination: { active: true },
-          }),
-        },
-        $executeRaw: vi.fn().mockResolvedValue(1),
-        delivery: {
-          create: vi.fn().mockRejectedValue(new Error('DB disk full')),
-        },
-      };
+      mockPrisma.deadLetter.findFirst.mockResolvedValueOnce({
+        id: 'dl-1',
+        organizationId: 'org-1',
+        status: 'open',
+        destination: { id: 'dest-1', active: true },
+      });
+      mockPrisma.$executeRaw.mockResolvedValueOnce(1);
+      mockPrisma.delivery.create.mockRejectedValueOnce(new Error('DB disk full'));
 
       await expect(
-        mockPrisma.$transaction(async (tx: any) => {
-          const dl = await tx.deadLetter.findFirst();
-          await tx.$executeRaw();
-          await tx.delivery.create();
+        dlqRepo.claimAndCreateReplayTransaction({
+          deadLetterId: 'dl-1',
+          organizationId: 'org-1',
+          idempotencyKey: 'key-fail',
         })
       ).rejects.toThrow('DB disk full');
     });
