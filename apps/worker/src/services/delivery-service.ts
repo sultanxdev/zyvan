@@ -1,14 +1,14 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan Worker — Delivery Service
 //
-// The core delivery processor. For each job:
-//   1. Load delivery + event + destination from PostgreSQL
-//   2. Check destination is active, tenant is not paused
-//   3. Build and send the webhook via HTTP client
-//   4. Record attempt (immutable)
-//   5. Classify result: success / retry / DLQ
-//
-// This is the reliability backbone of Zyvan.
+// The core delivery state machine:
+//   1. Load delivery from PostgreSQL (system of record)
+//   2. Validate attemptNo for stale-job protection
+//   3. Handle PROCESSING -> RETRYING crash window recovery
+//   4. Atomic claim with 60s lease (HTTP_TIMEOUT_MS * 4)
+//   5. Record immutable attempt
+//   6. Classify result: Success / Tiered Retry / Authoritative DLQ
+//   7. DB-first retry transition + confirmed retry publish before ACK
 // ─────────────────────────────────────────────────────────────
 
 import { getPrismaClient } from '@zyvan/db';
@@ -16,25 +16,26 @@ import { sendWebhook } from './http-client';
 import { createAttempt, completeAttempt } from './attempt-service';
 import {
   classifyFailure,
-  shouldRetry,
-  calculateBackoff,
+  getRetryTier,
+  MAX_RETRY_ATTEMPTS,
   parseRetryPolicy,
 } from './retry-service';
-import { publishRetryJob } from '../lib/rabbitmq';
+import { publishTieredRetryJobConfirmed } from '../lib/rabbitmq';
+import type { DeliveryJobMessage } from '@zyvan/queue';
 
-export interface DeliveryJob {
-  deliveryId: string;
-  eventId: string;
-}
+export type { DeliveryJobMessage as DeliveryJob };
+
+export const HTTP_TIMEOUT_MS = 15_000;
+export const PROCESSING_LEASE_MS = 60_000; // 4x HTTP timeout
 
 /**
- * Process a single delivery job.
+ * Process a single delivery job message.
  *
- * Returns true if the job was processed (regardless of outcome),
- * false if the job should be nacked for redelivery.
+ * Returns true if the job was successfully processed / handled (caller ACKs message).
+ * Returns false if the job should be nacked with requeue for redelivery.
  */
 export async function processDelivery(
-  job: DeliveryJob,
+  job: DeliveryJobMessage,
   encryptionKey: string,
   hmacVersion: string,
   logger: any
@@ -55,38 +56,117 @@ export async function processDelivery(
   });
 
   if (!delivery) {
-    logger.warn({ deliveryId: job.deliveryId }, 'Delivery not found — discarding job');
+    logger.warn({ deliveryId: job.deliveryId }, 'Delivery not found — discarding stale job');
     return true; // Ack — stale job
   }
 
-  // Already delivered or cancelled — skip
-  if (delivery.status === 'delivered' || delivery.status === 'cancelled' || delivery.status === 'failed') {
-    logger.debug({ deliveryId: job.deliveryId, status: delivery.status }, 'Delivery already terminal — skipping');
-    return true;
+  // Terminal state check
+  if (
+    delivery.status === 'delivered' ||
+    delivery.status === 'cancelled' ||
+    delivery.status === 'failed'
+  ) {
+    logger.debug(
+      { deliveryId: job.deliveryId, status: delivery.status },
+      'Delivery already terminal — discarding message'
+    );
+    return true; // Ack
+  }
+
+  // ─── 2. Stale-Job & Crash-Window Protection ───────────────
+  // A. Crash window recovery: if DB is already 'retrying' for this attempt,
+  // ensure the retry job is published to RabbitMQ and ACK original.
+  if (delivery.status === 'retrying') {
+    if (delivery.attemptCount >= job.attemptNo) {
+      const tier = getRetryTier(delivery.attemptCount);
+      if (tier) {
+        logger.info(
+          { deliveryId: delivery.id, attemptCount: delivery.attemptCount },
+          'Recovering retrying delivery from crash window — republishing retry job'
+        );
+        try {
+          await publishTieredRetryJobConfirmed(
+            {
+              deliveryId: delivery.id,
+              attemptNo: delivery.attemptCount + 1,
+            },
+            tier.queue
+          );
+        } catch (pubErr) {
+          logger.error({ pubErr, deliveryId: delivery.id }, 'Failed to republish retry job during recovery');
+          return false; // Nack to retry recovery
+        }
+      }
+      return true; // Ack original message
+    }
+  }
+
+  // B. Stale message protection: incoming attemptNo must match expected attempt (attemptCount + 1)
+  if (delivery.attemptCount > job.attemptNo - 1) {
+    logger.debug(
+      {
+        deliveryId: job.deliveryId,
+        incomingAttempt: job.attemptNo,
+        currentAttemptCount: delivery.attemptCount,
+      },
+      'Stale attempt message received — skipping'
+    );
+    return true; // Ack stale
   }
 
   const { event, destination } = delivery;
 
-  // ─── 2. Check destination status ─────────────────────────
+  // ─── 3. Check destination active status ──────────────────
   if (!destination.active) {
     logger.info({ deliveryId: job.deliveryId }, 'Destination paused — nacking for later');
-    return false; // Nack — will be redelivered when destination is resumed
+    return false; // Nack with requeue
   }
 
-  // ─── 3. Update delivery status to delivering ─────────────
-  const attemptNo = delivery.attemptCount + 1;
-  await prisma.delivery.update({
-    where: { id: delivery.id },
-    data: { status: 'delivering', attemptCount: attemptNo },
-  });
+  // ─── 4. Atomic claim with 60s lease ──────────────────────
+  const claimResult = await prisma.$executeRaw`
+    UPDATE deliveries
+    SET
+      status = 'processing',
+      processing_at = NOW(),
+      lease_expires_at = NOW() + INTERVAL '60 seconds'
+    WHERE id = ${job.deliveryId}::uuid
+      AND attempt_count = ${job.attemptNo - 1}
+      AND (
+        status IN ('queued', 'retrying')
+        OR (status = 'processing' AND (lease_expires_at IS NULL OR lease_expires_at < NOW()))
+      )
+  `;
 
-  // ─── 4. Create attempt record ────────────────────────────
+  if (claimResult === 0) {
+    // Check if another worker is actively holding a valid lease
+    const freshDelivery = await prisma.delivery.findUnique({
+      where: { id: job.deliveryId },
+      select: { status: true, leaseExpiresAt: true, attemptCount: true },
+    });
+
+    if (freshDelivery?.status === 'processing' && freshDelivery.leaseExpiresAt && freshDelivery.leaseExpiresAt > new Date()) {
+      logger.debug(
+        { deliveryId: job.deliveryId },
+        'Another worker actively holds lease — nacking for redelivery if needed'
+      );
+      return false; // Nack with requeue
+    }
+
+    logger.debug(
+      { deliveryId: job.deliveryId, status: freshDelivery?.status },
+      'Atomic claim skipped (status changed) — acking message'
+    );
+    return true; // Ack
+  }
+
+  // ─── 5. Record attempt ───────────────────────────────────
+  const attemptNo = job.attemptNo;
   const attempt = await createAttempt({
     deliveryId: delivery.id,
     attemptNo,
   });
 
-  // ─── 5. Send the webhook ─────────────────────────────────
+  // ─── 6. Send webhook via HTTP client ─────────────────────
   const payload = JSON.stringify(event.payload);
 
   const result = await sendWebhook({
@@ -97,10 +177,10 @@ export async function processDelivery(
     encryptedSecret: destination.secretRef,
     encryptionKey,
     hmacVersion,
-    timeoutMs: 30000, // 30 second timeout
+    timeoutMs: HTTP_TIMEOUT_MS,
   });
 
-  // ─── 6. Complete the attempt record ──────────────────────
+  // ─── 7. Complete immutable attempt record ────────────────
   await completeAttempt(attempt.id, {
     statusCode: result.statusCode,
     latencyMs: result.latencyMs,
@@ -121,98 +201,148 @@ export async function processDelivery(
     `Delivery attempt #${attemptNo}: ${result.outcome}`
   );
 
-  // ─── 7. Classify and decide: success / retry / DLQ ──────
+  // ─── 8. Classify result: Success / Retry / DLQ ───────────
+
+  // A. SUCCESS (HTTP 2xx)
   if (result.success) {
-    // ✅ SUCCESS — mark delivery and event as delivered
-    await prisma.delivery.update({
-      where: { id: delivery.id },
-      data: { status: 'delivered', lastStatusCode: result.statusCode },
-    });
-
-    // Update event status if all deliveries are delivered
-    await updateEventStatusIfComplete(event.id);
-
-    return true;
-  }
-
-  // ❌ FAILURE — classify and decide
-  const retryPolicy = parseRetryPolicy(destination.retryPolicy);
-  const failureClass = classifyFailure(result.outcome as 'failed' | 'timeout' | 'error', result.statusCode);
-
-  if (failureClass === 'terminal') {
-    // Terminal failure (4xx) — go directly to DLQ
-    logger.info(
-      { deliveryId: delivery.id, statusCode: result.statusCode },
-      'Terminal failure — moving to DLQ'
-    );
-    await moveToDLQ(delivery.id, event.id, `Terminal HTTP ${result.statusCode}`, prisma);
-    return true;
-  }
-
-  // Retryable failure — check if we should retry
-  if (shouldRetry(attemptNo, retryPolicy)) {
-    const delayMs = calculateBackoff(attemptNo, retryPolicy);
-    const nextRetryAt = new Date(Date.now() + delayMs);
-
     await prisma.delivery.update({
       where: { id: delivery.id },
       data: {
-        status: 'retrying',
+        status: 'delivered',
+        attemptCount: attemptNo,
         lastStatusCode: result.statusCode,
-        nextRetryAt,
+        leaseExpiresAt: null,
       },
     });
 
-    // Update event status to retrying
-    await prisma.event.update({
-      where: { id: event.id },
-      data: { status: 'retrying' },
-    });
-
-    // Schedule retry via RabbitMQ delayed queue
-    publishRetryJob(delivery.id, event.id, delayMs, logger);
-
-    logger.info(
-      { deliveryId: delivery.id, attemptNo, delayMs, nextRetryAt: nextRetryAt.toISOString() },
-      `Retry scheduled — attempt #${attemptNo + 1} in ${Math.round(delayMs / 1000)}s`
-    );
-
-    return true;
+    await updateEventStatusIfComplete(event.id);
+    return true; // Ack
   }
 
-  // Retry exhausted — move to DLQ
-  logger.info(
-    { deliveryId: delivery.id, attemptNo, maxAttempts: retryPolicy.maxAttempts },
-    'Retry exhausted — moving to DLQ'
-  );
-  await moveToDLQ(
-    delivery.id,
-    event.id,
-    `Retry exhausted after ${attemptNo} attempts. Last: ${result.error || `HTTP ${result.statusCode}`}`,
-    prisma
+  // B. TERMINAL FAILURE (e.g. HTTP 4xx except 429)
+  const failureClass = classifyFailure(
+    result.outcome as 'failed' | 'timeout' | 'error',
+    result.statusCode
   );
 
-  return true;
+  if (failureClass === 'terminal') {
+    logger.info(
+      { deliveryId: delivery.id, statusCode: result.statusCode },
+      'Terminal failure — transitioning to authoritative DLQ'
+    );
+    await moveToDLQ(
+      delivery.id,
+      event.id,
+      `Terminal HTTP ${result.statusCode}: ${result.error || 'Client error'}`,
+      attemptNo,
+      result.statusCode,
+      prisma
+    );
+    return true; // Ack
+  }
+
+  // C. RETRYABLE FAILURE
+  const retryPolicy = parseRetryPolicy(destination.retryPolicy);
+  const tier = getRetryTier(attemptNo);
+
+  // Check if retries exhausted
+  if (!tier || attemptNo >= (retryPolicy.maxAttempts || MAX_RETRY_ATTEMPTS)) {
+    logger.info(
+      { deliveryId: delivery.id, attemptNo, maxAttempts: retryPolicy.maxAttempts },
+      'Retries exhausted — transitioning to authoritative DLQ'
+    );
+    await moveToDLQ(
+      delivery.id,
+      event.id,
+      `Retry exhausted after ${attemptNo} attempts. Last: ${result.error || `HTTP ${result.statusCode}`}`,
+      attemptNo,
+      result.statusCode,
+      prisma
+    );
+    return true; // Ack
+  }
+
+  // D. TIERED RETRY (DB-First Transition + Confirmed Publish)
+  const nextRetryAt = new Date(Date.now() + tier.ttlMs);
+
+  // 1. Transition DB first
+  await prisma.delivery.update({
+    where: { id: delivery.id },
+    data: {
+      status: 'retrying',
+      attemptCount: attemptNo,
+      lastStatusCode: result.statusCode,
+      nextRetryAt,
+      leaseExpiresAt: null,
+    },
+  });
+
+  await prisma.event.update({
+    where: { id: event.id },
+    data: { status: 'retrying' },
+  });
+
+  // 2. Publish retry job with broker confirmation
+  try {
+    await publishTieredRetryJobConfirmed(
+      {
+        deliveryId: delivery.id,
+        attemptNo: attemptNo + 1,
+      },
+      tier.queue
+    );
+
+    logger.info(
+      {
+        deliveryId: delivery.id,
+        attemptNo,
+        nextAttempt: attemptNo + 1,
+        tier: tier.tier,
+        queue: tier.queue,
+        nextRetryAt: nextRetryAt.toISOString(),
+      },
+      `Tiered retry scheduled on ${tier.queue} for attempt #${attemptNo + 1}`
+    );
+
+    return true; // Only ACK original message after broker confirms retry publish!
+  } catch (pubErr) {
+    logger.error(
+      { pubErr, deliveryId: delivery.id, queue: tier.queue },
+      'Failed to publish retry job with publisher confirm — nacking original message with requeue'
+    );
+    return false; // Nack with requeue so message is redelivered
+  }
 }
 
 /**
- * Move a delivery to the dead-letter queue.
+ * Move a delivery to the authoritative PostgreSQL DeadLetter state.
  */
 async function moveToDLQ(
   deliveryId: string,
   eventId: string,
   reason: string,
+  attemptCount: number,
+  statusCode: number | null,
   prisma: any
 ): Promise<void> {
   await prisma.$transaction([
     prisma.delivery.update({
       where: { id: deliveryId },
-      data: { status: 'failed' },
-    }),
-    prisma.deadLetter.create({
       data: {
+        status: 'failed',
+        attemptCount,
+        lastStatusCode: statusCode,
+        leaseExpiresAt: null,
+      },
+    }),
+    prisma.deadLetter.upsert({
+      where: { deliveryId },
+      create: {
         eventId,
         deliveryId,
+        reason,
+      },
+      update: {
         reason,
       },
     }),
