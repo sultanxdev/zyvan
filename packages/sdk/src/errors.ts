@@ -191,10 +191,11 @@ export function createZyvanErrorFromResponse(params: {
     }
   }
 
+  const isHtml = rawText && /^\s*<(!DOCTYPE|html)/i.test(rawText);
   const message =
     parsedBody?.message ||
     (typeof parsedBody === 'string' ? parsedBody : null) ||
-    (rawText && rawText.length < 200 ? rawText.trim() : null) ||
+    (!isHtml && rawText && rawText.length < 200 ? rawText.trim() : null) ||
     `HTTP ${statusCode} error`;
 
   const code = parsedBody?.code || undefined;
