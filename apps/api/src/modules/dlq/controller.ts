@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
-import { DLQFilterSchema, DLQSummaryFilterSchema } from '@zyvan/validation';
+import { DLQFilterSchema, DLQSummaryFilterSchema, ReplayBulkSchema } from '@zyvan/validation';
 import * as dlqService from './service';
 
 /**
@@ -87,6 +87,79 @@ export async function getDeadLetter(req: Request, res: Response, next: NextFunct
     }
 
     res.json({ data: deadLetter });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /v1/dead-letters/:id/replay
+ * Replay a dead-lettered delivery.
+ * Requires:
+ * - 'Idempotency-Key' header (mandatory, returns 400 if missing)
+ * - delivery:replay permission
+ */
+export async function replayDeadLetter(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const idempotencyKey = (req.headers['idempotency-key'] as string)?.trim();
+    if (!idempotencyKey) {
+      res.status(400).json({
+        code: 'invalid_request',
+        message: "Missing required 'Idempotency-Key' header",
+        request_id: req.requestId || 'unknown',
+        details: { header: 'Idempotency-Key' },
+      });
+      return;
+    }
+
+    const orgId = req.auth!.organizationId;
+    const requestedBy = req.auth?.type === 'api_key' ? req.auth.apiKeyId : req.auth?.userId;
+
+    const result = await dlqService.replayDeadLetter(
+      req.params.id as string,
+      orgId,
+      idempotencyKey,
+      requestedBy
+    );
+
+    res.status(result.status === 'existing' ? 200 : 202).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /v1/dead-letters/replay-bulk
+ * Bulk replay eligible dead-lettered deliveries matching filter criteria.
+ * Requires:
+ * - 'Idempotency-Key' header (mandatory, returns 400 if missing)
+ * - delivery:replay permission
+ */
+export async function replayBulk(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const idempotencyKey = (req.headers['idempotency-key'] as string)?.trim();
+    if (!idempotencyKey) {
+      res.status(400).json({
+        code: 'invalid_request',
+        message: "Missing required 'Idempotency-Key' header",
+        request_id: req.requestId || 'unknown',
+        details: { header: 'Idempotency-Key' },
+      });
+      return;
+    }
+
+    const orgId = req.auth!.organizationId;
+    const requestedBy = req.auth?.type === 'api_key' ? req.auth.apiKeyId : req.auth?.userId;
+    const input = ReplayBulkSchema.parse(req.body || {});
+
+    const result = await dlqService.replayBulk(
+      orgId,
+      input,
+      idempotencyKey,
+      requestedBy
+    );
+
+    res.status(result.status === 'existing' ? 200 : 202).json({ data: result });
   } catch (err) {
     next(err);
   }

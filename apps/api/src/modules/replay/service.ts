@@ -114,6 +114,7 @@ export async function replayEvent(
       // Link replay lineage
       const replay = await tx.replay.create({
         data: {
+          organizationId,
           eventId: event.id,
           deliveryId: newDelivery.id,
           status: 'queued',

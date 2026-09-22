@@ -27,6 +27,7 @@ function mapScopeToPermission(scope: string): { resource: Resource; action: Acti
   if (act === 'write' || act === 'create' || act === 'trigger') action = 'create';
   else if (act === 'manage' || act === 'update') action = 'update';
   else if (act === 'delete' || act === 'remove') action = 'delete';
+  else if (act === 'replay') action = 'replay';
 
   return { resource, action };
 }
