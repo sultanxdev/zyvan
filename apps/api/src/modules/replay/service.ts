@@ -1,14 +1,13 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Replay Service
-//
-// Handles event replay workflows.
+// Handles event replay workflows scoped to organization.
 // Crucial architectural rule:
 //   Replay must NEVER overwrite or mutate historical attempts.
 //   Every replay creates a brand new Delivery record and a
 //   linked Replay record, creating a fresh attempt lineage.
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient } from '@zyvan/database';
+import { getPrismaClient } from '@zyvan/db';
 import { publishDeliveryJob } from '../../lib/rabbitmq';
 import { logger } from '../../lib/logger';
 
@@ -16,28 +15,23 @@ export interface ReplayEventResult {
   replay_id: string;
   delivery_id: string;
   event_id: string;
+  destination_id: string;
   status: string;
 }
 
 /**
- * Replay an event to one or all of its original destinations.
- *
- * 1. Verify event belongs to caller's project
- * 2. Find target destination(s)
- * 3. In transaction: create new Delivery + Replay records
- * 4. Publish delivery job(s) to RabbitMQ
- * 5. Return replay record info
+ * Replay an event to one or all of its destinations.
  */
 export async function replayEvent(
   eventId: string,
-  projectId: string,
+  organizationId: string,
   destinationId?: string
 ): Promise<ReplayEventResult[]> {
   const prisma = getPrismaClient();
 
-  // 1. Verify event exists and belongs to this project
+  // 1. Verify event exists and belongs to this organization
   const event = await prisma.event.findFirst({
-    where: { id: eventId, projectId },
+    where: { id: eventId, organizationId },
     include: {
       deliveries: {
         select: { destinationId: true },
@@ -46,7 +40,7 @@ export async function replayEvent(
   });
 
   if (!event) {
-    const err = new Error('Event not found');
+    const err = new Error('Event not found in this organization');
     (err as any).code = 'not_found';
     (err as any).statusCode = 404;
     throw err;
@@ -56,16 +50,15 @@ export async function replayEvent(
   let targetDestinationIds: string[] = [];
 
   if (destinationId) {
-    // Verify destination belongs to this tenant
     const dest = await prisma.destination.findFirst({
       where: {
         id: destinationId,
-        tenantId: event.tenantId,
+        organizationId,
       },
     });
 
     if (!dest) {
-      const err = new Error('Destination not found or does not belong to this tenant');
+      const err = new Error('Destination not found or does not belong to this organization');
       (err as any).code = 'not_found';
       (err as any).statusCode = 404;
       throw err;
@@ -79,9 +72,8 @@ export async function replayEvent(
     );
 
     if (targetDestinationIds.length === 0) {
-      // If no prior deliveries, find active destinations for tenant
       const destinations = await prisma.destination.findMany({
-        where: { tenantId: event.tenantId, active: true },
+        where: { organizationId, active: true },
         select: { id: true },
       });
       targetDestinationIds = destinations.map((d) => d.id);
@@ -89,7 +81,7 @@ export async function replayEvent(
   }
 
   if (targetDestinationIds.length === 0) {
-    const err = new Error('No destinations found to replay to');
+    const err = new Error('No active destinations found to replay to');
     (err as any).code = 'conflict';
     (err as any).statusCode = 409;
     throw err;
@@ -97,12 +89,13 @@ export async function replayEvent(
 
   // 3. Create new deliveries and replays in a transaction
   const results = await prisma.$transaction(async (tx) => {
-    const created: Array<{ replayId: string; deliveryId: string }> = [];
+    const created: Array<{ replayId: string; deliveryId: string; destinationId: string }> = [];
 
     for (const destId of targetDestinationIds) {
       // New delivery — original attempts untouched
       const newDelivery = await tx.delivery.create({
         data: {
+          organizationId: event.organizationId,
           eventId: event.id,
           destinationId: destId,
           status: 'queued',
@@ -122,6 +115,7 @@ export async function replayEvent(
       created.push({
         replayId: replay.id,
         deliveryId: newDelivery.id,
+        destinationId: destId,
       });
     }
 
@@ -134,25 +128,25 @@ export async function replayEvent(
     return created;
   });
 
-  // 4. Publish newly created deliveries to RabbitMQ
+  // 4. Publish newly created deliveries to RabbitMQ (using each item's actual destinationId)
   for (const item of results) {
     try {
       publishDeliveryJob({
         deliveryId: item.deliveryId,
         eventId: event.id,
-        destinationId: targetDestinationIds[0],
+        destinationId: item.destinationId,
         attemptNo: 1,
       });
     } catch (err) {
       logger.error(
-        { err, deliveryId: item.deliveryId, eventId: event.id },
+        { err, deliveryId: item.deliveryId, eventId: event.id, destinationId: item.destinationId },
         'Failed to publish replayed delivery job to RabbitMQ'
       );
     }
   }
 
   logger.info(
-    { eventId: event.id, count: results.length },
+    { eventId: event.id, count: results.length, organizationId },
     'Event replay initiated successfully'
   );
 
@@ -160,6 +154,7 @@ export async function replayEvent(
     replay_id: r.replayId,
     delivery_id: r.deliveryId,
     event_id: event.id,
+    destination_id: r.destinationId,
     status: 'queued',
   }));
 }

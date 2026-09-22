@@ -1,10 +1,11 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Replay Controller
 // HTTP request handling for replaying failed or dead-letter events.
+// Scoped to organizationId.
 // ─────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
-import { CreateReplaySchema } from '@zyvan/schemas';
+import { CreateReplaySchema } from '@zyvan/validation';
 import * as replayService from './service';
 
 /**
@@ -13,16 +14,16 @@ import * as replayService from './service';
  */
 export async function replayEvent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const orgId = req.auth!.organizationId;
     const parsed = CreateReplaySchema.parse(req.body || {});
     const eventId = req.params.id as string;
 
     const results = await replayService.replayEvent(
       eventId,
-      req.auth!.projectId,
+      orgId,
       parsed.destinationId
     );
 
-    // Return the primary replay record or list
     if (results.length === 1) {
       res.status(202).json({
         replay_id: results[0].replay_id,
