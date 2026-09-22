@@ -5,7 +5,11 @@
 // ─────────────────────────────────────────────────────────────
 
 import * as dlqRepo from './repository';
-import type { DLQFilterInput, DLQSummaryFilterInput } from '@zyvan/validation';
+import { getPrismaClient } from '@zyvan/db';
+import { publishDeliveryJobsConfirmed } from '../../lib/rabbitmq';
+import { logger } from '../../lib/logger';
+import { createAppError } from '../../middleware/error-handler';
+import type { DLQFilterInput, DLQSummaryFilterInput, ReplayBulkInput } from '@zyvan/validation';
 
 /**
  * List dead letters for an organization with cursor pagination.
