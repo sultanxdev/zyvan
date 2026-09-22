@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
-import { DLQFilterSchema, DLQSummaryFilterSchema } from '@zyvan/validation';
+import { DLQFilterSchema, DLQSummaryFilterSchema, ReplayBulkSchema } from '@zyvan/validation';
 import * as dlqService from './service';
 
 /**
