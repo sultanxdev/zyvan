@@ -52,6 +52,7 @@ enum ReplayStatus {
   queued
   delivering
   delivered
+  resolved
   failed
 }
 
@@ -162,6 +163,8 @@ model Organization {
   auditLogs      AuditLog[]
   outboxMessages OutboxMessage[]
   deadLetters    DeadLetter[]
+  replays        Replay[]
+  replayBatches  ReplayBatch[]
 
   @@map("organizations")
 }
@@ -318,7 +321,8 @@ model Delivery {
   event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   destination   Destination    @relation(fields: [destinationId], references: [id], onDelete: Cascade)
   attempts      Attempt[]
-  replay        Replay?
+  replay        Replay?        @relation("ReplayDelivery")
+  replaysFromOriginal Replay[] @relation("OriginalDeliveryReplays")
   deadLetter    DeadLetter?
   outboxMessage OutboxMessage?
 
@@ -351,19 +355,55 @@ model Attempt {
   @@map("attempts")
 }
 
+// ─── Replay Batches (Bulk Replay Idempotency) ────────────────────────────────
+
+model ReplayBatch {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id")
+  idempotencyKey String    @map("idempotency_key") @db.VarChar(255)
+  status         String    @default("accepted") @db.VarChar(50)
+  requested      Int       @default(0)
+  accepted       Int       @default(0)
+  skipped        Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  replays      Replay[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, createdAt])
+  @@map("replay_batches")
+}
+
 // ─── Replays ─────────────────────────────────────────────────────────────────
 
 model Replay {
-  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  eventId    String       @map("event_id") @db.Uuid
-  deliveryId String       @unique @map("delivery_id") @db.Uuid
-  status     ReplayStatus @default(queued)
-  createdAt  DateTime     @default(now()) @map("created_at")
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String       @map("organization_id")
+  eventId            String       @map("event_id") @db.Uuid
+  deadLetterId       String?      @map("dead_letter_id") @db.Uuid
+  originalDeliveryId String?      @map("original_delivery_id") @db.Uuid
+  deliveryId         String       @unique @map("delivery_id") @db.Uuid
+  batchId            String?      @map("batch_id") @db.Uuid
+  idempotencyKey     String?      @map("idempotency_key") @db.VarChar(255)
+  requestedBy        String?      @map("requested_by") @db.VarChar(255)
+  status             ReplayStatus @default(queued)
+  failureReason      String?      @map("failure_reason") @db.Text
+  completedAt        DateTime?    @map("completed_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
 
-  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  event            Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  delivery         Delivery     @relation("ReplayDelivery", fields: [deliveryId], references: [id], onDelete: Restrict)
+  originalDelivery Delivery?    @relation("OriginalDeliveryReplays", fields: [originalDeliveryId], references: [id], onDelete: SetNull)
+  deadLetter       DeadLetter?  @relation(fields: [deadLetterId], references: [id], onDelete: SetNull)
+  batch            ReplayBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
 
+  @@index([organizationId, createdAt])
+  @@index([deadLetterId])
   @@index([eventId])
+  @@index([batchId])
+  @@unique([deadLetterId, idempotencyKey])
   @@map("replays")
 }
 
@@ -392,6 +432,7 @@ model DeadLetter {
   event        Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
   delivery     Delivery     @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
   destination  Destination  @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  replays      Replay[]
 
   @@index([organizationId, createdAt, id])
   @@index([organizationId, status, createdAt, id])

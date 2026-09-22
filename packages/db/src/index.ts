@@ -19,6 +19,7 @@ export type {
   OutboxMessage,
   Attempt,
   Replay,
+  ReplayBatch,
   DeadLetter,
   AuditLog,
   ProjectStatus,
