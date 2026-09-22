@@ -145,6 +145,14 @@ export interface Destination {
   updatedAt?: string | Date;
 }
 
+export interface DestinationListInput {
+  projectId?: string;
+}
+
+export interface TestDestinationInput {
+  [key: string]: unknown;
+}
+
 export interface TestDestinationResponse {
   success: boolean;
   message: string;
