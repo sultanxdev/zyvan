@@ -33,6 +33,7 @@ enum EventStatus {
 
 enum DeliveryStatus {
   queued
+  processing
   delivering
   retrying
   delivered
