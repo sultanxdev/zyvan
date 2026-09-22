@@ -61,7 +61,7 @@ export class EventsResource extends Resource {
       ...(input.projectId ? { projectId: input.projectId.trim() } : {}),
     };
 
-    return this.post<IngestResponse>('/v1/events', body, {
+    return this.httpPost<IngestResponse>('/v1/events', body, {
       idempotencyKey,
       projectId: input.projectId?.trim(),
     });
@@ -87,7 +87,7 @@ export class EventsResource extends Resource {
       if (filters.limit !== undefined) query.limit = filters.limit;
     }
 
-    return this.get<PaginatedEventsResponse>('/v1/events', { query });
+    return this.httpGet<PaginatedEventsResponse>('/v1/events', { query });
   }
 
   /**
@@ -104,7 +104,7 @@ export class EventsResource extends Resource {
       throw new Error('Event ID is required and must be a non-empty string');
     }
 
-    const res = await this.get<{ data: EventDetail }>(`/v1/events/${encodeURIComponent(id.trim())}`);
+    const res = await this.httpGet<{ data: EventDetail }>(`/v1/events/${encodeURIComponent(id.trim())}`);
     return res.data;
   }
 }

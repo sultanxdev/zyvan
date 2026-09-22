@@ -31,7 +31,7 @@ export class DeliveriesResource extends Resource {
       if (params.limit !== undefined) query.limit = params.limit;
     }
 
-    return this.get<PaginatedDeliveriesResponse>(
+    return this.httpGet<PaginatedDeliveriesResponse>(
       `/v1/destinations/${encodeURIComponent(destinationId.trim())}/deliveries`,
       { query }
     );

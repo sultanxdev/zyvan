@@ -16,7 +16,7 @@ export class ProjectsResource extends Resource {
    * @throws {ServerError} If an internal server error occurs
    */
   public async list(): Promise<Project[]> {
-    const res = await this.get<{ data: Project[] }>('/v1/projects');
+    const res = await this.httpGet<{ data: Project[] }>('/v1/projects');
     return res.data;
   }
 
@@ -33,7 +33,7 @@ export class ProjectsResource extends Resource {
     if (!id || typeof id !== 'string' || id.trim() === '') {
       throw new Error('Project ID is required and must be a non-empty string');
     }
-    const res = await this.get<{ data: Project }>(`/v1/projects/${encodeURIComponent(id.trim())}`);
+    const res = await this.httpGet<{ data: Project }>(`/v1/projects/${encodeURIComponent(id.trim())}`);
     return res.data;
   }
 }

@@ -28,7 +28,7 @@ export class DestinationsResource extends Resource {
       throw new Error('Destination URL is required and must be a non-empty string');
     }
 
-    const res = await this.post<{ data: Destination }>('/v1/destinations', input, {
+    const res = await this.httpPost<{ data: Destination }>('/v1/destinations', input, {
       projectId: input.projectId?.trim(),
     });
     return res.data;
@@ -48,7 +48,7 @@ export class DestinationsResource extends Resource {
       query.projectId = filters.projectId.trim();
     }
 
-    const res = await this.get<{ data: Destination[] }>('/v1/destinations', { query });
+    const res = await this.httpGet<{ data: Destination[] }>('/v1/destinations', { query });
     return res.data;
   }
 
@@ -66,7 +66,7 @@ export class DestinationsResource extends Resource {
       throw new Error('Destination ID is required and must be a non-empty string');
     }
 
-    const res = await this.get<{ data: Destination }>(`/v1/destinations/${encodeURIComponent(id.trim())}`);
+    const res = await this.httpGet<{ data: Destination }>(`/v1/destinations/${encodeURIComponent(id.trim())}`);
     return res.data;
   }
 
@@ -86,7 +86,7 @@ export class DestinationsResource extends Resource {
       throw new Error('Destination ID is required and must be a non-empty string');
     }
 
-    const res = await this.patch<{ data: Destination }>(
+    const res = await this.httpPatch<{ data: Destination }>(
       `/v1/destinations/${encodeURIComponent(id.trim())}`,
       input
     );
@@ -106,7 +106,7 @@ export class DestinationsResource extends Resource {
       throw new Error('Destination ID is required and must be a non-empty string');
     }
 
-    await super.delete(`/v1/destinations/${encodeURIComponent(id.trim())}`);
+    await this.httpDelete(`/v1/destinations/${encodeURIComponent(id.trim())}`);
   }
 
   /**
@@ -123,7 +123,7 @@ export class DestinationsResource extends Resource {
       throw new Error('Destination ID is required and must be a non-empty string');
     }
 
-    const res = await this.post<{ data: Destination }>(
+    const res = await this.httpPost<{ data: Destination }>(
       `/v1/destinations/${encodeURIComponent(id.trim())}/pause`
     );
     return res.data;
@@ -143,7 +143,7 @@ export class DestinationsResource extends Resource {
       throw new Error('Destination ID is required and must be a non-empty string');
     }
 
-    const res = await this.post<{ data: Destination }>(
+    const res = await this.httpPost<{ data: Destination }>(
       `/v1/destinations/${encodeURIComponent(id.trim())}/resume`
     );
     return res.data;
@@ -164,7 +164,7 @@ export class DestinationsResource extends Resource {
       throw new Error('Destination ID is required and must be a non-empty string');
     }
 
-    const res = await this.post<{ data: TestDestinationResponse }>(
+    const res = await this.httpPost<{ data: TestDestinationResponse }>(
       `/v1/destinations/${encodeURIComponent(id.trim())}/test`,
       input ?? {}
     );

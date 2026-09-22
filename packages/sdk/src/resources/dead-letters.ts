@@ -48,7 +48,7 @@ export class DeadLettersResource extends Resource {
       if (filters.limit !== undefined) query.limit = filters.limit;
     }
 
-    return this.get<PaginatedDeadLettersResponse>('/v1/dead-letters', { query });
+    return this.httpGet<PaginatedDeadLettersResponse>('/v1/dead-letters', { query });
   }
 
   /**
@@ -72,7 +72,7 @@ export class DeadLettersResource extends Resource {
       if (filters.to) query.to = filters.to;
     }
 
-    const res = await this.get<{ data: DLQSummaryResponse }>('/v1/dead-letters/summary', { query });
+    const res = await this.httpGet<{ data: DLQSummaryResponse }>('/v1/dead-letters/summary', { query });
     return res.data;
   }
 
@@ -90,7 +90,7 @@ export class DeadLettersResource extends Resource {
       throw new Error('Dead letter ID is required and must be a non-empty string');
     }
 
-    const res = await this.get<{ data: DeadLetterDetail }>(
+    const res = await this.httpGet<{ data: DeadLetterDetail }>(
       `/v1/dead-letters/${encodeURIComponent(id.trim())}`
     );
     return res.data;
@@ -128,7 +128,7 @@ export class DeadLettersResource extends Resource {
       throw new Error("Replay requires a non-empty 'idempotencyKey' option");
     }
 
-    const res = await this.post<{ data: ReplayResponse }>(
+    const res = await this.httpPost<{ data: ReplayResponse }>(
       `/v1/dead-letters/${encodeURIComponent(id.trim())}/replay`,
       undefined,
       { idempotencyKey: options.idempotencyKey.trim() }
@@ -159,7 +159,7 @@ export class DeadLettersResource extends Resource {
       throw new Error("Replay bulk requires a non-empty 'idempotencyKey' option");
     }
 
-    const res = await this.post<{ data: ReplayBulkResponse }>(
+    const res = await this.httpPost<{ data: ReplayBulkResponse }>(
       '/v1/dead-letters/replay-bulk',
       input ?? {},
       { idempotencyKey: options.idempotencyKey.trim() }
@@ -184,7 +184,7 @@ export class DeadLettersResource extends Resource {
       throw new Error('Dead letter ID is required and must be a non-empty string');
     }
 
-    const res = await this.post<{ data: DeadLetter }>(
+    const res = await this.httpPost<{ data: DeadLetter }>(
       `/v1/dead-letters/${encodeURIComponent(id.trim())}/dismiss`,
       input ?? {}
     );
@@ -200,7 +200,7 @@ export class DeadLettersResource extends Resource {
    * @throws {AuthorizationError} If lacking 'delivery:manage' scope
    */
   public async dismissBulk(input: DismissBulkDLQInput): Promise<BulkMutationResponse> {
-    const res = await this.post<{ data: BulkMutationResponse }>(
+    const res = await this.httpPost<{ data: BulkMutationResponse }>(
       '/v1/dead-letters/dismiss-bulk',
       input ?? {}
     );
@@ -231,7 +231,7 @@ export class DeadLettersResource extends Resource {
       throw new Error("Resolution note is required and must be a non-empty string");
     }
 
-    const res = await this.post<{ data: DeadLetter }>(
+    const res = await this.httpPost<{ data: DeadLetter }>(
       `/v1/dead-letters/${encodeURIComponent(id.trim())}/resolve`,
       input
     );
@@ -256,7 +256,7 @@ export class DeadLettersResource extends Resource {
       throw new Error("Resolution note is required and must be a non-empty string");
     }
 
-    const res = await this.post<{ data: BulkMutationResponse }>(
+    const res = await this.httpPost<{ data: BulkMutationResponse }>(
       '/v1/dead-letters/resolve-bulk',
       input
     );
