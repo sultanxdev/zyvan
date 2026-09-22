@@ -100,6 +100,8 @@ export const API_KEY_SCOPES = [
   'projects:read',
   'projects:manage',
   'usage:read',
+  'delivery:read',
+  'deliveries:read',
 ] as const;
 
 export const CreateApiKeySchema = z.object({
