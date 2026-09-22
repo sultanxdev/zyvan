@@ -99,14 +99,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Badge variant="pill" className="text-[10px] px-1.5 py-0 font-mono">v0.1</Badge>
           </div>
 
-          {/* Project Switcher Pill */}
-          <div className="p-4 border-b border-border/50">
-            <div className="p-2.5 rounded-xl border border-zinc-200 bg-secondary/50 flex items-center justify-between">
-              <div className="flex flex-col truncate pr-2">
-                <span className="text-[10px] uppercase font-mono font-semibold text-zinc-500">Project</span>
-                <span className="text-xs font-semibold text-foreground truncate">{project?.name}</span>
+          {/* Organization & Project Switcher */}
+          <div className="p-3 border-b border-border/50 space-y-2">
+            <OrganizationSwitcher />
+            <div className="px-2.5 py-1.5 rounded-lg border border-zinc-200/80 bg-secondary/30 flex items-center justify-between text-[11px]">
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="text-[10px] text-zinc-400 font-mono">project:</span>
+                <span className="font-semibold text-zinc-700 truncate">{project?.name}</span>
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-950 text-white font-mono uppercase shrink-0">
+              <span className="text-[9px] px-1 py-0.2 rounded bg-zinc-200 text-zinc-700 font-mono uppercase shrink-0">
                 {project?.plan}
               </span>
             </div>
