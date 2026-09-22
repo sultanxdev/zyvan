@@ -41,6 +41,7 @@ describe('PR 3.1: Dead Letter Queue (DLQ) Triage Unit Tests', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.apiKey.update.mockResolvedValue({});
   });
 
   // ─── 1. Cursor Encoding & Decoding ───────────────────────────
@@ -295,6 +296,7 @@ describe('PR 3.1: Dead Letter Queue (DLQ) Triage Unit Tests', () => {
         scopes: ['events:write'], // Missing delivery:read!
         revokedAt: null,
         expiresAt: null,
+        organization: { id: 'org-1', name: 'Acme Org' },
         project: { organizationId: 'org-1', status: 'active' },
       });
 
@@ -315,6 +317,7 @@ describe('PR 3.1: Dead Letter Queue (DLQ) Triage Unit Tests', () => {
         scopes: ['delivery:read'],
         revokedAt: null,
         expiresAt: null,
+        organization: { id: 'org-1', name: 'Acme Org' },
         project: { organizationId: 'org-1', status: 'active' },
       });
 
