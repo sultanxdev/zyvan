@@ -199,6 +199,33 @@ export const EventFilterSchema = PaginationSchema.extend({
 
 export type EventFilterInput = z.infer<typeof EventFilterSchema>;
 
+// ─── Dead Letter Queue (DLQ) Schemas ──────────────────────────
+
+export const DLQFilterSchema = PaginationSchema.extend({
+  projectId: z.string().uuid().optional(),
+  destinationId: z.string().uuid().optional(),
+  eventType: z.string().optional(),
+  status: DeadLetterStatusEnum.optional().default('open'),
+  reason: DeadLetterReasonEnum.optional(),
+  search: z.string().optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+export const DLQSummaryFilterSchema = z.object({
+  projectId: z.string().uuid().optional(),
+  destinationId: z.string().uuid().optional(),
+  eventType: z.string().optional(),
+  status: DeadLetterStatusEnum.optional(),
+  reason: DeadLetterReasonEnum.optional(),
+  search: z.string().optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+export type DLQFilterInput = z.infer<typeof DLQFilterSchema>;
+export type DLQSummaryFilterInput = z.infer<typeof DLQSummaryFilterSchema>;
+
 // ─── Error Contract ──────────────────────────────────────────
 
 export const ERROR_CODES = [
