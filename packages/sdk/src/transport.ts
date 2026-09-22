@@ -124,7 +124,7 @@ export class HttpTransport {
           };
         }
 
-        let parsedData: any;
+        let parsedData: unknown;
         try {
           parsedData = JSON.parse(rawText);
         } catch {
@@ -133,7 +133,12 @@ export class HttpTransport {
         }
 
         const requestId =
-          (parsedData && typeof parsedData === 'object' && parsedData.request_id) || headerRequestId;
+          (parsedData &&
+          typeof parsedData === 'object' &&
+          'request_id' in parsedData &&
+          typeof (parsedData as Record<string, unknown>).request_id === 'string'
+            ? ((parsedData as Record<string, unknown>).request_id as string)
+            : undefined) || headerRequestId;
 
         return {
           data: parsedData as T,
