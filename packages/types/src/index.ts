@@ -22,7 +22,17 @@ export const RESOURCES = {
   AUDIT_LOG: 'auditLog',
 } as const;
 
-export type Resource = typeof RESOURCES[keyof typeof RESOURCES];
+export type Resource =
+  | 'organization' | 'organizations'
+  | 'member' | 'members'
+  | 'project' | 'projects'
+  | 'destination' | 'destinations'
+  | 'event' | 'events'
+  | 'delivery' | 'deliveries'
+  | 'apiKey' | 'api_key' | 'api_keys' | 'api-keys'
+  | 'auditLog' | 'audit_log' | 'audit_logs'
+  | 'replay'
+  | 'usage';
 
 export const ACTIONS = {
   READ: 'read',
@@ -79,12 +89,36 @@ export interface ApiKeyContext {
   scopes: string[];
 }
 
-export interface AuthContext {
-  type: 'session' | 'api_key';
-  user?: UserSession['user'];
-  session?: UserSession['session'];
-  organization?: OrganizationContext;
-  apiKey?: ApiKeyContext;
-  projectId?: string;
-  role?: Role;
+export interface BaseAuthContext {
+  type: 'session' | 'api_key' | 'user';
+  organizationId: string;
 }
+
+export interface UserAuthContext extends BaseAuthContext {
+  type: 'session' | 'user';
+  userId: string;
+  userEmail: string;
+  userName?: string | null;
+  role: Role;
+  permissions: string[];
+  projectId?: string;
+  user?: UserSession['user'];
+  organization?: OrganizationContext;
+  scopes?: string[];
+}
+
+export interface ApiKeyAuthContext extends BaseAuthContext {
+  type: 'api_key';
+  apiKeyId: string;
+  projectId: string;
+  scopes: string[];
+  keyPrefix: string;
+  role?: Role;
+  userId?: string;
+  userEmail?: string;
+  permissions?: string[];
+}
+
+export type AuthContext = UserAuthContext | ApiKeyAuthContext;
+
+export type Permission = `${Resource}:${Action}` | '*';
