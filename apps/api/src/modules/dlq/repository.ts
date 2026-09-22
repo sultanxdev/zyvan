@@ -340,3 +340,299 @@ export async function findById(
     },
   });
 }
+
+/**
+ * Find an existing Replay record matching deadLetterId and idempotencyKey.
+ */
+export async function findReplayByIdempotencyKey(
+  deadLetterId: string,
+  idempotencyKey: string
+) {
+  const prisma = getPrismaClient();
+  return prisma.replay.findUnique({
+    where: {
+      deadLetterId_idempotencyKey: {
+        deadLetterId,
+        idempotencyKey,
+      },
+    },
+    include: {
+      delivery: true,
+    },
+  });
+}
+
+/**
+ * Find an existing ReplayBatch matching organizationId and idempotencyKey.
+ */
+export async function findReplayBatchByIdempotencyKey(
+  organizationId: string,
+  idempotencyKey: string
+) {
+  const prisma = getPrismaClient();
+  return prisma.replayBatch.findUnique({
+    where: {
+      organizationId_idempotencyKey: {
+        organizationId,
+        idempotencyKey,
+      },
+    },
+    include: {
+      replays: {
+        include: {
+          delivery: true,
+        },
+      },
+    },
+  });
+}
+
+export interface ReplayCreationResult {
+  status: 'created' | 'conflict' | 'not_found' | 'destination_inactive';
+  replay?: any;
+  delivery?: any;
+  outbox?: any;
+  currentStatus?: string;
+}
+
+/**
+ * Atomically claim a dead letter (OPEN -> REPLAYING) and create new Delivery, Replay, and OutboxMessage
+ * inside a single database transaction. If any creation fails, the entire transaction rolls back.
+ */
+export async function claimAndCreateReplayTransaction(params: {
+  deadLetterId: string;
+  organizationId: string;
+  idempotencyKey: string;
+  requestedBy?: string;
+}): Promise<ReplayCreationResult> {
+  const prisma = getPrismaClient();
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Fetch DeadLetter with destination to verify existence and destination active state
+    const dl = await tx.deadLetter.findFirst({
+      where: {
+        id: params.deadLetterId,
+        organizationId: params.organizationId,
+      },
+      include: {
+        destination: {
+          select: { id: true, active: true },
+        },
+      },
+    });
+
+    if (!dl) {
+      return { status: 'not_found' };
+    }
+
+    if (dl.status !== 'open') {
+      return { status: 'conflict', currentStatus: dl.status };
+    }
+
+    if (!dl.destination || !dl.destination.active) {
+      return { status: 'destination_inactive' };
+    }
+
+    // 2. Atomic conditional claim: only transition if still open
+    const claimCount = await tx.$executeRaw`
+      UPDATE dead_letters
+      SET status = 'replaying'::"DeadLetterStatus", replayed_at = NOW()
+      WHERE id = ${params.deadLetterId}::uuid
+        AND organization_id = ${params.organizationId}
+        AND status = 'open'::"DeadLetterStatus"
+    `;
+
+    if (claimCount === 0) {
+      return { status: 'conflict', currentStatus: dl.status };
+    }
+
+    // 3. Create new Delivery
+    const delivery = await tx.delivery.create({
+      data: {
+        organizationId: params.organizationId,
+        eventId: dl.eventId,
+        destinationId: dl.destinationId,
+        status: 'queued',
+        attemptCount: 0,
+      },
+    });
+
+    // 4. Create Replay record
+    const replay = await tx.replay.create({
+      data: {
+        organizationId: params.organizationId,
+        eventId: dl.eventId,
+        deadLetterId: dl.id,
+        originalDeliveryId: dl.deliveryId,
+        deliveryId: delivery.id,
+        idempotencyKey: params.idempotencyKey,
+        requestedBy: params.requestedBy,
+        status: 'queued',
+      },
+    });
+
+    // 5. Create OutboxMessage
+    const outbox = await tx.outboxMessage.create({
+      data: {
+        organizationId: params.organizationId,
+        deliveryId: delivery.id,
+      },
+    });
+
+    return {
+      status: 'created',
+      replay,
+      delivery,
+      outbox,
+    };
+  });
+}
+
+/**
+ * Find candidate dead letters in OPEN status matching bulk replay criteria.
+ */
+export async function findOpenDeadLettersForBulkReplay(
+  organizationId: string,
+  filter: {
+    destinationId?: string;
+    reason?: DeadLetterReason;
+    eventType?: string;
+    from?: string;
+    to?: string;
+  },
+  limit: number
+) {
+  const prisma = getPrismaClient();
+  const where = buildDLQWhere(organizationId, {
+    ...filter,
+    status: 'open',
+  });
+
+  return prisma.deadLetter.findMany({
+    where,
+    include: {
+      destination: {
+        select: { id: true, active: true },
+      },
+    },
+    orderBy: [
+      { createdAt: 'desc' },
+      { id: 'desc' },
+    ],
+    take: Math.min(Math.max(limit, 1), 100),
+  });
+}
+
+/**
+ * Atomically create a ReplayBatch and execute claims + deliveries for all candidates in one transaction.
+ */
+export async function createBulkReplayTransaction(params: {
+  organizationId: string;
+  idempotencyKey: string;
+  candidateIds: string[];
+  requestedBy?: string;
+}) {
+  const prisma = getPrismaClient();
+
+  return prisma.$transaction(async (tx) => {
+    // 1. Create ReplayBatch
+    const batch = await tx.replayBatch.create({
+      data: {
+        organizationId: params.organizationId,
+        idempotencyKey: params.idempotencyKey,
+        requested: params.candidateIds.length,
+        status: 'accepted',
+      },
+    });
+
+    const replays: any[] = [];
+    const deliveries: any[] = [];
+    const outboxes: any[] = [];
+    let accepted = 0;
+    let skipped = 0;
+
+    for (const deadLetterId of params.candidateIds) {
+      const dl = await tx.deadLetter.findFirst({
+        where: {
+          id: deadLetterId,
+          organizationId: params.organizationId,
+        },
+        include: {
+          destination: { select: { active: true } },
+        },
+      });
+
+      if (!dl || dl.status !== 'open' || !dl.destination?.active) {
+        skipped++;
+        continue;
+      }
+
+      const claimCount = await tx.$executeRaw`
+        UPDATE dead_letters
+        SET status = 'replaying'::"DeadLetterStatus", replayed_at = NOW()
+        WHERE id = ${deadLetterId}::uuid
+          AND organization_id = ${params.organizationId}
+          AND status = 'open'::"DeadLetterStatus"
+      `;
+
+      if (claimCount === 0) {
+        skipped++;
+        continue;
+      }
+
+      const delivery = await tx.delivery.create({
+        data: {
+          organizationId: params.organizationId,
+          eventId: dl.eventId,
+          destinationId: dl.destinationId,
+          status: 'queued',
+          attemptCount: 0,
+        },
+      });
+
+      const replay = await tx.replay.create({
+        data: {
+          organizationId: params.organizationId,
+          eventId: dl.eventId,
+          deadLetterId: dl.id,
+          originalDeliveryId: dl.deliveryId,
+          deliveryId: delivery.id,
+          batchId: batch.id,
+          idempotencyKey: `${params.idempotencyKey}:${dl.id}`,
+          requestedBy: params.requestedBy,
+          status: 'queued',
+        },
+      });
+
+      const outbox = await tx.outboxMessage.create({
+        data: {
+          organizationId: params.organizationId,
+          deliveryId: delivery.id,
+        },
+      });
+
+      replays.push(replay);
+      deliveries.push(delivery);
+      outboxes.push(outbox);
+      accepted++;
+    }
+
+    // Update batch totals
+    const updatedBatch = await tx.replayBatch.update({
+      where: { id: batch.id },
+      data: {
+        accepted,
+        skipped,
+      },
+    });
+
+    return {
+      batch: updatedBatch,
+      replays,
+      deliveries,
+      outboxes,
+      accepted,
+      skipped,
+    };
+  });
+}

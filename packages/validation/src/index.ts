@@ -28,7 +28,7 @@ export const DeliveryStatusEnum = z.enum([
   'cancelled',
 ]);
 export const AttemptOutcomeEnum = z.enum(['success', 'failed', 'timeout', 'error']);
-export const ReplayStatusEnum = z.enum(['queued', 'delivering', 'delivered', 'failed']);
+export const ReplayStatusEnum = z.enum(['queued', 'delivering', 'delivered', 'resolved', 'failed']);
 export const DeadLetterReasonEnum = z.enum([
   'terminal_4xx',
   'retries_exhausted',
@@ -177,6 +177,22 @@ export const CreateReplaySchema = z.object({
 });
 
 export type CreateReplayInput = z.infer<typeof CreateReplaySchema>;
+
+export const ReplayBulkFilterSchema = z.object({
+  destinationId: z.string().uuid().optional(),
+  reason: DeadLetterReasonEnum.optional(),
+  eventType: z.string().optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+export const ReplayBulkSchema = z.object({
+  filter: ReplayBulkFilterSchema.optional().default({}),
+  limit: z.number().int().min(1).max(100).optional().default(100),
+});
+
+export type ReplayBulkFilterInput = z.infer<typeof ReplayBulkFilterSchema>;
+export type ReplayBulkInput = z.infer<typeof ReplayBulkSchema>;
 
 // ─── Pagination Schema ───────────────────────────────────────
 
