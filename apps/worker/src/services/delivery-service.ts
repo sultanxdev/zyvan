@@ -44,6 +44,11 @@ export interface MoveToDLQParams {
   errorMessage: string | null;
   statusCode: number | null;
   attemptCount: number; // Number of completed HTTP delivery attempts performed
+  replay?: {
+    id: string;
+    deadLetterId: string | null;
+    requestedBy?: string | null;
+  } | null;
 }
 
 export const HTTP_TIMEOUT_MS = 15_000;
@@ -73,6 +78,7 @@ export async function processDelivery(
           organization: { select: { id: true, name: true } },
         },
       },
+      replay: true,
     },
   });
 
@@ -265,15 +271,52 @@ export async function processDelivery(
 
   // A. SUCCESS (HTTP 2xx)
   if (result.success) {
-    await prisma.delivery.update({
-      where: { id: delivery.id },
-      data: {
-        status: 'delivered',
-        attemptCount: attemptNo,
-        lastStatusCode: result.statusCode,
-        leaseExpiresAt: null,
-      },
-    });
+    if (delivery.replay) {
+      const txOps: any[] = [
+        prisma.delivery.update({
+          where: { id: delivery.id },
+          data: {
+            status: 'delivered',
+            attemptCount: attemptNo,
+            lastStatusCode: result.statusCode,
+            leaseExpiresAt: null,
+          },
+        }),
+        prisma.replay.update({
+          where: { id: delivery.replay.id },
+          data: {
+            status: 'resolved',
+            completedAt: new Date(),
+          },
+        }),
+      ];
+
+      if (delivery.replay.deadLetterId) {
+        txOps.push(
+          prisma.deadLetter.update({
+            where: { id: delivery.replay.deadLetterId },
+            data: {
+              status: 'resolved',
+              resolvedAt: new Date(),
+              resolvedBy: delivery.replay.requestedBy || 'system:replay',
+              resolution: 'Resolved via successful replay',
+            },
+          })
+        );
+      }
+
+      await prisma.$transaction(txOps);
+    } else {
+      await prisma.delivery.update({
+        where: { id: delivery.id },
+        data: {
+          status: 'delivered',
+          attemptCount: attemptNo,
+          lastStatusCode: result.statusCode,
+          leaseExpiresAt: null,
+        },
+      });
+    }
 
     await updateEventStatusIfComplete(event.id);
     return true; // Ack
@@ -301,6 +344,7 @@ export async function processDelivery(
         errorMessage: result.error,
         statusCode: null,
         attemptCount: attemptNo,
+        replay: delivery.replay ? { id: delivery.replay.id, deadLetterId: delivery.replay.deadLetterId } : null,
       },
       prisma
     );
@@ -329,6 +373,7 @@ export async function processDelivery(
         errorMessage: `Terminal HTTP ${result.statusCode}: ${result.error || 'Client error'}`,
         statusCode: result.statusCode,
         attemptCount: attemptNo,
+        replay: delivery.replay ? { id: delivery.replay.id, deadLetterId: delivery.replay.deadLetterId } : null,
       },
       prisma
     );
@@ -360,6 +405,7 @@ export async function processDelivery(
         errorMessage: `Retry exhausted after ${attemptNo} attempts. Last: ${result.error || `HTTP ${result.statusCode}`}`,
         statusCode: result.statusCode,
         attemptCount: attemptNo,
+        replay: delivery.replay ? { id: delivery.replay.id, deadLetterId: delivery.replay.deadLetterId } : null,
       },
       prisma
     );
@@ -431,39 +477,94 @@ export async function moveToDLQ(
   params: MoveToDLQParams,
   prisma: any
 ): Promise<void> {
-  const { delivery, reason, errorMessage, statusCode, attemptCount } = params;
+  const { delivery, reason, errorMessage, statusCode, attemptCount, replay } = params;
 
-  await prisma.$transaction([
-    prisma.delivery.update({
-      where: { id: delivery.id },
-      data: {
-        status: 'failed',
-        attemptCount,
-        lastStatusCode: statusCode,
-        leaseExpiresAt: null,
-      },
-    }),
-    prisma.deadLetter.upsert({
-      where: { deliveryId: delivery.id },
-      create: {
-        organizationId: delivery.organizationId,
-        eventId: delivery.eventId,
-        deliveryId: delivery.id,
-        destinationId: delivery.destinationId,
-        status: 'open',
-        reason,
-        errorMessage,
-        statusCode,
-        attemptCount,
-      },
-      update: {
-        reason,
-        errorMessage,
-        statusCode,
-        attemptCount,
-      },
-    }),
-  ]);
+  if (replay) {
+    const txOps: any[] = [
+      prisma.delivery.update({
+        where: { id: delivery.id },
+        data: {
+          status: 'failed',
+          attemptCount,
+          lastStatusCode: statusCode,
+          leaseExpiresAt: null,
+        },
+      }),
+      prisma.replay.update({
+        where: { id: replay.id },
+        data: {
+          status: 'failed',
+          failureReason: errorMessage,
+          completedAt: new Date(),
+        },
+      }),
+      prisma.deadLetter.upsert({
+        where: { deliveryId: delivery.id },
+        create: {
+          organizationId: delivery.organizationId,
+          eventId: delivery.eventId,
+          deliveryId: delivery.id,
+          destinationId: delivery.destinationId,
+          status: 'open',
+          reason,
+          errorMessage,
+          statusCode,
+          attemptCount,
+        },
+        update: {
+          reason,
+          errorMessage,
+          statusCode,
+          attemptCount,
+        },
+      }),
+    ];
+
+    if (replay.deadLetterId) {
+      txOps.push(
+        prisma.deadLetter.update({
+          where: { id: replay.deadLetterId },
+          data: {
+            status: 'open',
+          },
+        })
+      );
+    }
+
+    await prisma.$transaction(txOps);
+  } else {
+    await prisma.$transaction([
+      prisma.delivery.update({
+        where: { id: delivery.id },
+        data: {
+          status: 'failed',
+          attemptCount,
+          lastStatusCode: statusCode,
+          leaseExpiresAt: null,
+        },
+      }),
+      prisma.deadLetter.upsert({
+        where: { deliveryId: delivery.id },
+        create: {
+          organizationId: delivery.organizationId,
+          eventId: delivery.eventId,
+          deliveryId: delivery.id,
+          destinationId: delivery.destinationId,
+          status: 'open',
+          reason,
+          errorMessage,
+          statusCode,
+          attemptCount,
+        },
+        update: {
+          reason,
+          errorMessage,
+          statusCode,
+          attemptCount,
+        },
+      }),
+    ]);
+  }
 }
 
 /**
