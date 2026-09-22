@@ -1,28 +1,21 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Auth Types
-// Defines the authentication context attached to every
-// authenticated request after API key validation.
+// Re-exports unified AuthContext from @zyvan/types and augments Express.
 // ─────────────────────────────────────────────────────────────
 
-/**
- * AuthContext is attached to req.auth after the authenticate middleware
- * successfully validates an API key. All downstream handlers can rely
- * on this context for authorization checks.
- */
-export interface AuthContext {
-  type: 'user' | 'api_key';
-  projectId: string;
-  userId?: string;
-  userEmail?: string;
-  apiKeyId?: string;
-  scopes: string[];
-}
+import type { AuthContext, Role, Permission } from '@zyvan/types';
+import type { Organization, Member, User } from '@zyvan/db';
 
-// Extend Express Request to carry auth context
+export type { AuthContext, Role, Permission };
+
 declare global {
   namespace Express {
     interface Request {
       auth?: AuthContext;
+      organization?: Organization;
+      membership?: Member;
+      currentUser?: User;
+      requestId?: string;
     }
   }
 }

@@ -10,13 +10,13 @@ import type { Project, ProjectStatus } from '@zyvan/db';
 export interface CreateProjectData {
   organizationId: string;
   name: string;
-  description?: string;
+  slug?: string;
   plan?: string;
 }
 
 export interface UpdateProjectData {
   name?: string;
-  description?: string;
+  slug?: string;
   status?: ProjectStatus;
 }
 
@@ -29,7 +29,7 @@ export async function create(data: CreateProjectData): Promise<Project> {
     data: {
       organizationId: data.organizationId,
       name: data.name,
-      description: data.description,
+      slug: data.slug,
       plan: data.plan || 'free',
     },
   });
