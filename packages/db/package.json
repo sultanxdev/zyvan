@@ -1,5 +1,5 @@
 {
-  "name": "@zyvan/database",
+  "name": "@zyvan/db",
   "version": "0.1.0",
   "private": true,
   "description": "Zyvan database package — Prisma schema, client, and migrations",
