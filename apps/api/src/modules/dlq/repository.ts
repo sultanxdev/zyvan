@@ -5,7 +5,7 @@
 // and unified filtering for list and summary operations.
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient, type Prisma, type DeadLetter, type DeadLetterStatus, type DeadLetterReason } from '@zyvan/db';
+import { getPrismaClient, Prisma, type DeadLetter, type DeadLetterStatus, type DeadLetterReason } from '@zyvan/db';
 import type { DLQFilterInput, DLQSummaryFilterInput } from '@zyvan/validation';
 
 export interface DLQCursor {

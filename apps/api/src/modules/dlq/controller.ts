@@ -172,3 +172,118 @@ export async function replayBulk(req: Request, res: Response, next: NextFunction
     next(err);
   }
 }
+
+/**
+ * POST /v1/dead-letters/:id/dismiss
+ * Dismiss an open dead letter.
+ * Requires: delivery:manage permission
+ */
+export async function dismissDeadLetter(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const orgId = req.auth!.organizationId;
+    const actorType = req.auth?.type === 'api_key' ? 'api_key' : 'user';
+    const actorId = req.auth?.type === 'api_key' ? req.auth.apiKeyId : (req.auth?.userId || 'system');
+    const userId = req.auth?.userId || null;
+
+    const body = DismissDLQSchema.parse(req.body || {});
+
+    const result = await dlqService.dismissDeadLetter(
+      req.params.id as string,
+      orgId,
+      body.reason,
+      actorId,
+      userId,
+      actorType
+    );
+
+    res.status(200).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /v1/dead-letters/:id/resolve
+ * Manually resolve an open dead letter with an operational note.
+ * Requires: delivery:manage permission
+ */
+export async function resolveDeadLetter(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const orgId = req.auth!.organizationId;
+    const actorType = req.auth?.type === 'api_key' ? 'api_key' : 'user';
+    const actorId = req.auth?.type === 'api_key' ? req.auth.apiKeyId : (req.auth?.userId || 'system');
+    const userId = req.auth?.userId || null;
+
+    const body = ResolveDLQSchema.parse(req.body || {});
+
+    const result = await dlqService.resolveDeadLetter(
+      req.params.id as string,
+      orgId,
+      body.resolution,
+      actorId,
+      userId,
+      actorType
+    );
+
+    res.status(200).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /v1/dead-letters/dismiss-bulk
+ * Bulk dismiss eligible open dead letters.
+ * Requires: delivery:manage permission
+ */
+export async function dismissBulk(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const orgId = req.auth!.organizationId;
+    const actorType = req.auth?.type === 'api_key' ? 'api_key' : 'user';
+    const actorId = req.auth?.type === 'api_key' ? req.auth.apiKeyId : (req.auth?.userId || 'system');
+    const userId = req.auth?.userId || null;
+
+    const input = DismissBulkDLQSchema.parse(req.body || {});
+
+    const result = await dlqService.dismissBulk(
+      orgId,
+      input,
+      actorId,
+      userId,
+      actorType
+    );
+
+    res.status(200).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /v1/dead-letters/resolve-bulk
+ * Bulk manually resolve eligible open dead letters.
+ * Requires: delivery:manage permission
+ */
+export async function resolveBulk(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const orgId = req.auth!.organizationId;
+    const actorType = req.auth?.type === 'api_key' ? 'api_key' : 'user';
+    const actorId = req.auth?.type === 'api_key' ? req.auth.apiKeyId : (req.auth?.userId || 'system');
+    const userId = req.auth?.userId || null;
+
+    const input = ResolveBulkDLQSchema.parse(req.body || {});
+
+    const result = await dlqService.resolveBulk(
+      orgId,
+      input,
+      actorId,
+      userId,
+      actorType
+    );
+
+    res.status(200).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
