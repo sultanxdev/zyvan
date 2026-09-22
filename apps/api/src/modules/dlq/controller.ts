@@ -113,7 +113,7 @@ export async function replayDeadLetter(req: Request, res: Response, next: NextFu
     }
 
     const orgId = req.auth!.organizationId;
-    const requestedBy = req.auth?.userId || req.auth?.keyId || 'api_key';
+    const requestedBy = req.auth?.type === 'api_key' ? req.auth.apiKeyId : req.auth?.userId;
 
     const result = await dlqService.replayDeadLetter(
       req.params.id as string,
@@ -149,7 +149,7 @@ export async function replayBulk(req: Request, res: Response, next: NextFunction
     }
 
     const orgId = req.auth!.organizationId;
-    const requestedBy = req.auth?.userId || req.auth?.keyId || 'api_key';
+    const requestedBy = req.auth?.type === 'api_key' ? req.auth.apiKeyId : req.auth?.userId;
     const input = ReplayBulkSchema.parse(req.body || {});
 
     const result = await dlqService.replayBulk(
