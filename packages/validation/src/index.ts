@@ -244,6 +244,30 @@ export const DLQSummaryFilterSchema = z.object({
 export type DLQFilterInput = z.infer<typeof DLQFilterSchema>;
 export type DLQSummaryFilterInput = z.infer<typeof DLQSummaryFilterSchema>;
 
+// ─── Dead Letter Replay Schemas ──────────────────────────────
+
+export const ReplayBulkFilterSchema = z.object({
+  destinationId: z.string().uuid().optional(),
+  reason: DeadLetterReasonEnum.optional(),
+  eventType: z.string().optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+export const ReplayBulkSchema = z.object({
+  filter: ReplayBulkFilterSchema.optional(),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .default(100)
+    .transform((val) => Math.min(val, 100)),
+});
+
+export type ReplayBulkFilterInput = z.infer<typeof ReplayBulkFilterSchema>;
+export type ReplayBulkInput = z.infer<typeof ReplayBulkSchema>;
+
 // ─── Error Contract ──────────────────────────────────────────
 
 export const ERROR_CODES = [
