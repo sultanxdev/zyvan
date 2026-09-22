@@ -9,7 +9,13 @@ import { getPrismaClient } from '@zyvan/db';
 import { publishDeliveryJobsConfirmed } from '../../lib/rabbitmq';
 import { logger } from '../../lib/logger';
 import { createAppError } from '../../middleware/error-handler';
-import type { DLQFilterInput, DLQSummaryFilterInput, ReplayBulkInput } from '@zyvan/validation';
+import type {
+  DLQFilterInput,
+  DLQSummaryFilterInput,
+  ReplayBulkInput,
+  DismissBulkDLQInput,
+  ResolveBulkDLQInput,
+} from '@zyvan/validation';
 
 /**
  * List dead letters for an organization with cursor pagination.
@@ -37,6 +43,7 @@ export async function listDeadLetters(
       resolvedBy: dl.resolvedBy,
       dismissedAt: dl.dismissedAt,
       dismissedBy: dl.dismissedBy,
+      dismissalReason: dl.dismissalReason,
       resolution: dl.resolution,
       createdAt: dl.createdAt,
       event: {
@@ -95,6 +102,7 @@ export async function getDeadLetter(id: string, organizationId: string) {
     resolvedBy: dl.resolvedBy,
     dismissedAt: dl.dismissedAt,
     dismissedBy: dl.dismissedBy,
+    dismissalReason: dl.dismissalReason,
     resolution: dl.resolution,
     createdAt: dl.createdAt,
     event: {
@@ -355,3 +363,178 @@ export async function replayBulk(
     })),
   };
 }
+
+/**
+ * Manually dismiss a dead letter.
+ * Only 'open' dead letters can be dismissed.
+ * Idempotent: dismissing an already 'dismissed' dead letter returns 200 with the existing record.
+ * Conflict: dismissing a 'replaying' or 'resolved' dead letter returns 409 Conflict.
+ */
+export async function dismissDeadLetter(
+  id: string,
+  organizationId: string,
+  reason: string,
+  dismissedBy: string,
+  userId?: string | null,
+  actorType?: string
+) {
+  const result = await dlqRepo.dismissDeadLetter({
+    id,
+    organizationId,
+    reason,
+    dismissedBy,
+    userId,
+    actorType,
+  });
+
+  if (result.status === 'not_found') {
+    throw createAppError('not_found', `Dead letter record '${id}' not found in this organization`);
+  }
+
+  if (result.status === 'conflict') {
+    throw createAppError(
+      'conflict',
+      `Cannot dismiss dead letter '${id}' with status '${result.currentStatus}'. Only 'open' dead letters can be dismissed.`,
+      { status: result.currentStatus }
+    );
+  }
+
+  return result.record!;
+}
+
+/**
+ * Manually resolve a dead letter with an operational resolution note.
+ * Only 'open' dead letters can be resolved.
+ * Idempotent: resolving an already 'resolved' dead letter returns 200 with the existing record.
+ * Conflict: resolving a 'replaying' or 'dismissed' dead letter returns 409 Conflict.
+ */
+export async function resolveDeadLetter(
+  id: string,
+  organizationId: string,
+  resolution: string,
+  resolvedBy: string,
+  userId?: string | null,
+  actorType?: string
+) {
+  const result = await dlqRepo.resolveDeadLetter({
+    id,
+    organizationId,
+    resolution,
+    resolvedBy,
+    userId,
+    actorType,
+  });
+
+  if (result.status === 'not_found') {
+    throw createAppError('not_found', `Dead letter record '${id}' not found in this organization`);
+  }
+
+  if (result.status === 'conflict') {
+    throw createAppError(
+      'conflict',
+      `Cannot manually resolve dead letter '${id}' with status '${result.currentStatus}'. Only 'open' dead letters can be resolved.`,
+      { status: result.currentStatus }
+    );
+  }
+
+  return result.record!;
+}
+
+/**
+ * Bulk dismiss dead letters matching candidate IDs or filter criteria.
+ * Enforces:
+ * - ids XOR filter targeting (enforced by schema validation)
+ * - Maximum 100 items cap
+ * - Duplicate ID deduplication
+ * - Atomic state transition on 'open' status for tenant isolation
+ * - Returns summary with requested, affected (dismissed), skipped, and ids.
+ */
+export async function dismissBulk(
+  organizationId: string,
+  input: DismissBulkDLQInput,
+  dismissedBy: string,
+  userId?: string | null,
+  actorType?: string
+) {
+  let candidateIds: string[] = [];
+
+  if (input.ids && input.ids.length > 0) {
+    const uniqueIds = Array.from(new Set(input.ids));
+    candidateIds = uniqueIds.slice(0, input.limit || 100);
+  } else if (input.filter) {
+    const candidates = await dlqRepo.findOpenDeadLettersForBulk(
+      organizationId,
+      input.filter,
+      input.limit || 100
+    );
+    candidateIds = candidates.map((c) => c.id);
+  }
+
+  const result = await dlqRepo.dismissBulkDeadLetters({
+    organizationId,
+    candidateIds,
+    reason: input.reason || 'Dismissed in bulk by operator',
+    dismissedBy,
+    userId,
+    actorType,
+  });
+
+  return {
+    requested: result.requested,
+    affected: result.affected,
+    dismissed: result.affected,
+    skipped: result.skipped,
+    ids: result.ids,
+    status: 'completed' as const,
+  };
+}
+
+/**
+ * Bulk manually resolve dead letters matching candidate IDs or filter criteria.
+ * Enforces:
+ * - ids XOR filter targeting (enforced by schema validation)
+ * - Maximum 100 items cap
+ * - Duplicate ID deduplication
+ * - Atomic state transition on 'open' status for tenant isolation
+ * - Returns summary with requested, affected (resolved), skipped, and ids.
+ */
+export async function resolveBulk(
+  organizationId: string,
+  input: ResolveBulkDLQInput,
+  resolvedBy: string,
+  userId?: string | null,
+  actorType?: string
+) {
+  let candidateIds: string[] = [];
+
+  if (input.ids && input.ids.length > 0) {
+    const uniqueIds = Array.from(new Set(input.ids));
+    candidateIds = uniqueIds.slice(0, input.limit || 100);
+  } else if (input.filter) {
+    const candidates = await dlqRepo.findOpenDeadLettersForBulk(
+      organizationId,
+      input.filter,
+      input.limit || 100
+    );
+    candidateIds = candidates.map((c) => c.id);
+  }
+
+  const result = await dlqRepo.resolveBulkDeadLetters({
+    organizationId,
+    candidateIds,
+    resolution: input.resolution,
+    resolvedBy,
+    userId,
+    actorType,
+  });
+
+  return {
+    requested: result.requested,
+    affected: result.affected,
+    resolved: result.affected,
+    skipped: result.skipped,
+    ids: result.ids,
+    status: 'completed' as const,
+  };
+}
+
