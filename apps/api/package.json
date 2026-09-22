@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:unit": "vitest run --dir src/__tests__/unit",
     "test:integration": "vitest run --dir src/__tests__/integration",
-    "test:security": "vitest run --dir src/__tests__/security"
+    "test:security": "vitest run --dir src/__tests__/security",
+    "test:reliability": "vitest run --dir src/__tests__/reliability"
   },
   "dependencies": {
     "@prisma/client": "^6.8.0",
