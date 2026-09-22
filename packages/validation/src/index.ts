@@ -198,7 +198,6 @@ export const ReplayBulkSchema = z.object({
     .number()
     .int()
     .positive()
-    .max(100)
     .optional()
     .default(100),
 });
