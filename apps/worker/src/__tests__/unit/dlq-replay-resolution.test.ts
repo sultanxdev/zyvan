@@ -1,12 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { processDelivery, moveToDLQ } from '../../services/delivery-service';
 import { getPrismaClient } from '@zyvan/db';
-import * as rabbitmq from '../../lib/rabbitmq';
 import * as httpClient from '../../services/http-client';
-
-vi.mock('../../lib/rabbitmq', () => ({
-  publishTieredRetryJobConfirmed: vi.fn(),
-}));
 
 vi.mock('../../services/http-client', () => ({
   sendWebhook: vi.fn(),
@@ -83,6 +78,8 @@ describe('PR 3.2: Worker DLQ Replay Resolution & Lineage Unit Tests', () => {
         statusCode: 200,
         latencyMs: 85,
         outcome: 'success',
+        responseBody: 'OK',
+        error: null,
       });
 
       const handled = await processDelivery(
@@ -164,6 +161,7 @@ describe('PR 3.2: Worker DLQ Replay Resolution & Lineage Unit Tests', () => {
         statusCode: 400,
         latencyMs: 120,
         outcome: 'failed',
+        responseBody: 'Bad Request',
         error: 'Bad Request from endpoint',
       });
 
