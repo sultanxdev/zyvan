@@ -52,11 +52,24 @@ async function handleProxy(request: NextRequest, params: { path: string[] }) {
     });
 
     const responseData = await response.text();
+    const resHeaders = new Headers();
+    resHeaders.set('Content-Type', response.headers.get('content-type') || 'application/json');
+
+    const setCookieHeaders = (response.headers as any).getSetCookie?.() || [];
+    if (Array.isArray(setCookieHeaders) && setCookieHeaders.length > 0) {
+      for (const cookie of setCookieHeaders) {
+        resHeaders.append('Set-Cookie', cookie);
+      }
+    } else {
+      const singleSetCookie = response.headers.get('set-cookie');
+      if (singleSetCookie) {
+        resHeaders.set('Set-Cookie', singleSetCookie);
+      }
+    }
+
     return new NextResponse(responseData, {
       status: response.status,
-      headers: {
-        'Content-Type': response.headers.get('content-type') || 'application/json',
-      },
+      headers: resHeaders,
     });
   } catch (error: any) {
     return NextResponse.json(

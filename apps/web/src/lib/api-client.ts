@@ -107,6 +107,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 const SEED_DESTINATIONS: WebhookDestination[] = [
   {
+
     id: 'dest_01J98FA001',
     name: 'Stripe Billing Webhook Receiver',
     url: 'https://api.merchant.com/v1/webhooks/billing',
@@ -495,9 +496,32 @@ const SEED_DEAD_LETTERS: WebhookDeadLetter[] = [
   },
 ];
 
+export interface OrganizationInfo {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string | null;
+  role?: string;
+  createdAt?: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  userId: string;
+  role: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image?: string | null;
+  };
+}
+
 class ZyvanApiClient {
   private token: string | null = null;
   private currentProjectId: string | null = null;
+  private currentOrganizationId: string | null = null;
 
   setAuthToken(token: string | null) {
     this.token = token;
@@ -505,6 +529,10 @@ class ZyvanApiClient {
 
   setProjectId(id: string | null) {
     this.currentProjectId = id;
+  }
+
+  setOrganizationId(id: string | null) {
+    this.currentOrganizationId = id;
   }
 
   private getBaseUrl(): string {
@@ -522,6 +550,15 @@ class ZyvanApiClient {
     const t = this.token || (typeof window !== 'undefined' ? localStorage.getItem('zyvan_token') : null);
     if (t) {
       headers['Authorization'] = `Bearer ${t}`;
+    }
+
+    const orgId =
+      this.currentOrganizationId ||
+      (typeof window !== 'undefined'
+        ? localStorage.getItem('zyvan_active_org_id') || JSON.parse(localStorage.getItem('zyvan_organization') || '{}')?.id
+        : null);
+    if (orgId) {
+      headers['X-Organization-Id'] = orgId;
     }
 
     const p = this.currentProjectId || (typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('zyvan_project') || '{}')?.id) : null);
@@ -697,27 +734,27 @@ class ZyvanApiClient {
             createdAt: typeof e.createdAt === 'string' ? e.createdAt : new Date(e.createdAt).toISOString(),
             deliveries: Array.isArray(e.deliveries)
               ? e.deliveries.map((d: any) => ({
-                  id: d.id,
-                  eventId: e.id,
-                  destinationId: d.destinationId,
-                  destinationUrl: d.destination?.url || d.destinationUrl,
-                  status: d.status,
-                  attemptCount: d.attemptCount || (d.attempts ? d.attempts.length : 0),
-                  lastStatusCode: d.lastStatusCode,
-                  nextRetryAt: d.nextRetryAt,
-                  attempts: Array.isArray(d.attempts)
-                    ? d.attempts.map((a: any) => ({
-                        id: a.id,
-                        deliveryId: d.id,
-                        attemptNo: a.attemptNo,
-                        statusCode: a.statusCode || 200,
-                        latencyMs: a.latencyMs || 100,
-                        outcome: a.outcome,
-                        errorMessage: a.errorMessage,
-                        startedAt: typeof a.startedAt === 'string' ? a.startedAt : new Date(a.startedAt).toISOString(),
-                      }))
-                    : [],
-                }))
+                id: d.id,
+                eventId: e.id,
+                destinationId: d.destinationId,
+                destinationUrl: d.destination?.url || d.destinationUrl,
+                status: d.status,
+                attemptCount: d.attemptCount || (d.attempts ? d.attempts.length : 0),
+                lastStatusCode: d.lastStatusCode,
+                nextRetryAt: d.nextRetryAt,
+                attempts: Array.isArray(d.attempts)
+                  ? d.attempts.map((a: any) => ({
+                    id: a.id,
+                    deliveryId: d.id,
+                    attemptNo: a.attemptNo,
+                    statusCode: a.statusCode || 200,
+                    latencyMs: a.latencyMs || 100,
+                    outcome: a.outcome,
+                    errorMessage: a.errorMessage,
+                    startedAt: typeof a.startedAt === 'string' ? a.startedAt : new Date(a.startedAt).toISOString(),
+                  }))
+                  : [],
+              }))
               : [],
           }));
           this.setStorage('zyvan_local_events', mapped);
@@ -1104,6 +1141,106 @@ class ZyvanApiClient {
       return res.ok;
     } catch {
       return false;
+    }
+  // ─── Organization Management ────────────────────────────────
+  async listOrganizations(): Promise<OrganizationInfo[]> {
+    const baseUrl = this.getBaseUrl();
+    try {
+      const res = await fetch(`${baseUrl}/v1/organizations`, {
+        headers: this.getAuthHeaders(),
+        credentials: 'include',
+        signal: AbortSignal.timeout(4000),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const orgs = json.data || [];
+        this.setStorage('zyvan_organizations', orgs);
+        return orgs;
+      }
+    } catch {
+      // Offline fallback
+    }
+    return this.getStorage('zyvan_organizations', [
+      { id: 'org_default', name: 'Acme Corp', slug: 'acme-corp', role: 'OWNER' },
+    ]);
+  }
+
+  async createOrganization(payload: { name: string; slug: string }): Promise<OrganizationInfo> {
+    const baseUrl = this.getBaseUrl();
+    const res = await fetch(`${baseUrl}/v1/organizations`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return json.data;
+    }
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to create organization');
+  }
+
+  async listMembers(orgId: string): Promise<OrganizationMember[]> {
+    const baseUrl = this.getBaseUrl();
+    try {
+      const res = await fetch(`${baseUrl}/v1/organizations/${orgId}/members`, {
+        headers: this.getAuthHeaders(),
+        credentials: 'include',
+        signal: AbortSignal.timeout(4000),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || [];
+      }
+    } catch {
+      // Offline fallback
+    }
+    return [];
+  }
+
+  async inviteMember(orgId: string, email: string, role: string): Promise<void> {
+    const baseUrl = this.getBaseUrl();
+    const res = await fetch(`${baseUrl}/v1/organizations/${orgId}/invitations`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ email, role }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to send invitation');
+    }
+  }
+
+  async updateMemberRole(orgId: string, memberId: string, role: string): Promise<void> {
+    const baseUrl = this.getBaseUrl();
+    const res = await fetch(`${baseUrl}/v1/organizations/${orgId}/members/${memberId}`, {
+      method: 'PATCH',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify({ role }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to update member role');
+    }
+  }
+
+  async removeMember(orgId: string, memberId: string): Promise<void> {
+    const baseUrl = this.getBaseUrl();
+    const res = await fetch(`${baseUrl}/v1/organizations/${orgId}/members/${memberId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+      credentials: 'include',
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to remove member');
     }
   }
 }
