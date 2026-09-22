@@ -55,6 +55,21 @@ enum ReplayStatus {
   failed
 }
 
+enum DeadLetterReason {
+  terminal_4xx
+  retries_exhausted
+  ssrf_blocked
+  timeout
+  other
+}
+
+enum DeadLetterStatus {
+  open
+  replaying
+  resolved
+  dismissed
+}
+
 // ─── Better Auth Core Models ──────────────────────────────────────────────────
 
 model User {
@@ -146,6 +161,7 @@ model Organization {
   apiKeys        ApiKey[]
   auditLogs      AuditLog[]
   outboxMessages OutboxMessage[]
+  deadLetters    DeadLetter[]
 
   @@map("organizations")
 }
