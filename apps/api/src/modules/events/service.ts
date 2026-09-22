@@ -49,11 +49,7 @@ export async function ingestEvent(
 
   // 2. Find active destinations for this project & organization
   const allDestinations = await destRepo.listByOrganization(organizationId, projectId);
-  const activeDestinations = allDestinations.filter((d) => {
-    if (!d.active) return false;
-    if (!d.events || d.events.length === 0 || d.events.includes('*')) return true;
-    return d.events.includes(eventType);
-  });
+  const activeDestinations = allDestinations.filter((d) => d.active);
 
   // 3. Persist event + delivery records in a single transaction
   let result: { event: any; deliveries: any[] };

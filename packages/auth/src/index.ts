@@ -6,7 +6,7 @@ export { auth } from './auth';
 export type { Auth } from './auth';
 export { ROLES, VALID_ROLES, isValidRole } from './roles';
 export type { Role } from './roles';
-export { hasPermission, assertPermission } from './permissions';
+export { hasPermission, assertPermission, getRolePermissions } from './permissions';
 export type { PermissionStatement } from './permissions';
 export { getSessionFromHeaders } from './session';
 export { getOrganizationMembership, listUserOrganizations } from './organization';

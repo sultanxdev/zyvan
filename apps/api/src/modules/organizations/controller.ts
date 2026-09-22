@@ -8,6 +8,13 @@ import { getPrismaClient } from '@zyvan/db';
 import { logAuditEvent } from '@zyvan/auth';
 import type { Role } from '@zyvan/types';
 
+function getIpAddress(req: Request): string | undefined {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') return forwarded.split(',')[0].trim();
+  if (Array.isArray(forwarded)) return forwarded[0];
+  return req.socket.remoteAddress;
+}
+
 /**
  * List all organizations the authenticated user belongs to.
  */
@@ -92,7 +99,7 @@ export async function createOrganization(req: Request, res: Response, next: Next
       resourceType: 'organization',
       resourceId: org.id,
       metadata: { name: org.name, slug: org.slug },
-      ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+      ipAddress: getIpAddress(req),
     });
 
     res.status(201).json({
@@ -112,7 +119,7 @@ export async function createOrganization(req: Request, res: Response, next: Next
  */
 export async function getOrganization(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const orgId = req.params.id || req.auth?.organizationId;
+    const orgId = (req.params.id as string) || req.auth?.organizationId;
     if (!orgId) {
       res.status(400).json({ code: 'bad_request', message: 'Organization ID required' });
       return;
@@ -155,7 +162,7 @@ export async function getOrganization(req: Request, res: Response, next: NextFun
  */
 export async function listMembers(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const orgId = req.params.id || req.auth?.organizationId;
+    const orgId = (req.params.id as string) || req.auth?.organizationId;
     if (!orgId || orgId !== req.auth?.organizationId) {
       res.status(403).json({ code: 'forbidden', message: 'Cannot access members of another organization' });
       return;
@@ -199,7 +206,7 @@ export async function listMembers(req: Request, res: Response, next: NextFunctio
  */
 export async function inviteMember(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const orgId = req.params.id || req.auth?.organizationId;
+    const orgId = (req.params.id as string) || req.auth?.organizationId;
     const userId = req.auth?.userId;
     if (!orgId || !userId || orgId !== req.auth?.organizationId) {
       res.status(403).json({ code: 'forbidden', message: 'Cannot invite to another organization' });
@@ -259,7 +266,7 @@ export async function inviteMember(req: Request, res: Response, next: NextFuncti
       resourceType: 'invitation',
       resourceId: invitation.id,
       metadata: { email, role },
-      ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+      ipAddress: getIpAddress(req),
     });
 
     res.status(201).json({
@@ -276,8 +283,8 @@ export async function inviteMember(req: Request, res: Response, next: NextFuncti
  */
 export async function updateMemberRole(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const orgId = req.params.id || req.auth?.organizationId;
-    const memberId = req.params.memberId;
+    const orgId = (req.params.id as string) || req.auth?.organizationId;
+    const memberId = req.params.memberId as string;
     const { role } = req.body;
 
     if (!orgId || orgId !== req.auth?.organizationId) {
@@ -322,7 +329,7 @@ export async function updateMemberRole(req: Request, res: Response, next: NextFu
       resourceType: 'member',
       resourceId: memberId,
       metadata: { previousRole: targetMember.role, newRole: role },
-      ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+      ipAddress: getIpAddress(req),
     });
 
     res.json({ data: updated, message: 'Member role updated' });
@@ -336,8 +343,8 @@ export async function updateMemberRole(req: Request, res: Response, next: NextFu
  */
 export async function removeMember(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const orgId = req.params.id || req.auth?.organizationId;
-    const memberId = req.params.memberId;
+    const orgId = (req.params.id as string) || req.auth?.organizationId;
+    const memberId = req.params.memberId as string;
 
     if (!orgId || orgId !== req.auth?.organizationId) {
       res.status(403).json({ code: 'forbidden', message: 'Cannot remove members from another organization' });
@@ -372,7 +379,7 @@ export async function removeMember(req: Request, res: Response, next: NextFuncti
       resourceType: 'member',
       resourceId: memberId,
       metadata: { removedUserId: targetMember.userId, role: targetMember.role },
-      ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+      ipAddress: getIpAddress(req),
     });
 
     res.json({ message: 'Member removed from organization' });

@@ -13,9 +13,9 @@ export async function createProject(
   organizationId: string,
   name: string,
   plan?: string,
-  description?: string
+  slug?: string
 ): Promise<Project> {
-  return projectRepo.create({ organizationId, name, plan, description });
+  return projectRepo.create({ organizationId, name, plan, slug });
 }
 
 /**
@@ -38,7 +38,7 @@ export async function listProjects(organizationId: string): Promise<Project[]> {
 export async function updateProject(
   id: string,
   organizationId: string,
-  data: { name?: string; description?: string; status?: ProjectStatus }
+  data: { name?: string; slug?: string; status?: ProjectStatus }
 ): Promise<Project | null> {
   return projectRepo.update(id, organizationId, data);
 }

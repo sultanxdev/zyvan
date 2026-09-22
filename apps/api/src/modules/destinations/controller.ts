@@ -25,12 +25,10 @@ export async function createDestination(req: Request, res: Response, next: NextF
     const destination = await destinationService.createDestination(
       orgId,
       projectId,
-      (req.body.name as string) || `Destination`,
       parsed.url,
       parsed.secret,
       parsed.retryPolicy,
-      parsed.rateLimit,
-      (req.body.events as string[]) || ['*']
+      parsed.rateLimit
     );
 
     res.status(201).json({ data: destination });
@@ -108,11 +106,7 @@ export async function updateDestination(req: Request, res: Response, next: NextF
     const destination = await destinationService.updateDestination(
       req.params.id as string,
       orgId,
-      {
-        ...parsed,
-        name: req.body.name,
-        events: req.body.events,
-      }
+      parsed
     );
 
     if (!destination) {

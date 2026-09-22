@@ -10,21 +10,17 @@ import type { Destination } from '@zyvan/db';
 export interface CreateDestinationData {
   organizationId: string;
   projectId: string;
-  name: string;
   url: string;
   secretRef?: string | null;
   retryPolicy?: any;
   rateLimit?: number;
-  events?: string[];
 }
 
 export interface UpdateDestinationData {
-  name?: string;
   url?: string;
   secretRef?: string | null;
   retryPolicy?: any;
   rateLimit?: number;
-  events?: string[];
   active?: boolean;
 }
 
@@ -37,12 +33,10 @@ export async function create(data: CreateDestinationData): Promise<Destination> 
     data: {
       organizationId: data.organizationId,
       projectId: data.projectId,
-      name: data.name,
       url: data.url,
       secretRef: data.secretRef || null,
       retryPolicy: data.retryPolicy || {},
       rateLimit: data.rateLimit ?? 20,
-      events: data.events || ['*'],
       active: true,
     },
   });

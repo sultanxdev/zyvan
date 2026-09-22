@@ -13,13 +13,11 @@ export interface SafeDestination {
   id: string;
   organizationId: string;
   projectId: string;
-  name: string;
   url: string;
   secretConfigured: boolean;
   retryPolicy: any;
   rateLimit: number;
   active: boolean;
-  events: string[];
   createdAt: Date;
   updatedAt: Date;
   project?: { id: string; name: string };
@@ -30,13 +28,11 @@ function toSafeDestination(dest: Destination & { project?: { id: string; name: s
     id: dest.id,
     organizationId: dest.organizationId,
     projectId: dest.projectId,
-    name: dest.name,
     url: dest.url,
     secretConfigured: !!dest.secretRef,
     retryPolicy: dest.retryPolicy,
     rateLimit: dest.rateLimit,
     active: dest.active,
-    events: dest.events,
     createdAt: dest.createdAt,
     updatedAt: dest.updatedAt,
     ...(dest.project ? { project: dest.project } : {}),
@@ -49,12 +45,10 @@ function toSafeDestination(dest: Destination & { project?: { id: string; name: s
 export async function createDestination(
   organizationId: string,
   projectId: string,
-  name: string,
   url: string,
   secret?: string,
   retryPolicy?: { maxAttempts?: number; baseDelay?: number; maxDelay?: number },
-  rateLimit?: number,
-  events?: string[]
+  rateLimit?: number
 ): Promise<SafeDestination> {
   // 1. SSRF check
   const ssrfCheck = validateUrl(url);
@@ -75,12 +69,10 @@ export async function createDestination(
   const destination = await destRepo.create({
     organizationId,
     projectId,
-    name: name || `Destination ${url.split('/')[2] || ''}`,
     url,
     secretRef,
     retryPolicy,
     rateLimit,
-    events,
   });
 
   return toSafeDestination(destination);
@@ -109,12 +101,10 @@ export async function updateDestination(
   id: string,
   organizationId: string,
   data: {
-    name?: string;
     url?: string;
     secret?: string;
     retryPolicy?: any;
     rateLimit?: number;
-    events?: string[];
   }
 ): Promise<SafeDestination | null> {
   if (data.url) {
@@ -133,12 +123,10 @@ export async function updateDestination(
   }
 
   const updated = await destRepo.update(id, organizationId, {
-    name: data.name,
     url: data.url,
     secretRef,
     retryPolicy: data.retryPolicy,
     rateLimit: data.rateLimit,
-    events: data.events,
   });
 
   return updated ? toSafeDestination(updated) : null;

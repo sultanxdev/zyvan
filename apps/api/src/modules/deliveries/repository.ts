@@ -36,7 +36,7 @@ export async function listByEvent(eventId: string, organizationId?: string): Pro
       ...(organizationId ? { organizationId } : {}),
     },
     include: {
-      destination: { select: { id: true, url: true, name: true } },
+      destination: { select: { id: true, url: true } },
       attempts: {
         orderBy: { attemptNo: 'asc' },
       },

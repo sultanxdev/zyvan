@@ -11,7 +11,7 @@ import { getPrismaClient } from '@zyvan/db';
 import { hashApiKey } from '@zyvan/crypto';
 import { config } from '../config';
 import { logger } from '../lib/logger';
-import type { Resource, Action, Role, Permission } from '@zyvan/types';
+import type { Resource, Action, Role } from '@zyvan/types';
 import './types';
 
 /**
@@ -121,7 +121,7 @@ export async function authenticateSession(req: Request): Promise<boolean> {
     const permissions = getRolePermissions(role);
 
     req.currentUser = sessionData.user as any;
-    req.organization = membership.organization;
+    req.organization = membership.organization as any;
     req.membership = membership as any;
     req.auth = {
       type: 'session',

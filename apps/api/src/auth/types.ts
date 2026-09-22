@@ -14,7 +14,7 @@ declare global {
       organization?: Organization;
       membership?: Member;
       currentUser?: User;
-      requestId?: string;
+      requestId: string;
     }
   }
 }
