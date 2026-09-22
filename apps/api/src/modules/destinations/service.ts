@@ -52,7 +52,7 @@ export async function createDestination(
 ): Promise<SafeDestination> {
   // 1. SSRF check
   const ssrfCheck = await validateUrl(url);
-  if (!ssrfCheck.valid) {
+  if (!ssrfCheck.safe) {
     const err = new Error(`SSRF blocked: ${ssrfCheck.reason}`);
     (err as any).code = 'invalid_request';
     throw err;
@@ -109,7 +109,7 @@ export async function updateDestination(
 ): Promise<SafeDestination | null> {
   if (data.url) {
     const ssrfCheck = await validateUrl(data.url);
-    if (!ssrfCheck.valid) {
+    if (!ssrfCheck.safe) {
       const err = new Error(`SSRF blocked: ${ssrfCheck.reason}`);
       (err as any).code = 'invalid_request';
       throw err;
