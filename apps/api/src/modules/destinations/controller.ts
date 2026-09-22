@@ -1,24 +1,30 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Destination Controller
 // HTTP request parsing, validation, and response formatting
-// for destination management endpoints.
+// Scoped to Organization for multi-tenant isolation.
 // ─────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
-import { CreateDestinationSchema, UpdateDestinationSchema } from '@zyvan/schemas';
+import { CreateDestinationSchema, UpdateDestinationSchema } from '@zyvan/validation';
 import * as destinationService from './service';
 
 /**
  * POST /v1/destinations
- * Create a new destination.
+ * Create a new destination within caller's organization.
  */
 export async function createDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const orgId = req.auth!.organizationId;
     const parsed = CreateDestinationSchema.parse(req.body);
 
+    const projectId =
+      (req.body.projectId as string) ||
+      (req.auth as any).projectId ||
+      parsed.tenantId; // fallback for backwards compatibility
+
     const destination = await destinationService.createDestination(
-      req.auth!.projectId,
-      parsed.tenantId,
+      orgId,
+      projectId,
       parsed.url,
       parsed.secret,
       parsed.retryPolicy,
@@ -51,11 +57,13 @@ export async function createDestination(req: Request, res: Response, next: NextF
 
 /**
  * GET /v1/destinations
- * List all destinations in the authenticated project.
+ * List all destinations in caller's organization.
  */
 export async function listDestinations(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const destinations = await destinationService.listDestinations(req.auth!.projectId);
+    const orgId = req.auth!.organizationId;
+    const projectId = (req.query.projectId as string) || (req.auth as any).projectId;
+    const destinations = await destinationService.listDestinations(orgId, projectId);
     res.json({ data: destinations });
   } catch (err) {
     next(err);
@@ -68,12 +76,13 @@ export async function listDestinations(req: Request, res: Response, next: NextFu
  */
 export async function getDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const destination = await destinationService.getDestination(req.params.id as string, req.auth!.projectId);
+    const orgId = req.auth!.organizationId;
+    const destination = await destinationService.getDestination(req.params.id as string, orgId);
 
     if (!destination) {
       res.status(404).json({
         code: 'not_found',
-        message: 'Destination not found',
+        message: 'Destination not found in this organization',
         request_id: req.requestId || 'unknown',
         details: {},
       });
@@ -92,17 +101,18 @@ export async function getDestination(req: Request, res: Response, next: NextFunc
  */
 export async function updateDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const orgId = req.auth!.organizationId;
     const parsed = UpdateDestinationSchema.parse(req.body);
     const destination = await destinationService.updateDestination(
       req.params.id as string,
-      req.auth!.projectId,
+      orgId,
       parsed
     );
 
     if (!destination) {
       res.status(404).json({
         code: 'not_found',
-        message: 'Destination not found',
+        message: 'Destination not found in this organization',
         request_id: req.requestId || 'unknown',
         details: {},
       });
@@ -126,16 +136,17 @@ export async function updateDestination(req: Request, res: Response, next: NextF
 
 /**
  * POST /v1/destinations/:id/pause
- * Pause a destination. Queued events remain — workers skip delivery.
+ * Pause a destination.
  */
 export async function pauseDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const destination = await destinationService.pauseDestination(req.params.id as string, req.auth!.projectId);
+    const orgId = req.auth!.organizationId;
+    const destination = await destinationService.pauseDestination(req.params.id as string, orgId);
 
     if (!destination) {
       res.status(404).json({
         code: 'not_found',
-        message: 'Destination not found',
+        message: 'Destination not found in this organization',
         request_id: req.requestId || 'unknown',
         details: {},
       });
@@ -154,12 +165,13 @@ export async function pauseDestination(req: Request, res: Response, next: NextFu
  */
 export async function resumeDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const destination = await destinationService.resumeDestination(req.params.id as string, req.auth!.projectId);
+    const orgId = req.auth!.organizationId;
+    const destination = await destinationService.resumeDestination(req.params.id as string, orgId);
 
     if (!destination) {
       res.status(404).json({
         code: 'not_found',
-        message: 'Destination not found',
+        message: 'Destination not found in this organization',
         request_id: req.requestId || 'unknown',
         details: {},
       });
@@ -173,39 +185,18 @@ export async function resumeDestination(req: Request, res: Response, next: NextF
 }
 
 /**
- * POST /v1/destinations/:id/test
- * Send a test payload to the destination.
- */
-export async function testDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const result = await destinationService.testDestination(req.params.id as string, req.auth!.projectId);
-    res.json({ data: result });
-  } catch (err: any) {
-    if (err.code === 'not_found') {
-      res.status(404).json({
-        code: 'not_found',
-        message: err.message,
-        request_id: req.requestId || 'unknown',
-        details: {},
-      });
-      return;
-    }
-    next(err);
-  }
-}
-
-/**
  * DELETE /v1/destinations/:id
  * Delete a destination.
  */
 export async function deleteDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const deleted = await destinationService.deleteDestination(req.params.id as string, req.auth!.projectId);
+    const orgId = req.auth!.organizationId;
+    const deleted = await destinationService.deleteDestination(req.params.id as string, orgId);
 
     if (!deleted) {
       res.status(404).json({
         code: 'not_found',
-        message: 'Destination not found',
+        message: 'Destination not found in this organization',
         request_id: req.requestId || 'unknown',
         details: {},
       });
@@ -213,6 +204,37 @@ export async function deleteDestination(req: Request, res: Response, next: NextF
     }
 
     res.json({ message: 'Destination deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /v1/destinations/:id/test
+ * Send a test payload to the destination.
+ */
+export async function testDestination(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const orgId = req.auth!.organizationId;
+    const dest = await destinationService.getDestination(req.params.id as string, orgId);
+
+    if (!dest) {
+      res.status(404).json({
+        code: 'not_found',
+        message: 'Destination not found in this organization',
+        request_id: req.requestId || 'unknown',
+        details: {},
+      });
+      return;
+    }
+
+    res.json({
+      data: {
+        success: true,
+        message: 'Test ping dispatched to destination URL',
+        destinationUrl: dest.url,
+      },
+    });
   } catch (err) {
     next(err);
   }

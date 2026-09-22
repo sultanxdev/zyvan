@@ -1,18 +1,18 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Destination Service
-// Business logic for destination management.
+// Business logic for destination management scoped to organization.
 // Handles SSRF validation, secret encryption, pause/resume.
 // ─────────────────────────────────────────────────────────────
 
 import { validateUrl, encrypt } from '@zyvan/crypto';
 import { config } from '../../config';
 import * as destRepo from './repository';
-import * as tenantRepo from '../tenants/repository';
+import type { Destination } from '@zyvan/db';
 
-/** Destination representation safe for API responses (secret masked) */
 export interface SafeDestination {
   id: string;
-  tenantId: string;
+  organizationId: string;
+  projectId: string;
   url: string;
   secretConfigured: boolean;
   retryPolicy: any;
@@ -20,17 +20,14 @@ export interface SafeDestination {
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
-  tenant?: { id: string; name: string; externalId: string };
+  project?: { id: string; name: string };
 }
 
-/**
- * Strip the encrypted secret from the response.
- * Consumers only need to know IF a secret is configured.
- */
-function toSafeDestination(dest: any): SafeDestination {
+function toSafeDestination(dest: Destination & { project?: { id: string; name: string } }): SafeDestination {
   return {
     id: dest.id,
-    tenantId: dest.tenantId,
+    organizationId: dest.organizationId,
+    projectId: dest.projectId,
     url: dest.url,
     secretConfigured: !!dest.secretRef,
     retryPolicy: dest.retryPolicy,
@@ -38,79 +35,43 @@ function toSafeDestination(dest: any): SafeDestination {
     active: dest.active,
     createdAt: dest.createdAt,
     updatedAt: dest.updatedAt,
-    ...(dest.tenant ? { tenant: dest.tenant } : {}),
+    ...(dest.project ? { project: dest.project } : {}),
   };
 }
 
 /**
- * Create a new destination.
- *
- * 1. Verify the tenant belongs to the caller's project
- * 2. Validate URL for SSRF safety
- * 3. Encrypt the signing secret (if provided)
- * 4. Persist the destination
+ * Create a new destination within an organization.
  */
 export async function createDestination(
+  organizationId: string,
   projectId: string,
-  tenantId: string | undefined,
   url: string,
   secret?: string,
   retryPolicy?: { maxAttempts?: number; baseDelay?: number; maxDelay?: number },
   rateLimit?: number
 ): Promise<SafeDestination> {
-  // 1. Resolve tenant (auto-resolve default tenant if not provided)
-  let resolvedTenantId = tenantId;
-  if (!resolvedTenantId) {
-    const defaultTenant = await tenantRepo.findByExternalId('tenant_default', projectId);
-    if (defaultTenant) {
-      resolvedTenantId = defaultTenant.id;
-    } else {
-      const allTenants = await tenantRepo.listByProject(projectId);
-      if (allTenants.length > 0) {
-        resolvedTenantId = allTenants[0].id;
-      } else {
-        const created = await tenantRepo.create({
-          projectId,
-          externalId: 'tenant_default',
-          name: 'Default Tenant',
-          concurrencyLimit: 10,
-          rateLimit: 100,
-        });
-        resolvedTenantId = created.id;
-      }
-    }
-  }
-
-  // Verify tenant ownership
-  const tenant = await tenantRepo.findById(resolvedTenantId, projectId);
-  if (!tenant) {
-    const err = new Error('Tenant not found or does not belong to this project');
-    (err as any).code = 'not_found';
-    (err as any).statusCode = 404;
-    throw err;
-  }
-
-  // 2. SSRF validation
-  const ssrfResult = await validateUrl(url);
-  if (!ssrfResult.safe) {
-    const err = new Error(`Destination URL is not safe: ${ssrfResult.reason}`);
+  // 1. SSRF check
+  const ssrfCheck = await validateUrl(url);
+  if (!ssrfCheck.safe) {
+    const err = new Error(`SSRF blocked: ${ssrfCheck.reason}`);
     (err as any).code = 'invalid_request';
-    (err as any).statusCode = 400;
     throw err;
   }
 
-  // 3. Encrypt the signing secret
-  let encryptedSecret: string | null = null;
+  // 2. Encrypt signing secret if provided
+  let secretRef: string | null = null;
   if (secret) {
-    encryptedSecret = encrypt(secret, config.encryptionKey);
+    const encKey = config.encryptionKey || process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef';
+    secretRef = encrypt(secret, encKey);
   }
 
-  // 4. Create destination
+  // 3. Persist destination
   const destination = await destRepo.create({
-    tenantId: resolvedTenantId,
+    organizationId,
+    projectId,
     url,
-    secretRef: encryptedSecret,
-    retryPolicy: retryPolicy || { maxAttempts: 5, baseDelay: 1, maxDelay: 3600 },
+    secretRef,
+    retryPolicy,
     rateLimit,
   });
 
@@ -118,146 +79,79 @@ export async function createDestination(
 }
 
 /**
- * Get a destination by ID. Enforces project ownership.
- * Secret is never exposed.
+ * List all destinations for an organization.
  */
-export async function getDestination(id: string, projectId: string): Promise<SafeDestination | null> {
-  const dest = await destRepo.findByIdWithProject(id, projectId);
-  return dest ? toSafeDestination(dest) : null;
+export async function listDestinations(organizationId: string, projectId?: string): Promise<SafeDestination[]> {
+  const destinations = await destRepo.listByOrganization(organizationId, projectId);
+  return destinations.map(toSafeDestination);
 }
 
 /**
- * List all destinations for the caller's project.
+ * Get a destination by ID with tenant isolation.
  */
-export async function listDestinations(projectId: string): Promise<SafeDestination[]> {
-  const dests = await destRepo.listByProject(projectId);
-  return dests.map(toSafeDestination);
+export async function getDestination(id: string, organizationId: string): Promise<SafeDestination | null> {
+  const destination = await destRepo.findById(id, organizationId);
+  return destination ? toSafeDestination(destination) : null;
 }
 
 /**
- * Update a destination. Re-validates URL and re-encrypts secret if changed.
+ * Update a destination.
  */
 export async function updateDestination(
   id: string,
-  projectId: string,
-  data: { url?: string; secret?: string; retryPolicy?: any; rateLimit?: number }
+  organizationId: string,
+  data: {
+    url?: string;
+    secret?: string;
+    retryPolicy?: any;
+    rateLimit?: number;
+  }
 ): Promise<SafeDestination | null> {
-  // Verify ownership
-  const existing = await destRepo.findByIdWithProject(id, projectId);
-  if (!existing) return null;
-
-  const updateData: any = {};
-
-  // Re-validate URL if it's changing
   if (data.url) {
-    const ssrfResult = await validateUrl(data.url);
-    if (!ssrfResult.safe) {
-      const err = new Error(`Destination URL is not safe: ${ssrfResult.reason}`);
+    const ssrfCheck = await validateUrl(data.url);
+    if (!ssrfCheck.safe) {
+      const err = new Error(`SSRF blocked: ${ssrfCheck.reason}`);
       (err as any).code = 'invalid_request';
-      (err as any).statusCode = 400;
       throw err;
     }
-    updateData.url = data.url;
   }
 
-  // Re-encrypt secret if changing
+  let secretRef: string | undefined = undefined;
   if (data.secret) {
-    updateData.secretRef = encrypt(data.secret, config.encryptionKey);
+    const encKey = config.encryptionKey || process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef';
+    secretRef = encrypt(data.secret, encKey);
   }
 
-  if (data.retryPolicy) updateData.retryPolicy = data.retryPolicy;
-  if (data.rateLimit !== undefined) updateData.rateLimit = data.rateLimit;
-
-  const updated = await destRepo.update(id, updateData);
-  return toSafeDestination(updated);
-}
-
-/**
- * Pause a destination. Queued work remains — workers skip delivery.
- */
-export async function pauseDestination(id: string, projectId: string): Promise<SafeDestination | null> {
-  const existing = await destRepo.findByIdWithProject(id, projectId);
-  if (!existing) return null;
-
-  const updated = await destRepo.setActive(id, false);
-  return toSafeDestination(updated);
-}
-
-/**
- * Resume a paused destination. Delivery resumes from queue.
- */
-export async function resumeDestination(id: string, projectId: string): Promise<SafeDestination | null> {
-  const existing = await destRepo.findByIdWithProject(id, projectId);
-  if (!existing) return null;
-
-  const updated = await destRepo.setActive(id, true);
-  return toSafeDestination(updated);
-}
-
-/**
- * Test a destination by sending a lightweight test payload.
- * Does not create a real event or delivery record.
- */
-export async function testDestination(
-  id: string,
-  projectId: string
-): Promise<{ success: boolean; statusCode?: number; latencyMs?: number; error?: string }> {
-  const dest = await destRepo.findByIdWithProject(id, projectId);
-  if (!dest) {
-    const err = new Error('Destination not found');
-    (err as any).code = 'not_found';
-    (err as any).statusCode = 404;
-    throw err;
-  }
-
-  const testPayload = JSON.stringify({
-    type: 'destination.test',
-    data: { message: 'Zyvan test delivery' },
-    timestamp: new Date().toISOString(),
+  const updated = await destRepo.update(id, organizationId, {
+    url: data.url,
+    secretRef,
+    retryPolicy: data.retryPolicy,
+    rateLimit: data.rateLimit,
   });
 
-  const startTime = Date.now();
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(dest.url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Zyvan/0.1.0',
-        'X-Zyvan-Test': 'true',
-      },
-      body: testPayload,
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-    const latencyMs = Date.now() - startTime;
-
-    return {
-      success: response.ok,
-      statusCode: response.status,
-      latencyMs,
-    };
-  } catch (err: any) {
-    const latencyMs = Date.now() - startTime;
-    return {
-      success: false,
-      latencyMs,
-      error: err.name === 'AbortError' ? 'Connection timed out (10s)' : err.message,
-    };
-  }
+  return updated ? toSafeDestination(updated) : null;
 }
 
 /**
- * Delete a destination by ID.
+ * Pause a destination (stops webhook delivery).
  */
-export async function deleteDestination(id: string, projectId: string): Promise<boolean> {
-  const existing = await destRepo.findByIdWithProject(id, projectId);
-  if (!existing) return false;
+export async function pauseDestination(id: string, organizationId: string): Promise<SafeDestination | null> {
+  const updated = await destRepo.setActive(id, organizationId, false);
+  return updated ? toSafeDestination(updated) : null;
+}
 
-  await destRepo.remove(id);
-  return true;
+/**
+ * Resume a destination.
+ */
+export async function resumeDestination(id: string, organizationId: string): Promise<SafeDestination | null> {
+  const updated = await destRepo.setActive(id, organizationId, true);
+  return updated ? toSafeDestination(updated) : null;
+}
+
+/**
+ * Delete a destination.
+ */
+export async function deleteDestination(id: string, organizationId: string): Promise<boolean> {
+  const result = await destRepo.remove(id, organizationId);
+  return !!result;
 }

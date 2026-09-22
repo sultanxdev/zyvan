@@ -1,21 +1,15 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Event Service
-// Business logic for event ingestion, query, and lifecycle.
-//
+// Multi-tenant business logic for event ingestion and query.
 // Ingestion pipeline:
-//   1. Resolve tenant by external_id
-//   2. Check idempotency (return existing event if duplicate)
-//   3. BEGIN TX → persist event + create deliveries → COMMIT
+//   1. Check idempotency (return existing event if duplicate)
+//   2. Resolve destinations for project/organization
+//   3. Persist event + deliveries (PostgreSQL source of truth)
 //   4. Publish delivery jobs to RabbitMQ
-//   5. Return 202 Accepted
-//
-// PostgreSQL is ALWAYS the source of truth — events are persisted
-// before any queue operations.
 // ─────────────────────────────────────────────────────────────
 
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@zyvan/db';
 import * as eventRepo from './repository';
-import * as tenantRepo from '../tenants/repository';
 import * as destRepo from '../destinations/repository';
 import { publishDeliveryJob } from '../../lib/rabbitmq';
 import { logger } from '../../lib/logger';
@@ -28,40 +22,17 @@ export interface IngestEventResult {
 }
 
 /**
- * Ingest a new event into the system.
- *
- * This is the core ingestion pipeline:
- * 1. Validate tenant belongs to the project (by external ID)
- * 2. Check for duplicate idempotency key → return existing event
- * 3. Persist event + delivery records in a single transaction
- * 4. Publish delivery jobs to RabbitMQ for each active destination
- * 5. Return the event ID
+ * Ingest a new event into the system scoped to organization and project.
  */
 export async function ingestEvent(
+  organizationId: string,
   projectId: string,
-  tenantExternalId: string,
   eventType: string,
   idempotencyKey: string,
   data: Record<string, unknown>,
-  headers: Record<string, string>
+  headers: Record<string, string> = {}
 ): Promise<IngestEventResult> {
-  // 1. Resolve tenant by external_id within this project
-  const tenant = await tenantRepo.findByExternalId(tenantExternalId, projectId);
-  if (!tenant) {
-    const err = new Error(`Tenant with external_id '${tenantExternalId}' not found in this project`);
-    (err as any).code = 'not_found';
-    (err as any).statusCode = 404;
-    throw err;
-  }
-
-  if (tenant.status !== 'active') {
-    const err = new Error(`Tenant '${tenantExternalId}' is ${tenant.status}`);
-    (err as any).code = 'conflict';
-    (err as any).statusCode = 409;
-    throw err;
-  }
-
-  // 2. Idempotency check — if the key already exists, return the existing event
+  // 1. Idempotency check — if the key already exists, return the existing event
   const existing = await eventRepo.findByIdempotencyKey(projectId, idempotencyKey);
   if (existing) {
     logger.info(
@@ -76,25 +47,17 @@ export async function ingestEvent(
     };
   }
 
-  // 3. Find active destinations for this tenant
-  const destinations = await destRepo.listByTenant(tenant.id);
-  const activeDestinations = destinations.filter((d) => d.active);
+  // 2. Find active destinations for this project & organization
+  const allDestinations = await destRepo.listByOrganization(organizationId, projectId);
+  const activeDestinations = allDestinations.filter((d) => d.active);
 
-  if (activeDestinations.length === 0) {
-    const err = new Error('No active destinations for this tenant — cannot queue delivery');
-    (err as any).code = 'conflict';
-    (err as any).statusCode = 409;
-    throw err;
-  }
-
-  // 4. Persist event + deliveries in a single transaction
-  //    The DB UNIQUE constraint is the final dedup guard against concurrent requests
+  // 3. Persist event + delivery records in a single transaction
   let result: { event: any; deliveries: any[] };
   try {
     result = await eventRepo.createWithDeliveries(
       {
+        organizationId,
         projectId,
-        tenantId: tenant.id,
         eventType,
         idempotencyKey,
         payload: data,
@@ -103,7 +66,7 @@ export async function ingestEvent(
       activeDestinations.map((d) => d.id)
     );
   } catch (err: any) {
-    // Handle race condition: concurrent request with the same idempotency key
+    // Handle concurrent request with the same idempotency key
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       const existingEvent = await eventRepo.findByIdempotencyKey(projectId, idempotencyKey);
       if (existingEvent) {
@@ -118,9 +81,7 @@ export async function ingestEvent(
     throw err;
   }
 
-  // 5. Publish delivery jobs to RabbitMQ
-  //    This happens AFTER the transaction commits — if publishing fails,
-  //    the event is already durable in PostgreSQL and can be recovered.
+  // 4. Publish delivery jobs to RabbitMQ
   for (const delivery of result.deliveries) {
     try {
       publishDeliveryJob({
@@ -132,7 +93,7 @@ export async function ingestEvent(
     } catch (err) {
       logger.error(
         { err, deliveryId: delivery.id, eventId: result.event.id },
-        'Failed to publish delivery job — event is persisted and can be retried'
+        'Failed to publish delivery job — event is persisted and will be retried'
       );
     }
   }
@@ -140,7 +101,8 @@ export async function ingestEvent(
   logger.info(
     {
       eventId: result.event.id,
-      tenantId: tenant.id,
+      organizationId,
+      projectId,
       deliveryCount: result.deliveries.length,
     },
     'Event ingested successfully'
@@ -157,21 +119,20 @@ export async function ingestEvent(
 /**
  * Get an event by ID with full delivery/attempt timeline.
  */
-export async function getEvent(id: string, projectId: string) {
-  const event = await eventRepo.findById(id, projectId);
+export async function getEvent(id: string, organizationId: string) {
+  const event = await eventRepo.findById(id, organizationId);
   if (!event) return null;
 
   return {
     id: event.id,
+    organizationId: event.organizationId,
     projectId: event.projectId,
-    tenantId: event.tenantId,
     eventType: event.eventType,
     idempotencyKey: event.idempotencyKey,
     payload: event.payload,
     headers: event.headers,
     status: event.status,
     createdAt: event.createdAt,
-    updatedAt: event.updatedAt,
     deliveries: event.deliveries.map((d) => ({
       id: d.id,
       destinationId: d.destinationId,
@@ -187,25 +148,25 @@ export async function getEvent(id: string, projectId: string) {
 }
 
 /**
- * List events with filters and cursor-based pagination.
+ * List events with filters and pagination scoped to organization.
  */
 export async function listEvents(
-  projectId: string,
+  organizationId: string,
+  projectId?: string,
   filters: {
     eventType?: string;
-    tenantId?: string;
     status?: string;
     from?: string;
     to?: string;
     search?: string;
     cursor?: string;
     limit?: number;
-  }
+  } = {}
 ) {
   const { events, nextCursor } = await eventRepo.listWithFilters({
+    organizationId,
     projectId,
     eventType: filters.eventType,
-    tenantId: filters.tenantId,
     status: filters.status as any,
     from: filters.from ? new Date(filters.from) : undefined,
     to: filters.to ? new Date(filters.to) : undefined,

@@ -15,7 +15,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import pino from 'pino';
-import { getPrismaClient, disconnectPrisma } from '@zyvan/database';
+import { getPrismaClient, disconnectPrisma } from '@zyvan/db';
 import {
   connectRabbitMQ,
   disconnectRabbitMQ,

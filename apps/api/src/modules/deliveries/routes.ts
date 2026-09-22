@@ -27,7 +27,7 @@ router.get(
 
       const result = await deliveryRepo.listByDestination(
         destinationId as string,
-        req.auth!.projectId,
+        req.auth!.organizationId,
         cursor,
         Math.min(Math.max(limit, 1), 100)
       );

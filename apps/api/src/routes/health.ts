@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { Router, Request, Response } from 'express';
-import { getPrismaClient } from '@zyvan/database';
+import { getPrismaClient } from '@zyvan/db';
 import { isRabbitMQConnected } from '../lib/rabbitmq';
 import { logger } from '../lib/logger';
 

@@ -12,15 +12,20 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
+import { toNodeHandler } from 'better-auth/node';
+import { auth } from '@zyvan/auth';
 import { config, validateConfig } from './config';
 import { logger } from './lib/logger';
 import { connectRabbitMQ, disconnectRabbitMQ } from './lib/rabbitmq';
 import { requestIdMiddleware } from './middleware/request-id';
 import { errorHandler } from './middleware/error-handler';
 import { authenticate } from './middleware/authenticate';
+import { requireSession } from './auth/guards';
 import { healthRoutes } from './routes/health';
 import { bootstrapRoutes } from './modules/bootstrap/routes';
 import { authRoutes } from './modules/auth/routes';
+import { organizationRoutes } from './modules/organizations/routes';
 import { apiKeyRoutes } from './modules/api-keys/routes';
 import { projectRoutes } from './modules/projects/routes';
 import { tenantRoutes } from './modules/tenants/routes';
@@ -30,7 +35,7 @@ import { deliveryRoutes } from './modules/deliveries/routes';
 import { dlqRoutes } from './modules/dlq/routes';
 import { replayRoutes } from './modules/replay/routes';
 import { usageRoutes } from './modules/usage/routes';
-import { getPrismaClient, disconnectPrisma } from '@zyvan/database';
+import { getPrismaClient, disconnectPrisma } from '@zyvan/db';
 
 // ─── Validate Config ─────────────────────────────────────────
 
@@ -45,13 +50,18 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: true,
+    origin: process.env.CLIENT_ORIGIN || 'http://localhost:3000',
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Project-Id', 'X-Request-Id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Project-Id', 'X-Organization-Id', 'X-Request-Id'],
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   })
 );
+app.use(cookieParser());
 app.use(compression());
+
+// Better Auth handler mounted before JSON body parser for raw webhook/stream compatibility
+app.all(['/api/auth', '/api/auth/*'], toNodeHandler(auth));
+
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(requestIdMiddleware);
@@ -96,9 +106,21 @@ app.get('/v1', (_req, res) => {
   });
 });
 
-// ─── Authenticated API v1 Routes ─────────────────────────────
-// All routes below require a valid API key (Bearer token).
+// Current authenticated user session & active organization
+app.get('/v1/me', requireSession, (req, res) => {
+  res.json({
+    data: {
+      user: req.currentUser,
+      organization: req.organization,
+      role: req.auth?.type === 'session' ? req.auth.role : null,
+      permissions: req.auth?.type === 'session' ? req.auth.permissions : [],
+    },
+  });
+});
 
+// ─── Authenticated API v1 Routes ─────────────────────────────
+
+app.use('/v1/organizations', organizationRoutes);
 app.use('/v1/api-keys', authenticate, apiKeyRoutes);
 app.use('/v1/projects', authenticate, projectRoutes);
 app.use('/v1/tenants', authenticate, tenantRoutes);

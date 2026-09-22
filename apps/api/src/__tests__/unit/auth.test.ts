@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SignupSchema, LoginSchema } from '@zyvan/schemas';
+import { SignupSchema, LoginSchema } from '@zyvan/validation';
 import { signUserToken, verifyUserToken } from '../../modules/auth/user-service';
 import { authorize } from '../../middleware/authorize';
 
@@ -74,12 +74,13 @@ describe('User Authentication & Authorization', () => {
   });
 
   describe('Authorize Middleware', () => {
-    it('allows user session tokens regardless of required scope', () => {
+    it('allows owner session with required permissions', () => {
       const req: any = {
         auth: {
-          type: 'user',
+          type: 'session',
           userId: 'u_1',
-          projectId: 'p_1',
+          organizationId: 'org_1',
+          role: 'owner',
           scopes: ['*'],
         },
       };
@@ -94,6 +95,33 @@ describe('User Authentication & Authorization', () => {
       const middleware = authorize('events:write', 'projects:manage');
       middleware(req, res, next);
       expect(calledNext).toBe(true);
+    });
+
+    it('denies viewer session from write operations', () => {
+      const req: any = {
+        auth: {
+          type: 'session',
+          userId: 'u_2',
+          organizationId: 'org_1',
+          role: 'viewer',
+        },
+      };
+      let statusCode = 0;
+      const res: any = {
+        status: (code: number) => {
+          statusCode = code;
+          return { json: () => {} };
+        },
+      };
+      let calledNext = false;
+      const next = () => {
+        calledNext = true;
+      };
+
+      const middleware = authorize('projects:manage');
+      middleware(req, res, next);
+      expect(calledNext).toBe(false);
+      expect(statusCode).toBe(403);
     });
 
     it('checks granular scopes for api_key type', () => {

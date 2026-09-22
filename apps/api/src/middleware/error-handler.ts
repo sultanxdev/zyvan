@@ -7,7 +7,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { logger } from '../lib/logger';
-import type { ErrorCode } from '@zyvan/schemas';
+import type { ErrorCode } from '@zyvan/validation';
 
 export class AppError extends Error {
   public readonly code: ErrorCode;

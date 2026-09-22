@@ -1,24 +1,31 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Usage Service
 // Computes aggregated usage metrics across events, deliveries,
-// attempts, and DLQ for the authenticated project.
+// attempts, and DLQ for the authenticated organization.
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient } from '@zyvan/database';
+import { getPrismaClient } from '@zyvan/db';
 
 export interface UsageFilters {
   from?: Date;
   to?: Date;
 }
 
-export async function getProjectUsage(projectId: string, filters: UsageFilters = {}) {
+export async function getOrganizationUsage(
+  organizationId: string,
+  projectId?: string,
+  filters: UsageFilters = {}
+) {
   const prisma = getPrismaClient();
 
   const eventTimeFilter: any = {};
   if (filters.from) eventTimeFilter.gte = filters.from;
   if (filters.to) eventTimeFilter.lte = filters.to;
 
-  const eventWhere: any = { projectId };
+  const eventWhere: any = {
+    organizationId,
+    ...(projectId ? { projectId } : {}),
+  };
   if (filters.from || filters.to) {
     eventWhere.createdAt = eventTimeFilter;
   }
@@ -34,12 +41,13 @@ export async function getProjectUsage(projectId: string, filters: UsageFilters =
   ]);
 
   const eventsByStatus: Record<string, number> = {
+    pending: 0,
     queued: 0,
     delivering: 0,
     retrying: 0,
     delivered: 0,
     dead_letter: 0,
-    expired: 0,
+    failed: 0,
     cancelled: 0,
   };
 
@@ -49,8 +57,11 @@ export async function getProjectUsage(projectId: string, filters: UsageFilters =
 
   // 2. Deliveries total & breakdown by status
   const deliveryWhere: any = {
-    event: { projectId },
+    organizationId,
   };
+  if (projectId) {
+    deliveryWhere.event = { projectId };
+  }
   if (filters.from || filters.to) {
     deliveryWhere.createdAt = eventTimeFilter;
   }
@@ -65,6 +76,7 @@ export async function getProjectUsage(projectId: string, filters: UsageFilters =
   ]);
 
   const deliveriesByStatus: Record<string, number> = {
+    pending: 0,
     queued: 0,
     delivering: 0,
     retrying: 0,
@@ -80,7 +92,8 @@ export async function getProjectUsage(projectId: string, filters: UsageFilters =
   // 3. Attempt stats & average latency
   const attemptWhere: any = {
     delivery: {
-      event: { projectId },
+      organizationId,
+      ...(projectId ? { event: { projectId } } : {}),
     },
   };
   if (filters.from || filters.to) {
@@ -113,7 +126,10 @@ export async function getProjectUsage(projectId: string, filters: UsageFilters =
 
   // 4. DLQ count
   const dlqWhere: any = {
-    event: { projectId },
+    event: {
+      organizationId,
+      ...(projectId ? { projectId } : {}),
+    },
   };
   if (filters.from || filters.to) {
     dlqWhere.createdAt = eventTimeFilter;

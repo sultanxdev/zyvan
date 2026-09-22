@@ -28,8 +28,8 @@ export default function LoginPage() {
     try {
       await loginWithEmail(email, password);
       router.push('/dashboard');
-    } catch {
-      setError('Failed to sign in. Please check your credentials.');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sign in. Please check your credentials.');
     } finally {
       setLoadingAction(null);
     }
@@ -40,10 +40,8 @@ export default function LoginPage() {
     setLoadingAction('google');
     try {
       await loginWithGoogle();
-      router.push('/dashboard');
-    } catch {
-      setError('Google sign-in failed.');
-    } finally {
+    } catch (err: any) {
+      setError(err?.message || 'Google sign-in failed.');
       setLoadingAction(null);
     }
   };
@@ -53,10 +51,8 @@ export default function LoginPage() {
     setLoadingAction('github');
     try {
       await loginWithGitHub();
-      router.push('/dashboard');
-    } catch {
-      setError('GitHub sign-in failed.');
-    } finally {
+    } catch (err: any) {
+      setError(err?.message || 'GitHub sign-in failed.');
       setLoadingAction(null);
     }
   };

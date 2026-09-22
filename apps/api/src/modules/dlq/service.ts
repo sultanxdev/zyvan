@@ -1,16 +1,19 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Dead Letter Queue (DLQ) Service
 // Business logic for DLQ inspection and recovery.
+// Scoped to organizationId.
 // ─────────────────────────────────────────────────────────────
 
 import * as dlqRepo from './repository';
 
 export async function listDeadLetters(
-  projectId: string,
+  organizationId: string,
+  projectId?: string,
   cursor?: string,
   limit: number = 50
 ) {
-  const result = await dlqRepo.listByProject({
+  const result = await dlqRepo.listByOrganization({
+    organizationId,
     projectId,
     cursor,
     limit: Math.min(Math.max(limit, 1), 100),
@@ -26,7 +29,7 @@ export async function listDeadLetters(
       event: {
         id: dl.event.id,
         eventType: dl.event.eventType,
-        tenant: dl.event.tenant,
+        project: dl.event.project,
         status: dl.event.status,
         createdAt: dl.event.createdAt,
       },
@@ -40,8 +43,8 @@ export async function listDeadLetters(
   };
 }
 
-export async function getDeadLetter(id: string, projectId: string) {
-  const dl = await dlqRepo.findById(id, projectId);
+export async function getDeadLetter(id: string, organizationId: string) {
+  const dl = await dlqRepo.findById(id, organizationId);
   if (!dl) return null;
 
   return {
@@ -57,7 +60,7 @@ export async function getDeadLetter(id: string, projectId: string) {
       payload: dl.event.payload,
       headers: dl.event.headers,
       status: dl.event.status,
-      tenant: dl.event.tenant,
+      project: dl.event.project,
       createdAt: dl.event.createdAt,
     },
     delivery: {

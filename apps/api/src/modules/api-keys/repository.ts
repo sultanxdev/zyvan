@@ -1,13 +1,13 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — API Key Repository
-// Data access layer for the api_keys table.
-// All database interactions for API keys go through here.
+// Multi-tenant data access layer for api_keys.
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient } from '@zyvan/database';
-import type { ApiKey } from '@zyvan/database';
+import { getPrismaClient } from '@zyvan/db';
+import type { ApiKey } from '@zyvan/db';
 
 export interface CreateApiKeyData {
+  organizationId: string;
   projectId: string;
   keyHash: string;
   keyPrefix: string;
@@ -17,13 +17,13 @@ export interface CreateApiKeyData {
 }
 
 /**
- * Create a new API key record.
- * The hash (not the raw key) is what gets stored.
+ * Create a new API key record scoped to organization and project.
  */
 export async function create(data: CreateApiKeyData): Promise<ApiKey> {
   const prisma = getPrismaClient();
   return prisma.apiKey.create({
     data: {
+      organizationId: data.organizationId,
       projectId: data.projectId,
       keyHash: data.keyHash,
       keyPrefix: data.keyPrefix,
@@ -36,47 +36,50 @@ export async function create(data: CreateApiKeyData): Promise<ApiKey> {
 
 /**
  * Find an API key by its hash.
- * Used during authentication — the bearer token is hashed and looked up.
  */
 export async function findByHash(keyHash: string): Promise<ApiKey | null> {
   const prisma = getPrismaClient();
   return prisma.apiKey.findUnique({
     where: { keyHash },
+    include: {
+      organization: true,
+      project: true,
+    },
   });
 }
 
 /**
- * Find an API key by ID (must also belong to the given project).
+ * Find an API key by ID scoped to organization.
  */
-export async function findById(id: string, projectId: string): Promise<ApiKey | null> {
+export async function findById(id: string, organizationId: string): Promise<ApiKey | null> {
   const prisma = getPrismaClient();
   return prisma.apiKey.findFirst({
-    where: { id, projectId },
+    where: { id, organizationId },
   });
 }
 
 /**
- * List all API keys for a project.
- * Returns keys ordered by creation date (newest first).
+ * List all API keys for an organization, optionally filtered by project.
  */
-export async function listByProject(projectId: string): Promise<ApiKey[]> {
+export async function listByOrganization(organizationId: string, projectId?: string): Promise<ApiKey[]> {
   const prisma = getPrismaClient();
   return prisma.apiKey.findMany({
-    where: { projectId },
+    where: {
+      organizationId,
+      ...(projectId ? { projectId } : {}),
+    },
     orderBy: { createdAt: 'desc' },
   });
 }
 
 /**
- * Revoke an API key by setting revokedAt timestamp.
- * The key remains in the database for audit trail purposes.
+ * Revoke an API key scoped to organization.
  */
-export async function revoke(id: string, projectId: string): Promise<ApiKey | null> {
+export async function revoke(id: string, organizationId: string): Promise<ApiKey | null> {
   const prisma = getPrismaClient();
 
-  // Ensure key belongs to this project
   const key = await prisma.apiKey.findFirst({
-    where: { id, projectId },
+    where: { id, organizationId },
   });
 
   if (!key) return null;

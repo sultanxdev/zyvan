@@ -5,10 +5,10 @@
 //           → check active/expired/revoked → return AuthContext
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient } from '@zyvan/database';
+import { getPrismaClient } from '@zyvan/db';
 import { hashApiKey } from '@zyvan/crypto';
 import { config } from '../../config';
-import type { AuthContext } from './types';
+import type { AuthContext } from '@zyvan/types';
 
 export interface AuthResult {
   success: boolean;
@@ -19,11 +19,6 @@ export interface AuthResult {
 
 /**
  * Authenticate a bearer API key.
- *
- * 1. Hash the key with the application pepper
- * 2. Look up the hash in api_keys table
- * 3. Verify the key is active, not expired, not revoked
- * 4. Return the auth context (projectId, scopes, etc.)
  */
 export async function authenticateByApiKey(bearerToken: string): Promise<AuthResult> {
   if (!bearerToken) {
@@ -34,7 +29,8 @@ export async function authenticateByApiKey(bearerToken: string): Promise<AuthRes
     };
   }
 
-  const keyHash = hashApiKey(bearerToken, config.apiKeyPepper);
+  const pepper = config.apiKeyPepper || process.env.API_KEY_PEPPER || 'zyvan_dev_pepper';
+  const keyHash = hashApiKey(bearerToken, pepper);
   const prisma = getPrismaClient();
 
   const apiKey = await prisma.apiKey.findUnique({
@@ -83,9 +79,11 @@ export async function authenticateByApiKey(bearerToken: string): Promise<AuthRes
     success: true,
     context: {
       type: 'api_key',
-      projectId: apiKey.projectId,
       apiKeyId: apiKey.id,
+      organizationId: apiKey.organizationId,
+      projectId: apiKey.projectId,
       scopes: apiKey.scopes,
+      keyPrefix: apiKey.keyPrefix,
     },
   };
 }

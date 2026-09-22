@@ -1,19 +1,18 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Bootstrap Routes
-// POST /v1/bootstrap — Create the first project + API key
+// POST /v1/bootstrap — Create initial organization, project, & API key
 //
 // This endpoint is UNPROTECTED and only works when zero
-// projects exist. It solves the chicken-and-egg problem:
-// you need an API key to create a project, but you need
-// a project to create an API key.
+// projects exist.
 // ─────────────────────────────────────────────────────────────
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { getPrismaClient, PrismaClient } from '@zyvan/database';
+import { v4 as uuidv4 } from 'uuid';
+import { getPrismaClient } from '@zyvan/db';
 import { generateApiKey, hashApiKey } from '@zyvan/crypto';
 import { config } from '../../config';
 import { logger } from '../../lib/logger';
-import { API_KEY_SCOPES } from '@zyvan/schemas';
+import { API_KEY_SCOPES } from '@zyvan/validation';
 
 const router = Router();
 
@@ -34,15 +33,26 @@ router.post('/', async (req: Request, res: Response, next: NextFunction): Promis
     }
 
     const projectName = req.body?.name || 'Default Project';
+    const orgName = req.body?.orgName || 'Default Organization';
 
     // Generate the first API key
     const { key, prefix } = generateApiKey();
-    const keyHash = hashApiKey(key, config.apiKeyPepper);
+    const pepper = config.apiKeyPepper || process.env.API_KEY_PEPPER || 'zyvan_dev_pepper';
+    const keyHash = hashApiKey(key, pepper);
 
-    // Create project + API key in a single transaction
-    const result = await prisma.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => {
+    // Create organization + project + API key in a single transaction
+    const result = await prisma.$transaction(async (tx: any) => {
+      const org = await tx.organization.create({
+        data: {
+          id: uuidv4(),
+          name: orgName,
+          slug: 'default-org',
+        },
+      });
+
       const project = await tx.project.create({
         data: {
+          organizationId: org.id,
           name: projectName,
           plan: 'free',
           status: 'active',
@@ -51,6 +61,7 @@ router.post('/', async (req: Request, res: Response, next: NextFunction): Promis
 
       const apiKey = await tx.apiKey.create({
         data: {
+          organizationId: org.id,
           projectId: project.id,
           keyHash,
           keyPrefix: prefix,
@@ -59,15 +70,19 @@ router.post('/', async (req: Request, res: Response, next: NextFunction): Promis
         },
       });
 
-      return { project, apiKey };
+      return { org, project, apiKey };
     });
 
     logger.info(
-      { projectId: result.project.id },
-      '🚀 Bootstrap complete — first project and API key created'
+      { organizationId: result.org.id, projectId: result.project.id },
+      '🚀 Bootstrap complete — first organization, project, and API key created'
     );
 
     res.status(201).json({
+      organization: {
+        id: result.org.id,
+        name: result.org.name,
+      },
       project: {
         id: result.project.id,
         name: result.project.name,

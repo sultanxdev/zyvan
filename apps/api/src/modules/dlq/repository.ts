@@ -1,22 +1,22 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Dead Letter Queue (DLQ) Repository
 // Data access layer for dead_letters table.
-// When retry attempts are exhausted or a terminal error occurs,
-// the delivery enters the DLQ with full attempt history preserved.
+// Scoped to organizationId.
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient } from '@zyvan/database';
+import { getPrismaClient } from '@zyvan/db';
 
 export interface DLQFilters {
-  projectId: string;
+  organizationId: string;
+  projectId?: string;
   cursor?: string;
   limit: number;
 }
 
 /**
- * List dead letters for a project with cursor pagination.
+ * List dead letters for an organization with cursor pagination.
  */
-export async function listByProject(
+export async function listByOrganization(
   filters: DLQFilters
 ): Promise<{ deadLetters: any[]; nextCursor: string | null }> {
   const prisma = getPrismaClient();
@@ -24,18 +24,20 @@ export async function listByProject(
 
   const deadLetters = await prisma.deadLetter.findMany({
     where: {
-      event: { projectId: filters.projectId },
+      event: {
+        organizationId: filters.organizationId,
+        ...(filters.projectId ? { projectId: filters.projectId } : {}),
+      },
     },
     include: {
       event: {
         select: {
           id: true,
           eventType: true,
-          tenantId: true,
           status: true,
           createdAt: true,
-          tenant: {
-            select: { id: true, name: true, externalId: true },
+          project: {
+            select: { id: true, name: true },
           },
         },
       },
@@ -46,7 +48,7 @@ export async function listByProject(
           },
           attempts: {
             orderBy: { attemptNo: 'desc' },
-            take: 1, // latest attempt summary
+            take: 1,
           },
         },
       },
@@ -66,25 +68,24 @@ export async function listByProject(
 }
 
 /**
- * Find a specific dead letter entry by ID with project ownership check.
- * Includes complete event, destination, and attempt history.
+ * Find a specific dead letter entry by ID with organization boundary check.
  */
 export async function findById(
   id: string,
-  projectId: string
+  organizationId: string
 ): Promise<any | null> {
   const prisma = getPrismaClient();
 
   return prisma.deadLetter.findFirst({
     where: {
       id,
-      event: { projectId },
+      event: { organizationId },
     },
     include: {
       event: {
         include: {
-          tenant: {
-            select: { id: true, name: true, externalId: true },
+          project: {
+            select: { id: true, name: true },
           },
         },
       },
@@ -103,13 +104,16 @@ export async function findById(
 }
 
 /**
- * Count dead letters for a project.
+ * Count dead letters for an organization.
  */
-export async function countByProject(projectId: string): Promise<number> {
+export async function countByOrganization(organizationId: string, projectId?: string): Promise<number> {
   const prisma = getPrismaClient();
   return prisma.deadLetter.count({
     where: {
-      event: { projectId },
+      event: {
+        organizationId,
+        ...(projectId ? { projectId } : {}),
+      },
     },
   });
 }

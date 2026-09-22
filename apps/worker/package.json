@@ -12,22 +12,25 @@
     "test:unit": "vitest run --dir src/__tests__/unit"
   },
   "dependencies": {
+    "@prisma/client": "^6.8.0",
+    "@zyvan/config": "workspace:*",
+    "@zyvan/crypto": "workspace:*",
+    "@zyvan/db": "workspace:*",
+    "@zyvan/logger": "workspace:*",
+    "@zyvan/types": "workspace:*",
+    "@zyvan/validation": "workspace:*",
     "amqplib": "^0.10.5",
+    "dotenv": "^16.4.0",
     "ioredis": "^5.4.0",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",
-    "dotenv": "^16.4.0",
-    "uuid": "^11.1.0",
-    "@prisma/client": "^6.8.0",
-    "@zyvan/schemas": "*",
-    "@zyvan/crypto": "*",
-    "@zyvan/database": "*"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "tsx": "^4.19.0",
     "@types/amqplib": "^0.10.6",
     "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
     "vitest": "^3.1.0"
   }
 }

@@ -1,53 +1,44 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan API — Project Service
-// Business logic for project management.
-// Projects are the primary isolation boundary.
+// Business logic for project management scoped to Organization.
 // ─────────────────────────────────────────────────────────────
 
 import * as projectRepo from './repository';
-import type { Project } from '@zyvan/database';
+import type { Project, ProjectStatus } from '@zyvan/db';
 
 /**
- * Create a new project.
+ * Create a new project within an organization.
  */
-export async function createProject(name: string, plan?: string): Promise<Project> {
-  return projectRepo.create({ name, plan });
+export async function createProject(
+  organizationId: string,
+  name: string,
+  plan?: string,
+  slug?: string
+): Promise<Project> {
+  return projectRepo.create({ organizationId, name, plan, slug });
 }
 
 /**
- * Get a project by ID. Enforces that the caller's API key
- * belongs to this project.
+ * Get a project by ID with organization boundary enforcement.
  */
-export async function getProject(id: string, callerProjectId: string): Promise<Project | null> {
-  // Enforce project isolation — a key can only view its own project
-  if (id !== callerProjectId) {
-    return null;
-  }
-
-  return projectRepo.findById(id);
+export async function getProject(id: string, organizationId: string): Promise<Project | null> {
+  return projectRepo.findById(id, organizationId);
 }
 
 /**
- * List projects accessible to the caller.
- * For MVP, a key can only see its own project.
+ * List all projects belonging to the caller's active organization.
  */
-export async function listProjects(callerProjectId: string): Promise<Project[]> {
-  const project = await projectRepo.findById(callerProjectId);
-  return project ? [project] : [];
+export async function listProjects(organizationId: string): Promise<Project[]> {
+  return projectRepo.listByOrganization(organizationId);
 }
 
 /**
- * Update a project. Enforces ownership.
+ * Update a project ensuring tenant boundary.
  */
 export async function updateProject(
   id: string,
-  callerProjectId: string,
-  data: { name?: string; status?: 'active' | 'disabled' }
+  organizationId: string,
+  data: { name?: string; slug?: string; status?: ProjectStatus }
 ): Promise<Project | null> {
-  // Enforce project isolation
-  if (id !== callerProjectId) {
-    return null;
-  }
-
-  return projectRepo.update(id, data);
+  return projectRepo.update(id, organizationId, data);
 }

@@ -28,8 +28,8 @@ export default function SignupPage() {
     try {
       await signupWithEmail(name, email, password);
       router.push('/dashboard');
-    } catch {
-      setError('Registration failed. Please try again.');
+    } catch (err: any) {
+      setError(err?.message || 'Registration failed. Please try again.');
     } finally {
       setLoadingAction(null);
     }
@@ -40,10 +40,8 @@ export default function SignupPage() {
     setLoadingAction('google');
     try {
       await loginWithGoogle();
-      router.push('/dashboard');
-    } catch {
-      setError('Google sign-up failed.');
-    } finally {
+    } catch (err: any) {
+      setError(err?.message || 'Google sign-up failed.');
       setLoadingAction(null);
     }
   };
@@ -53,10 +51,8 @@ export default function SignupPage() {
     setLoadingAction('github');
     try {
       await loginWithGitHub();
-      router.push('/dashboard');
-    } catch {
-      setError('GitHub sign-up failed.');
-    } finally {
+    } catch (err: any) {
+      setError(err?.message || 'GitHub sign-up failed.');
       setLoadingAction(null);
     }
   };
