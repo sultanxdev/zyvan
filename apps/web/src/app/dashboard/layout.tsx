@@ -8,6 +8,7 @@ import { apiClient, SystemHealth } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
+import { OrganizationSwitcher } from '@/components/dashboard/organization-switcher';
 import {
   DashboardSquare01Icon,
   FlashIcon,
