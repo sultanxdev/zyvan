@@ -1,126 +1,248 @@
-# Zyvan — Reliable Webhook & Event Delivery Infrastructure
+# Zyvan
 
-> Multi-tenant webhook reliability engine that durably ingests events, asynchronously delivers them with exponential retry and tenant-aware concurrency controls, preserves an immutable delivery audit ledger, and provides Dead-Letter Queue (DLQ) recovery, manual replay, and end-to-end cryptographic signatures.
+> Webhook reliability infrastructure for durable event delivery, retries, failure recovery, replay, and delivery observability.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-16.3-black.svg)](https://nextjs.org/)
-[![Express](https://img.shields.io/badge/Express-4.21-lightgrey.svg)](https://expressjs.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
-[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-3.13-orange.svg)](https://www.rabbitmq.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+Zyvan sits between an application and its webhook destinations.
 
----
+It accepts events, persists them, processes delivery asynchronously, retries transient failures, records delivery attempts, and provides recovery paths when destinations remain unavailable.
 
-## 🚀 Key Highlights & Engineering Features
+**Core workflow**
 
-- **Dual-Layer Ingestion Reliability**: PostgreSQL acts as the durable system of record, committing events and delivery intents transactionally before any job is enqueued to RabbitMQ. Zero event loss on worker or broker failure.
-- **Strict Idempotency Deduplication**: Unique constraint indexing (`project_id`, `idempotency_key`) prevents duplicate executions from network retries, responding with HTTP 200 OK without re-triggering webhook dispatches.
-- **RabbitMQ TTL + DLX Delayed Retries**: Retries are scheduled via RabbitMQ per-message time-to-live (TTL) and Dead Letter Exchange (DLX) routing. Workers consume delayed messages without database polling.
-- **Tenant Isolation & Noisy-Neighbor Mitigation**: Tenant-scoped rate limits and concurrency caps prevent one high-volume customer from consuming overall cluster capacity.
-- **Cryptographic Security**: Endpoint secrets are symmetrically encrypted at rest with AES-256-GCM. Outbound webhooks include timestamped HMAC-SHA256 signatures (`Zyvan-Signature: t=...,v1=...`) with built-in SSRF protection.
-- **Full Observability & Dead-Letter Recovery**: An interactive Next.js 16 dashboard provides live latency percentiles (P50/P95/P99), immutable attempt histories with HTTP response snapshots, and one-click DLQ replay.
-- **Dual Authentication**: Session JWT authentication for developer dashboard users alongside scoped Bearer API keys (`zyvan_live_...`) with peppered SHA-256 hashing for machine-to-machine event ingestion.
+`Receive → Persist → Queue → Deliver → Retry → Recover → Replay`
 
----
+## Why Zyvan?
 
-## 📐 Architecture Diagram
+Webhook delivery becomes difficult when a destination:
 
-```
- Customer App / Webhook Producer
-                │
-                ▼
-       ┌─────────────────┐
-       │   Zyvan API     │ ◄── [Bearer API Key or User JWT Auth]
-       │  (Express.js)   │
-       └────────┬────────┘
-                │
-        Durable Transaction
-                │
-                ▼
-       ┌─────────────────┐
-       │   PostgreSQL    │ (System of Record: Events, Deliveries, Attempts, DLQ)
-       └────────┬────────┘
-                │
-         Publish Intent
-                │
-                ▼
-       ┌─────────────────┐
-       │    RabbitMQ     │ (Execution Layer: zyvan.events Topic Exchange)
-       └────────┬────────┘
-                │
-                ▼
-       ┌─────────────────┐
-       │  Delivery Worker│ (Prefetch, AES-256-GCM Secret Decryption, HMAC-SHA256)
-       └────────┬────────┘
-                │
-                ├───────────────────────────────────────────┐
-                │ HTTP POST                                 │ HTTP 4xx/5xx/Timeout
-                ▼                                           ▼
-      Customer Webhook Endpoint                   Exponential Backoff
-          (200 OK Delivered)                         │ (TTL Queue + DLX)
-                                                     ▼
-                                          Exhausted Attempts (Max Retries)
-                                                     │
-                                                     ▼
-                                            Dead-Letter Queue (DLQ)
-                                                     │
-                                                     ▼
-                                            Manual Replay Lineage
+- Times out
+- Returns 5xx responses
+- Goes offline
+- Recovers after an outage
+- Receives duplicate events
+- Processes events slower than they are produced
+
+A reliable webhook system needs durable state, idempotency, retries, failure recovery, replay, delivery history, and secure outbound requests.
+
+Zyvan is being built to provide that reliability layer.
+
+## How It Works
+
+`Application → Zyvan API → Persist → Queue → Delivery Worker → Destination`
+
+When delivery keeps failing:
+
+`Failure → Retry → Retry → Dead Letter → Replay`
+
+## Architecture
+
+```text
+Client
+  ↓
+Fastify API
+  ↓
+PostgreSQL
+  ↓
+RabbitMQ
+  ↓
+Delivery Worker
+  ↓
+Webhook Destination
 ```
 
----
+PostgreSQL acts as the durable source of event state, while asynchronous workers handle delivery processing.
 
+## Core Reliability Model
 
+### Durable Ingestion
 
-Visit the dashboard at `http://localhost:3000`. Use **Quick Demo Login** (`developer@zyvan.dev` / `zyvan_secure_2026`) or sign up with a new account.
+Accepted events are persisted before asynchronous delivery processing so worker failures do not make event state unrecoverable.
 
----
+### Idempotency
 
-## ☁️ Deploying to AWS
+The system treats duplicate processing as an expected distributed-systems problem and uses idempotency to make retries safer.
 
-Zyvan includes multi-stage production Dockerfiles and an AWS deployment guide:
+### Retries
 
-- **[Complete AWS Deployment Guide](DEPLOYMENT_AWS.md)**: Instructions for AWS EC2 (Docker Compose + Nginx + Let's Encrypt SSL) and AWS ECS Fargate + Amazon RDS + Amazon MQ.
-- **Production Compose**:
-  ```bash
-  docker compose -f docker-compose.prod.yml up -d --build
-  ```
+Transient failures are retried with controlled backoff and jitter rather than immediately repeating requests.
 
----
+### Dead-Letter Recovery
 
-## 🧪 Testing & Verification
+Events that continue to fail are separated from the normal delivery path so they can be inspected and replayed after the destination problem is fixed.
 
-Run automated tests across all monorepo packages:
+### Delivery History
+
+Delivery attempts record enough information to understand what happened during an event's lifecycle.
+
+## Multi-Tenant Architecture
+
+Zyvan is designed as a multi-tenant platform.
+
+`Organization → Projects → Destinations → Events → Deliveries → Attempts`
+
+Tenant boundaries are enforced by the backend across organization-owned resources.
+
+The platform also models tenant-aware rate and concurrency controls.
+
+## Security
+
+Outbound destinations are treated as a security boundary.
+
+Zyvan includes:
+
+- Authentication
+- Authorization
+- Project API keys
+- Tenant isolation
+- HMAC signing
+- SSRF protection
+- Secret protection
+- Audit logging
+
+## Event Lifecycle
+
+`Received → Persisted → Queued → Delivering → Delivered`
+
+Failure path:
+
+`Delivering → Retrying → Dead Letter → Replay`
+
+## Dashboard
+
+The web application is designed around operational visibility:
+
+- Projects
+- Destinations
+- Events
+- Deliveries
+- Attempts
+- Failures
+- Replay
+- Usage
+- Settings
+
+The goal is to make webhook failures understandable and recoverable without manually reconstructing them from application logs.
+
+## API
+
+Core resources include:
+
+```text
+/v1/events
+/v1/projects
+/v1/tenants
+/v1/destinations
+```
+
+The public API handles event ingestion and platform configuration while workers handle asynchronous delivery.
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | Next.js, React |
+| Language | TypeScript |
+| API | Node.js, Fastify |
+| Database | PostgreSQL |
+| ORM | Prisma |
+| Queue | RabbitMQ |
+| Supporting Infrastructure | Redis |
+| UI | Tailwind CSS, shadcn/ui |
+| Deployment | Docker |
+
+## Project Structure
+
+```text
+zyvan/
+├── apps/
+│   ├── web/
+│   ├── api/
+│   └── worker/
+├── packages/
+│   ├── sdk-node/
+│   ├── schemas/
+│   └── crypto/
+├── docs/
+├── tests/
+└── package.json
+```
+
+## Local Development
+
+### Requirements
+
+- Node.js
+- pnpm
+- PostgreSQL
+- Redis
+- RabbitMQ
+- Docker
+
+### Installation
 
 ```bash
-# Run all unit test suites
-npm test
-
-# Run specific workspace tests
-npm run test:unit --workspace=apps/api
-npm run test:unit --workspace=apps/worker
-npm run test --workspace=packages/crypto
+git clone https://github.com/sultanxdev/zyvan.git
+cd zyvan
+pnpm install
 ```
 
----
+Start infrastructure:
 
-## 💼 Resume Description & Bullet Points
-
-```
-Zyvan — Multi-Tenant Webhook & Event Delivery Infrastructure
-Technologies: Node.js, TypeScript, Express.js, Next.js 16, PostgreSQL, Prisma, RabbitMQ, Redis, Docker, AWS
-
-• Architected a distributed, fault-tolerant webhook delivery platform guaranteeing at-least-once delivery using PostgreSQL as the system of record and RabbitMQ for asynchronous dispatch.
-• Implemented composite database idempotency keys and transactional outbox patterns, eliminating duplicate event processing under high concurrency.
-• Designed exponential backoff with full jitter using RabbitMQ message TTL and Dead Letter Exchanges (DLX), removing database polling overhead for retries.
-• Engineered multi-tenant concurrency caps and rate limiters to protect shared worker resources against noisy-neighbor starvation.
-• Secured webhook payloads with AES-256-GCM encrypted signing secrets and HMAC-SHA256 timestamped signatures to prevent replay attacks and SSRF vulnerabilities.
-• Built a Next.js observability dashboard rendering real-time delivery latency percentiles (P50/P95/P99), attempt timelines, and single-click dead-letter replay.
+```bash
+docker compose up -d
 ```
 
----
+Start development:
 
-## 📄 License
+```bash
+pnpm dev
+```
 
-MIT License. Copyright (c) 2026 Zyvan.
+### Useful Commands
+
+```bash
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+Use the repository's `.env.example` files for configuration.
+
+## Reliability Testing
+
+Important scenarios include:
+
+- Duplicate events
+- Destination failures
+- Worker crashes
+- Queue backlogs
+- Retry recovery
+- Dead-letter handling
+- Replay
+- Tenant isolation
+- Unsafe destinations
+
+The focus is on system behavior when dependencies fail, not only on the successful request path.
+
+## Design Principles
+
+1. PostgreSQL is the durable source of event state.
+2. Delivery is asynchronous.
+3. Retries use controlled backoff.
+4. Failed events remain recoverable.
+5. Tenant boundaries are enforced by the backend.
+6. Security is part of the delivery pipeline.
+
+## Project Status
+
+**Active Development**
+
+Current focus:
+
+`Receive → Persist → Queue → Deliver → Retry → Recover → Replay`
+
+> **Send the event. Zyvan handles what happens next.**
+
+## Links
+
+- Website: https://www.zyvan.dev
+- Portfolio: https://www.sultanx.dev/projects/zyvan
