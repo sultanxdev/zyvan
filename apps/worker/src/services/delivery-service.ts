@@ -11,7 +11,7 @@
 //   7. DB-first retry transition + confirmed retry publish before ACK
 // ─────────────────────────────────────────────────────────────
 
-import { getPrismaClient } from '@zyvan/db';
+import { getPrismaClient, type DeadLetterReason } from '@zyvan/db';
 import { sendWebhook } from './http-client';
 import { createAttempt, completeAttempt } from './attempt-service';
 import {
@@ -30,6 +30,21 @@ import { checkRateLimit } from './destination-rate-limiter';
 import type { DeliveryJobMessage } from '@zyvan/queue';
 
 export type { DeliveryJobMessage as DeliveryJob };
+
+export interface DeliveryForDLQ {
+  id: string;
+  organizationId: string;
+  eventId: string;
+  destinationId: string;
+}
+
+export interface MoveToDLQParams {
+  delivery: DeliveryForDLQ;
+  reason: DeadLetterReason;
+  errorMessage: string | null;
+  statusCode: number | null;
+  attemptCount: number; // Number of completed HTTP delivery attempts performed
+}
 
 export const HTTP_TIMEOUT_MS = 15_000;
 export const PROCESSING_LEASE_MS = 60_000; // 4x HTTP timeout
@@ -264,7 +279,34 @@ export async function processDelivery(
     return true; // Ack
   }
 
-  // B. TERMINAL FAILURE (e.g. HTTP 4xx except 429)
+  // B. TERMINAL FAILURE & SSRF BLOCK
+  const isSsrfBlock =
+    result.error?.includes('SSRF Protection') ||
+    result.error?.includes('Forbidden destination');
+
+  if (isSsrfBlock) {
+    logger.warn(
+      { deliveryId: delivery.id, error: result.error },
+      'SSRF block detected — transitioning to authoritative DLQ'
+    );
+    await moveToDLQ(
+      {
+        delivery: {
+          id: delivery.id,
+          organizationId: delivery.organizationId,
+          eventId: event.id,
+          destinationId: destination.id,
+        },
+        reason: 'ssrf_blocked',
+        errorMessage: result.error,
+        statusCode: null,
+        attemptCount: attemptNo,
+      },
+      prisma
+    );
+    return true; // Ack
+  }
+
   const failureClass = classifyFailure(
     result.outcome as 'failed' | 'timeout' | 'error',
     result.statusCode
@@ -276,11 +318,18 @@ export async function processDelivery(
       'Terminal failure — transitioning to authoritative DLQ'
     );
     await moveToDLQ(
-      delivery.id,
-      event.id,
-      `Terminal HTTP ${result.statusCode}: ${result.error || 'Client error'}`,
-      attemptNo,
-      result.statusCode,
+      {
+        delivery: {
+          id: delivery.id,
+          organizationId: delivery.organizationId,
+          eventId: event.id,
+          destinationId: destination.id,
+        },
+        reason: 'terminal_4xx',
+        errorMessage: `Terminal HTTP ${result.statusCode}: ${result.error || 'Client error'}`,
+        statusCode: result.statusCode,
+        attemptCount: attemptNo,
+      },
       prisma
     );
     return true; // Ack
@@ -292,16 +341,26 @@ export async function processDelivery(
 
   // Check if retries exhausted
   if (!tier || attemptNo >= (retryPolicy.maxAttempts || MAX_RETRY_ATTEMPTS)) {
+    const isTimeout =
+      result.outcome === 'timeout' || result.error?.includes('timed out');
+    const dlqReason = isTimeout ? 'timeout' : 'retries_exhausted';
     logger.info(
-      { deliveryId: delivery.id, attemptNo, maxAttempts: retryPolicy.maxAttempts },
+      { deliveryId: delivery.id, attemptNo, maxAttempts: retryPolicy.maxAttempts, reason: dlqReason },
       'Retries exhausted — transitioning to authoritative DLQ'
     );
     await moveToDLQ(
-      delivery.id,
-      event.id,
-      `Retry exhausted after ${attemptNo} attempts. Last: ${result.error || `HTTP ${result.statusCode}`}`,
-      attemptNo,
-      result.statusCode,
+      {
+        delivery: {
+          id: delivery.id,
+          organizationId: delivery.organizationId,
+          eventId: event.id,
+          destinationId: destination.id,
+        },
+        reason: dlqReason,
+        errorMessage: `Retry exhausted after ${attemptNo} attempts. Last: ${result.error || `HTTP ${result.statusCode}`}`,
+        statusCode: result.statusCode,
+        attemptCount: attemptNo,
+      },
       prisma
     );
     return true; // Ack
@@ -350,32 +409,33 @@ export async function processDelivery(
     );
 
     return true; // Only ACK original message after broker confirms retry publish!
-    } catch (pubErr) {
-      logger.error(
-        { pubErr, deliveryId: delivery.id, queue: tier.queue },
-        'Failed to publish retry job with publisher confirm — nacking original message with requeue'
-      );
-      return false; // Nack with requeue so message is redelivered
-    }
-  } finally {
-    await releaseSlotLease(slotLease.slotKey, slotLease.token);
+  } catch (pubErr) {
+    logger.error(
+      { pubErr, deliveryId: delivery.id, queue: tier.queue },
+      'Failed to publish retry job with publisher confirm — nacking original message with requeue'
+    );
+    return false; // Nack with requeue so message is redelivered
   }
+} finally {
+  await releaseSlotLease(slotLease.slotKey, slotLease.token);
+}
 }
 
 /**
  * Move a delivery to the authoritative PostgreSQL DeadLetter state.
+ *
+ * NOTE: DLQ is delivery-scoped (an event can target multiple destinations).
+ * We explicitly do NOT mutate Event.status here.
  */
-async function moveToDLQ(
-  deliveryId: string,
-  eventId: string,
-  reason: string,
-  attemptCount: number,
-  statusCode: number | null,
+export async function moveToDLQ(
+  params: MoveToDLQParams,
   prisma: any
 ): Promise<void> {
+  const { delivery, reason, errorMessage, statusCode, attemptCount } = params;
+
   await prisma.$transaction([
     prisma.delivery.update({
-      where: { id: deliveryId },
+      where: { id: delivery.id },
       data: {
         status: 'failed',
         attemptCount,
@@ -384,19 +444,24 @@ async function moveToDLQ(
       },
     }),
     prisma.deadLetter.upsert({
-      where: { deliveryId },
+      where: { deliveryId: delivery.id },
       create: {
-        eventId,
-        deliveryId,
+        organizationId: delivery.organizationId,
+        eventId: delivery.eventId,
+        deliveryId: delivery.id,
+        destinationId: delivery.destinationId,
+        status: 'open',
         reason,
+        errorMessage,
+        statusCode,
+        attemptCount,
       },
       update: {
         reason,
+        errorMessage,
+        statusCode,
+        attemptCount,
       },
-    }),
-    prisma.event.update({
-      where: { id: eventId },
-      data: { status: 'dead_letter' },
     }),
   ]);
 }

@@ -16,7 +16,7 @@ function mapScopeToPermission(scope: string): { resource: Resource; action: Acti
   let resource: Resource = 'projects';
   if (res === 'events') resource = 'events';
   else if (res === 'destinations') resource = 'destinations';
-  else if (res === 'deliveries') resource = 'deliveries';
+  else if (res === 'deliveries' || res === 'delivery') resource = 'deliveries';
   else if (res === 'api_keys' || res === 'api-keys') resource = 'api_keys';
   else if (res === 'replay') resource = 'replay';
   else if (res === 'tenants' || res === 'organizations') resource = 'organizations';

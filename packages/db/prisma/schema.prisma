@@ -55,6 +55,21 @@ enum ReplayStatus {
   failed
 }
 
+enum DeadLetterReason {
+  terminal_4xx
+  retries_exhausted
+  ssrf_blocked
+  timeout
+  other
+}
+
+enum DeadLetterStatus {
+  open
+  replaying
+  resolved
+  dismissed
+}
+
 // ─── Better Auth Core Models ──────────────────────────────────────────────────
 
 model User {
@@ -146,6 +161,7 @@ model Organization {
   apiKeys        ApiKey[]
   auditLogs      AuditLog[]
   outboxMessages OutboxMessage[]
+  deadLetters    DeadLetter[]
 
   @@map("organizations")
 }
@@ -246,6 +262,7 @@ model Destination {
   project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   deliveries   Delivery[]
+  deadLetters  DeadLetter[]
 
   @@index([projectId])
   @@index([organizationId])
@@ -353,15 +370,33 @@ model Replay {
 // ─── Dead Letters ────────────────────────────────────────────────────────────
 
 model DeadLetter {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  eventId    String   @map("event_id") @db.Uuid
-  deliveryId String   @unique @map("delivery_id") @db.Uuid
-  reason     String   @db.Text
-  createdAt  DateTime @default(now()) @map("created_at")
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String           @map("organization_id")
+  eventId        String           @map("event_id") @db.Uuid
+  deliveryId     String           @unique @map("delivery_id") @db.Uuid
+  destinationId  String           @map("destination_id") @db.Uuid
+  status         DeadLetterStatus @default(open)
+  reason         DeadLetterReason @default(other)
+  errorMessage   String?          @map("error_message") @db.Text
+  statusCode     Int?             @map("status_code")
+  attemptCount   Int              @default(1) @map("attempt_count")
+  replayedAt     DateTime?        @map("replayed_at")
+  resolvedAt     DateTime?        @map("resolved_at")
+  resolvedBy     String?          @map("resolved_by")
+  dismissedAt    DateTime?        @map("dismissed_at")
+  dismissedBy    String?          @map("dismissed_by")
+  resolution     String?          @db.Text
+  createdAt      DateTime         @default(now()) @map("created_at")
 
-  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  delivery     Delivery     @relation(fields: [deliveryId], references: [id], onDelete: Restrict)
+  destination  Destination  @relation(fields: [destinationId], references: [id], onDelete: Restrict)
 
+  @@index([organizationId, createdAt, id])
+  @@index([organizationId, status, createdAt, id])
+  @@index([organizationId, reason, createdAt])
+  @@index([organizationId, destinationId, createdAt, id])
   @@index([eventId])
   @@map("dead_letters")
 }

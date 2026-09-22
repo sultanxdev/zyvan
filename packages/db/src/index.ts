@@ -26,6 +26,8 @@ export type {
   DeliveryStatus,
   AttemptOutcome,
   ReplayStatus,
+  DeadLetterReason,
+  DeadLetterStatus,
 } from '@prisma/client';
 
 import { PrismaClient } from '@prisma/client';

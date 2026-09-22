@@ -29,6 +29,19 @@ export const DeliveryStatusEnum = z.enum([
 ]);
 export const AttemptOutcomeEnum = z.enum(['success', 'failed', 'timeout', 'error']);
 export const ReplayStatusEnum = z.enum(['queued', 'delivering', 'delivered', 'failed']);
+export const DeadLetterReasonEnum = z.enum([
+  'terminal_4xx',
+  'retries_exhausted',
+  'ssrf_blocked',
+  'timeout',
+  'other',
+]);
+export const DeadLetterStatusEnum = z.enum([
+  'open',
+  'replaying',
+  'resolved',
+  'dismissed',
+]);
 
 export type ProjectStatus = z.infer<typeof ProjectStatusEnum>;
 export type TenantStatus = z.infer<typeof TenantStatusEnum>;
@@ -36,6 +49,8 @@ export type EventStatus = z.infer<typeof EventStatusEnum>;
 export type DeliveryStatus = z.infer<typeof DeliveryStatusEnum>;
 export type AttemptOutcome = z.infer<typeof AttemptOutcomeEnum>;
 export type ReplayStatus = z.infer<typeof ReplayStatusEnum>;
+export type DeadLetterReason = z.infer<typeof DeadLetterReasonEnum>;
+export type DeadLetterStatus = z.infer<typeof DeadLetterStatusEnum>;
 
 // ─── User Schemas ────────────────────────────────────────────
 
@@ -85,6 +100,8 @@ export const API_KEY_SCOPES = [
   'projects:read',
   'projects:manage',
   'usage:read',
+  'delivery:read',
+  'deliveries:read',
 ] as const;
 
 export const CreateApiKeySchema = z.object({
@@ -183,6 +200,33 @@ export const EventFilterSchema = PaginationSchema.extend({
 });
 
 export type EventFilterInput = z.infer<typeof EventFilterSchema>;
+
+// ─── Dead Letter Queue (DLQ) Schemas ──────────────────────────
+
+export const DLQFilterSchema = PaginationSchema.extend({
+  projectId: z.string().uuid().optional(),
+  destinationId: z.string().uuid().optional(),
+  eventType: z.string().optional(),
+  status: DeadLetterStatusEnum.optional().default('open'),
+  reason: DeadLetterReasonEnum.optional(),
+  search: z.string().optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+export const DLQSummaryFilterSchema = z.object({
+  projectId: z.string().uuid().optional(),
+  destinationId: z.string().uuid().optional(),
+  eventType: z.string().optional(),
+  status: DeadLetterStatusEnum.optional(),
+  reason: DeadLetterReasonEnum.optional(),
+  search: z.string().optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+export type DLQFilterInput = z.infer<typeof DLQFilterSchema>;
+export type DLQSummaryFilterInput = z.infer<typeof DLQSummaryFilterSchema>;
 
 // ─── Error Contract ──────────────────────────────────────────
 
