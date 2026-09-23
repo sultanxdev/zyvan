@@ -131,7 +131,10 @@ export class DeadLettersResource extends Resource {
     const res = await this.httpPost<{ data: ReplayResponse }>(
       `/v1/dead-letters/${encodeURIComponent(id.trim())}/replay`,
       undefined,
-      { idempotencyKey: options.idempotencyKey.trim() }
+      {
+        idempotencyKey: options.idempotencyKey.trim(),
+        retrySafety: 'idempotent',
+      }
     );
     return res.data;
   }
@@ -162,7 +165,10 @@ export class DeadLettersResource extends Resource {
     const res = await this.httpPost<{ data: ReplayBulkResponse }>(
       '/v1/dead-letters/replay-bulk',
       input ?? {},
-      { idempotencyKey: options.idempotencyKey.trim() }
+      {
+        idempotencyKey: options.idempotencyKey.trim(),
+        retrySafety: 'idempotent',
+      }
     );
     return res.data;
   }
