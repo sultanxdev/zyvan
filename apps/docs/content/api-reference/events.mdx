@@ -1,0 +1,55 @@
+---
+title: "Events API"
+description: "Durable event ingestion endpoint: send events, check delivery status, and retrieve past event payloads."
+category: "API Reference"
+order: 5
+badge: "Core API"
+readTime: "4 min"
+apiMethod: "POST"
+apiPath: "/v1/projects/:projectId/events"
+---
+
+# Events API
+
+The primary ingestion endpoint for durably publishing events to Zyvan.
+
+---
+
+## 1. Send an Event
+
+<EndpointBadge method="POST" path="/v1/projects/:projectId/events" auth="Bearer API Key" />
+
+<ParamGroup>
+  <ParamField name="type" type="string" required location="body">
+    Dot-separated event type name (e.g. `invoice.paid`, `user.created`).
+  </ParamField>
+  <ParamField name="idempotency_key" type="string" required location="body">
+    Unique transaction or event key used for atomic 24h deduplication.
+  </ParamField>
+  <ParamField name="tenant_id" type="string" location="body">
+    Optional tenant identifier to target tenant-specific webhook destinations.
+  </ParamField>
+  <ParamField name="payload" type="object" required location="body">
+    The arbitrary JSON data payload to deliver (Max: 1MB).
+  </ParamField>
+</ParamGroup>
+
+### Response (`202 Accepted`)
+
+<ResponseGroup>
+  <ResponseField name="event_id" type="string">
+    The unique Zyvan event identifier (e.g. `evt_01HZX87AB9823KJ`).
+  </ResponseField>
+  <ResponseField name="status" type="string" enum={["QUEUED", "DUPLICATE"]}>
+    `QUEUED` for newly ingested events, or `DUPLICATE` if an identical idempotency key was already ingested.
+  </ResponseField>
+  <ResponseField name="deliveries_scheduled" type="number">
+    Number of matching destinations queued for delivery.
+  </ResponseField>
+</ResponseGroup>
+
+---
+
+## Interactive API Sandbox
+
+<ApiPlayground />

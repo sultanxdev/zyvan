@@ -1,0 +1,61 @@
+---
+title: "Idempotency and Deduplication"
+description: "How Zyvan guarantees exactly-once ingestion using database-level uniqueness constraints and 24-hour deduplication windows."
+category: "Core Concepts"
+order: 4
+badge: "Reliability"
+readTime: "4 min"
+---
+
+# Idempotency and Deduplication
+
+In distributed systems, network partitions or client timeouts can cause your application to retry sending an event. Without idempotency protection, this causes duplicate events and repeated downstream actions (e.g., charging a card twice or double-shipping an order).
+
+Zyvan provides **atomic, database-enforced deduplication** via the `idempotency_key` parameter.
+
+---
+
+## How Idempotency Works
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor App as Your Application
+    participant Zyvan as Zyvan Ingestion
+    participant DB as PostgreSQL (Unique Index)
+
+    App->>Zyvan: POST /v1/projects/:id/events (key: "tx_order_8819")
+    Zyvan->>DB: INSERT INTO events (project_id, idempotency_key, ...)
+    DB-->>Zyvan: Success (Row Created)
+    Zyvan-->>App: 202 Accepted (event_id: "evt_01", status: "QUEUED")
+
+    Note over App,Zyvan: Network drops or client retries request!
+
+    App->>Zyvan: POST /v1/projects/:id/events (key: "tx_order_8819")
+    Zyvan->>DB: INSERT INTO events (project_id, idempotency_key, ...)
+    DB-->>Zyvan: Unique Constraint Violation (Duplicate Key)
+    Zyvan->>DB: SELECT original event by (project_id, idempotency_key)
+    Zyvan-->>App: 200 OK (event_id: "evt_01", duplicate: true)
+```
+
+---
+
+## Best Practices for Idempotency Keys
+
+<Steps>
+  <Step number={1} title="Use Natural Domain Identifiers">
+    Whenever possible, use business-level unique keys from your database (e.g., `checkout_session_id`, `invoice_id`, `user_uuid + action_name`).
+  </Step>
+
+  <Step number={2} title="Do Not Use Random UUIDs for Retries">
+    If your HTTP client encounters a network timeout and retries, reuse the exact same `idempotency_key` so Zyvan can safely identify and deduplicate the retry.
+  </Step>
+
+  <Step number={3} title="24-Hour Deduplication Window">
+    Idempotency keys are guaranteed unique within a rolling 24-hour window per project.
+  </Step>
+</Steps>
+
+<Callout type="tip" title="Zero-Duplicate Guarantee">
+  Even if 10 concurrent requests arrive simultaneously with the exact same `idempotency_key`, PostgreSQL transaction isolation guarantees that exactly **one** insert will succeed, and the remaining 9 will safely return the existing event.
+</Callout>

@@ -1,0 +1,43 @@
+---
+title: "Webhook Lifecycle & States"
+description: "The complete state transition lifecycle of a webhook delivery in Zyvan: PENDING, IN_PROGRESS, DELIVERED, RETRYING, and DEAD_LETTER."
+category: "Webhooks & Reliability"
+order: 1
+badge: "Lifecycle"
+readTime: "4 min"
+---
+
+# Webhook Lifecycle & State Machine
+
+Every delivery job follows a deterministic state machine throughout its lifecycle.
+
+---
+
+## State Transition Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING: Event Ingested & Delivery Created
+    PENDING --> IN_PROGRESS: Worker Consumes from RabbitMQ
+    
+    IN_PROGRESS --> DELIVERED: HTTP 2xx Received
+    IN_PROGRESS --> RETRYING: Transient Error (5xx / Timeout) & Retries Remaining
+    IN_PROGRESS --> DEAD_LETTER: Permanent Error (4xx) OR Max Retries Exhausted
+
+    RETRYING --> IN_PROGRESS: Delayed Queue TTL Expires
+    
+    DEAD_LETTER --> PENDING: Replay Triggered (Manual / Bulk API)
+    DELIVERED --> [*]
+```
+
+---
+
+## Delivery States Reference
+
+| State | Description | Next Possible States |
+| :--- | :--- | :--- |
+| `PENDING` | Delivery record created in PostgreSQL; task published to queue. | `IN_PROGRESS` |
+| `IN_PROGRESS` | Worker has claimed the task and dispatched the HTTP request. | `DELIVERED`, `RETRYING`, `DEAD_LETTER` |
+| `DELIVERED` | Target returned a `2xx` HTTP status code. Delivery complete. | Terminal state |
+| `RETRYING` | Delivery failed transiently; sitting in RabbitMQ delayed TTL queue. | `IN_PROGRESS` |
+| `DEAD_LETTER` | All retries exhausted or non-retryable error received. | `PENDING` (via Replay) |

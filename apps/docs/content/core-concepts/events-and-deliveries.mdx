@@ -1,0 +1,55 @@
+---
+title: "Events vs. Deliveries"
+description: "Why an Event is not a Delivery. Learn the critical 1-to-N relationship between ingested events, target delivery jobs, and individual HTTP attempts."
+category: "Core Concepts"
+order: 2
+badge: "Core Model"
+readTime: "4 min"
+---
+
+# Events vs. Deliveries
+
+A common anti-pattern in webhook architectures is conflating **Events** with **Deliveries**. Zyvan enforces a strict, relational separation between these entities.
+
+---
+
+## The 1-to-N-to-M Hierarchy
+
+```mermaid
+graph TD
+    E[Event: order.completed<br/>idempotency_key: 'ord_123'<br/>payload: {...}]
+    
+    E --> D1[Delivery A -> Warehouse Webhook]
+    E --> D2[Delivery B -> Accounting Webhook]
+    E --> D3[Delivery C -> Analytics Webhook]
+
+    D1 --> A1[Attempt 1: 200 OK - 42ms]
+    
+    D2 --> A2[Attempt 1: 503 Service Unavailable - 1002ms]
+    D2 --> A3[Attempt 2: 504 Gateway Timeout - 5000ms]
+    D2 --> A4[Attempt 3: 200 OK - 88ms (DELIVERED)]
+```
+
+---
+
+## 1. The Event (Ingestion Record)
+An **Event** represents something that happened in your application domain (e.g., `user.signup`, `invoice.paid`, `deployment.failed`).
+- Contains the immutable JSON payload.
+- Contains the unique `idempotency_key`.
+- Tied to a specific `project_id` and optional `tenant_id`.
+
+## 2. The Delivery (Target Job)
+A **Delivery** is the specific task of routing an Event to a single configured **Destination**.
+- If a project has 4 active destinations matching the event type, 1 Event generates **4 independent Deliveries**.
+- Each Delivery maintains its own independent state machine: `PENDING`, `DELIVERED`, `RETRYING`, or `DEAD_LETTER`.
+- Failure in Delivery B never slows down or blocks Delivery A.
+
+## 3. The Attempt (Execution Log)
+An **Attempt** records every physical HTTP request made by Zyvan workers towards the destination endpoint:
+- Request timestamp & duration (latency in ms).
+- HTTP status code returned (`200`, `404`, `502`, etc.) or network error (`ECONNRESET`, `ETIMEDOUT`).
+- Request headers (including HMAC signature) & truncated response body.
+
+<Callout type="tip" title="Auditability & Debugging">
+  Because every individual attempt is logged, you can inspect the exact timeline of a failed webhook, understand why it retried, and view the precise error message returned by your customer's server.
+</Callout>

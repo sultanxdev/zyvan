@@ -1,0 +1,154 @@
+---
+title: "Send Your First Event"
+description: "Step-by-step guide to emitting structured, idempotent events to Zyvan with Node.js, Python, Go, or cURL."
+category: "Guides"
+order: 1
+badge: "Guide"
+readTime: "4 min"
+apiMethod: "POST"
+apiPath: "/v1/projects/:projectId/events"
+---
+
+# Send Your First Event
+
+Emitting events to Zyvan takes a single HTTP `POST` request. Once accepted, Zyvan handles fan-out to all matching destinations, handles retries, and tracks delivery attempts.
+
+---
+
+## Endpoint Details
+
+<EndpointBadge method="POST" path="/v1/projects/:projectId/events" auth="Bearer API Key" />
+
+---
+
+## Code Examples
+
+<CodeTabs
+  tabs={[
+    {
+      label: "cURL",
+      language: "bash",
+      code: `curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/events" \\
+  -H "Authorization: Bearer zyvan_live_sec_10982347" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "type": "payment.succeeded",
+    "idempotency_key": "pay_98234_evt_01",
+    "tenant_id": "tenant_enterprise_01",
+    "payload": {
+      "payment_id": "pi_1234567890",
+      "amount": 9900,
+      "currency": "USD",
+      "customer": {
+        "id": "cus_9981",
+        "email": "customer@company.com"
+      }
+    }
+  }'`
+    },
+    {
+      label: "TypeScript / Node.js",
+      language: "typescript",
+      filename: "send-event.ts",
+      code: `import { ZyvanClient } from '@zyvan/sdk';
+
+const zyvan = new ZyvanClient({
+  apiKey: process.env.ZYVAN_API_KEY!,
+  projectId: 'proj_live_99'
+});
+
+async function main() {
+  const event = await zyvan.events.send({
+    type: 'payment.succeeded',
+    idempotencyKey: 'pay_98234_evt_01',
+    tenantId: 'tenant_enterprise_01',
+    payload: {
+      payment_id: 'pi_1234567890',
+      amount: 9900,
+      currency: 'USD',
+      customer: {
+        id: 'cus_9981',
+        email: 'customer@company.com'
+      }
+    }
+  });
+
+  console.log('Event Queued with ID:', event.id);
+}
+
+main();`
+    },
+    {
+      label: "Python",
+      language: "python",
+      filename: "send_event.py",
+      code: `import os
+from zyvan import ZyvanClient
+
+client = ZyvanClient(
+    api_key=os.environ["ZYVAN_API_KEY"],
+    project_id="proj_live_99"
+)
+
+event = client.events.send(
+    type="payment.succeeded",
+    idempotency_key="pay_98234_evt_01",
+    tenant_id="tenant_enterprise_01",
+    payload={
+        "payment_id": "pi_1234567890",
+        "amount": 9900,
+        "currency": "USD",
+        "customer": {
+            "id": "cus_9981",
+            "email": "customer@company.com"
+        }
+    }
+)
+
+print(f"Queued event: {event.id}")`
+    },
+    {
+      label: "Go",
+      language: "go",
+      filename: "main.go",
+      code: `package main
+
+import (
+    "context"
+    "fmt"
+    "os"
+
+    "github.com/zyvan-dev/zyvan-go"
+)
+
+func main() {
+    client := zyvan.NewClient(zyvan.Config{
+        APIKey:    os.Getenv("ZYVAN_API_KEY"),
+        ProjectID: "proj_live_99",
+    })
+
+    event, err := client.Events.Send(context.Background(), zyvan.SendEventParams{
+        Type:           "payment.succeeded",
+        IdempotencyKey: "pay_98234_evt_01",
+        TenantID:       "tenant_enterprise_01",
+        Payload: map[string]interface{}{
+            "payment_id": "pi_1234567890",
+            "amount":     9900,
+            "currency":   "USD",
+        },
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Printf("Queued event ID: %s\n", event.ID)
+}`
+    }
+  ]}
+/>
+
+---
+
+## Interactive Playground
+
+<ApiPlayground />
