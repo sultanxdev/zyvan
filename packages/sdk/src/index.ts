@@ -45,6 +45,9 @@ export type {
   ApiResponse,
   HttpMethod,
   ZyvanApiErrorBody,
+  RetrySafety,
+  RetryOptions,
+  RetryContext,
 } from './types';
 
 // Public API DTOs & Resource Types
