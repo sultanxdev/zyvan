@@ -1,62 +1,349 @@
 ---
-title: "TypeScript / Node.js SDK"
-description: "Official TypeScript and Node.js SDK for Zyvan: installation, initialization, event emission, and webhook signature verification."
+title: "TypeScript & Node.js SDK"
+description: "Complete guide to the official @zyvan/sdk: typed client resources, automatic retries with operation safety, and zero-dependency webhook verification."
 category: "SDKs & Tools"
 order: 1
-badge: "Official"
-readTime: "4 min"
+badge: "Official SDK"
+readTime: "7 min"
 ---
 
 # TypeScript & Node.js SDK
 
-The official `@zyvan/sdk` provides strongly-typed interfaces, automatic retries for network timeouts, and zero-dependency webhook verification helpers.
+The official `@zyvan/sdk` is a zero-drift, type-safe client library for ingesting events, configuring webhook destinations, inspecting delivery attempt timelines, managing dead-letter queues, and verifying HMAC-SHA256 webhook signatures.
 
 ---
 
 ## Installation
 
+Install `@zyvan/sdk` using your preferred package manager:
+
 <CodeTabs
   tabs={[
-    {
-      label: "npm",
-      language: "bash",
-      code: "npm install @zyvan/sdk"
-    },
     {
       label: "pnpm",
       language: "bash",
       code: "pnpm add @zyvan/sdk"
     },
     {
+      label: "npm",
+      language: "bash",
+      code: "npm install @zyvan/sdk"
+    },
+    {
       label: "yarn",
       language: "bash",
       code: "yarn add @zyvan/sdk"
+    },
+    {
+      label: "bun",
+      language: "bash",
+      code: "bun add @zyvan/sdk"
     }
   ]}
 />
 
+### Runtime Compatibility
+
+`@zyvan/sdk` has zero external runtime dependencies and supports:
+- **Node.js**: 18.x, 20.x, 22.x LTS
+- **Runtimes**: Bun 1.0+, Deno 1.35+, Cloudflare Workers, Next.js (App Router, Node.js & Edge runtimes)
+- **TypeScript**: 5.0+
+
 ---
 
-## Quick Example
+## Initializing the Client
+
+Create an instance of `ZyvanClient` with your project API key:
 
 ```typescript
 import { ZyvanClient } from '@zyvan/sdk';
 
 const zyvan = new ZyvanClient({
   apiKey: process.env.ZYVAN_API_KEY!,
-  projectId: 'proj_live_99'
+  projectId: 'prj_live_01H8X92M4Q', // Optional default project ID
+  timeoutMs: 10000,                  // Request timeout in milliseconds (default: 10000)
+  maxRetries: 3,                     // Max transient network retries (default: 3)
 });
-
-// Send an event
-const event = await zyvan.events.send({
-  type: 'customer.subscribed',
-  idempotencyKey: 'sub_evt_49102',
-  tenantId: 'tenant_acme',
-  payload: {
-    plan: 'enterprise',
-    seats: 50
-  }
-});
-
-console.log('Event Queued:', event.id);
 ```
+
+### Client Configuration Options
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `apiKey` | `string` | **Required** | Zyvan API key (`zyv_live_...` or `zyv_test_...`). |
+| `projectId` | `string?` | `undefined` | Default project scope attached to requests. |
+| `baseUrl` | `string?` | `https://api.zyvan.dev` | Target API gateway URL. |
+| `timeoutMs` | `number?` | `10000` | HTTP request timeout in milliseconds before throwing `ZyvanTimeoutError`. |
+| `maxRetries` | `number?` | `3` | Maximum automatic retries for transient failures on safe operations. |
+| `fetch` | `Function?` | Global `fetch` | Custom `fetch` polyfill for testing or corporate HTTP proxies. |
+
+---
+
+## 1. Events Resource (`zyvan.events`)
+
+Ingest webhook events, query historical event records, and inspect delivery fan-out.
+
+### Publishing an Event (`send`)
+
+```typescript
+// Publish event with guaranteed deduplication
+const response = await zyvan.events.send({
+  type: 'order.completed',
+  tenantId: 'cust_acme_corp',
+  idempotencyKey: 'tx_ord_998124_stripe',
+  payload: {
+    orderId: 'ord_998124',
+    totalCents: 14900,
+    currency: 'USD',
+    customerEmail: 'billing@acme.com',
+  },
+});
+
+console.log(`Event ID: ${response.id}`);
+console.log(`Deliveries Queued: ${response.deliveryCount}`);
+console.log(`Duplicate Request: ${response.duplicate}`);
+```
+
+### Listing Events (`list`)
+
+```typescript
+// Query events with cursor pagination and status filtering
+const page = await zyvan.events.list({
+  eventType: 'payment.*',
+  status: 'DELIVERED',
+  limit: 50,
+});
+
+for (const event of page.data) {
+  console.log(`[${event.type}] ${event.id} - ${event.createdAt}`);
+}
+
+// Fetch next page using cursor
+if (page.hasMore && page.nextCursor) {
+  const nextPage = await zyvan.events.list({ cursor: page.nextCursor });
+}
+```
+
+### Inspecting Event Details (`get`)
+
+```typescript
+const event = await zyvan.events.get('evt_01H8X92M4Q');
+console.log(`Payload:`, event.payload);
+console.log(`Destinations matched:`, event.deliveries.length);
+```
+
+---
+
+## 2. Destinations Resource (`zyvan.destinations`)
+
+Manage webhook receiver endpoints, encryption secrets, custom retry policies, and rate limits.
+
+### Creating a Destination (`create`)
+
+```typescript
+const destination = await zyvan.destinations.create({
+  url: 'https://api.customer.com/webhooks/v1',
+  description: 'Customer Billing Endpoint',
+  eventTypes: ['payment.*', 'invoice.*'],
+  rateLimit: 100, // 100 requests per second ceiling
+  retryPolicy: {
+    maxAttempts: 6,
+    initialIntervalSec: 10,
+    backoffMultiplier: 2.0,
+    maxIntervalSec: 43200,
+  },
+});
+
+console.log(`Destination created: ${destination.id}`);
+console.log(`Signing Secret: ${destination.secret}`); // whsec_...
+```
+
+### Testing a Destination (`test`)
+
+Dispatch a synthetic ping event to verify the endpoint is online and responsive:
+
+```typescript
+const testResult = await zyvan.destinations.test(destination.id, {
+  eventType: 'ping',
+  payload: { ping: true },
+});
+
+console.log(`Test status: ${testResult.statusCode}`);
+console.log(`Latency: ${testResult.latencyMs}ms`);
+```
+
+### Updating & Deleting Destinations
+
+```typescript
+// Update destination URL or retry configuration
+await zyvan.destinations.update(destination.id, {
+  url: 'https://api.customer.com/webhooks/v2',
+  rateLimit: 200,
+});
+
+// Remove destination
+await zyvan.destinations.delete(destination.id);
+```
+
+---
+
+## 3. Deliveries Resource (`zyvan.deliveries`)
+
+Query delivery jobs and inspect attempt execution telemetry.
+
+### Inspecting Attempts (`listAttempts`)
+
+```typescript
+const { attempts } = await zyvan.deliveries.listAttempts('del_01H8X92M4Q892');
+
+for (const attempt of attempts) {
+  console.log(`Attempt #${attempt.attemptNumber}:`);
+  console.log(`  Status Code: ${attempt.statusCode}`);
+  console.log(`  Duration: ${attempt.latencyMs}ms`);
+  console.log(`  Signature: ${attempt.headers['x-zyvan-signature']}`);
+  console.log(`  Response: ${attempt.responseBody}`);
+}
+```
+
+### Replaying a Delivery (`replay`)
+
+```typescript
+// Atomically reset delivery to PENDING
+const replayed = await zyvan.deliveries.replay('del_01H8X92M4Q892');
+console.log(`Replayed delivery status: ${replayed.status}`);
+```
+
+---
+
+## 4. Dead-Letter Queue (`zyvan.deadLetters`)
+
+Triage exhausted deliveries and trigger single or bulk replays.
+
+### Querying the DLQ (`list`)
+
+```typescript
+const dlq = await zyvan.deadLetters.list({
+  destinationId: 'dst_accounting',
+  limit: 100,
+});
+
+console.log(`Found ${dlq.total} dead-letter deliveries`);
+```
+
+### Bulk Replaying Dead-Letter Events (`bulkReplay`)
+
+```typescript
+// Replay all events that failed during an outage window
+const result = await zyvan.deadLetters.bulkReplay({
+  destinationId: 'dst_accounting',
+  failedAfter: '2026-03-24T10:00:00Z',
+  failedBefore: '2026-03-24T14:00:00Z',
+  limit: 500,
+});
+
+console.log(`Replayed ${result.replayedCount} deliveries to active queue`);
+```
+
+---
+
+## 5. Webhook Signature Verification (`zyvan.webhooks`)
+
+The SDK includes a zero-dependency verification engine that works both on client instances (`zyvan.webhooks`) and statically without an API key (`import { webhooks } from '@zyvan/sdk'`):
+
+### Constructing Typed Events in Next.js App Router
+
+```typescript
+import { webhooks, WebhookVerificationError } from '@zyvan/sdk';
+
+export async function POST(request: Request) {
+  const rawBody = await request.text();
+  const signature = request.headers.get('x-zyvan-signature') || '';
+  const timestamp = request.headers.get('x-zyvan-timestamp') || '';
+
+  try {
+    // Constant-time HMAC-SHA256 verification and JSON parsing
+    const event = webhooks.constructEvent({
+      payload: rawBody,
+      signature,
+      timestamp,
+      secret: process.env.ZYVAN_WEBHOOK_SECRET!,
+      toleranceSec: 300, // 5-minute replay window tolerance
+    });
+
+    switch (event.type) {
+      case 'order.completed':
+        console.log(`Processing order: ${event.data.orderId}`);
+        break;
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
+    }
+
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
+  } catch (err) {
+    if (err instanceof WebhookVerificationError) {
+      console.error(`Verification failed: [${err.code}] ${err.message}`);
+      return new Response('Unauthorized webhook signature', { status: 401 });
+    }
+    return new Response('Internal error', { status: 500 });
+  }
+}
+```
+
+### Zero-Downtime Secret Rotation
+
+Pass an array of secrets to accept signatures generated with either the current or prior key:
+
+```typescript
+const event = webhooks.constructEvent({
+  payload: rawBody,
+  signature,
+  timestamp,
+  secret: [
+    process.env.ZYVAN_NEW_WEBHOOK_SECRET!,
+    process.env.ZYVAN_OLD_WEBHOOK_SECRET!,
+  ],
+});
+```
+
+---
+
+## 6. Typed Error Hierarchy
+
+`@zyvan/sdk` exposes specific error classes for clean error handling:
+
+```typescript
+import {
+  ZyvanError,
+  ZyvanApiError,
+  ZyvanAuthenticationError,
+  ZyvanRateLimitError,
+  ZyvanConflictError,
+  ZyvanTimeoutError,
+} from '@zyvan/sdk';
+
+try {
+  await zyvan.events.send({ /* ... */ });
+} catch (err) {
+  if (err instanceof ZyvanAuthenticationError) {
+    console.error('Invalid or expired API key');
+  } else if (err instanceof ZyvanRateLimitError) {
+    console.error(`Rate limited. Reset in ${err.retryAfterSeconds}s`);
+  } else if (err instanceof ZyvanConflictError) {
+    console.error('Idempotency key collision with differing payload');
+  } else if (err instanceof ZyvanTimeoutError) {
+    console.error('Request timed out before server response');
+  } else if (err instanceof ZyvanApiError) {
+    console.error(`API Error ${err.statusCode}: [${err.code}] ${err.message}`);
+  }
+}
+```
+
+---
+
+## 7. Operation-Safe Retry Engine
+
+The SDK includes a built-in retry engine that enforces **operation safety**:
+
+- **Safe Methods (`GET`, `HEAD`)**: Automatically retried up to `maxRetries` times upon transient errors (`ECONNRESET`, `ETIMEDOUT`, `429`, `502`, `503`, `504`).
+- **Unsafe Mutations (`POST`, `PUT`, `DELETE`)**: Retried on network errors **only if an `Idempotency-Key` was attached**. If no idempotency key is present, the SDK does not retry across network drops, preventing duplicate event publication.
+- **Adaptive Jitter**: Uses full jitter backoff to prevent thundering herd contention during API gateway spikes.
