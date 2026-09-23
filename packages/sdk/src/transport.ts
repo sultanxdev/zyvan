@@ -1,11 +1,25 @@
 // ─────────────────────────────────────────────────────────────
 // Zyvan SDK — HTTP Transport Layer
 // Zero-dependency fetch-based transport with AbortSignal,
-// timeout coordination, reserved header protection, and error mapping.
+// timeout coordination, reserved header protection, error mapping,
+// and operation-safe exponential backoff retry engine.
 // ─────────────────────────────────────────────────────────────
 
-import type { ZyvanClientOptions, RequestOptions, ApiResponse } from './types';
+import type { ZyvanClientOptions, RequestOptions, ApiResponse, RetryOptions, RetryContext } from './types';
 import { NetworkError, createZyvanErrorFromResponse } from './errors';
+import {
+  resolveRetryOptions,
+  isOperationSafe,
+  isTransientError,
+  shouldRetryRequest,
+  calculateBackoffDelay,
+  sleep,
+} from './retry';
+
+export interface HttpTransportTestHooks {
+  sleep?: typeof sleep;
+  random?: () => number;
+}
 
 const RESERVED_HEADERS = new Set([
   'authorization',
@@ -22,8 +36,11 @@ export class HttpTransport {
   private readonly timeoutMs: number;
   private readonly customHeaders: Record<string, string>;
   private readonly fetchFn: typeof globalThis.fetch;
+  private readonly clientRetries?: RetryOptions | boolean;
+  private readonly sleepFn: typeof sleep;
+  private readonly randomFn: () => number;
 
-  constructor(options: ZyvanClientOptions) {
+  constructor(options: ZyvanClientOptions, testHooks?: HttpTransportTestHooks) {
     if (!options?.apiKey || typeof options.apiKey !== 'string' || options.apiKey.trim() === '') {
       throw new Error('ZyvanClient requires a non-empty apiKey');
     }
@@ -44,11 +61,14 @@ export class HttpTransport {
     this.timeoutMs = options.timeoutMs ?? 10000;
     this.customHeaders = options.headers || {};
     this.fetchFn = options.fetch || globalThis.fetch.bind(globalThis);
+    this.clientRetries = options.retries;
+    this.sleepFn = testHooks?.sleep || sleep;
+    this.randomFn = testHooks?.random || Math.random;
   }
 
   /**
    * Execute an HTTP request with timeout coordination, authentication,
-   * query serialization, and typed error dispatching.
+   * query serialization, operation-safe retry loop, and typed error dispatching.
    */
   public async request<T>(options: RequestOptions): Promise<ApiResponse<T>> {
     // 1. Build and sanitize URL
@@ -57,17 +77,17 @@ export class HttpTransport {
     // 2. Build and sanitize headers with strict reserved header protection
     const headers = this.buildHeaders(options);
 
-    // 3. Serialize request body
+    // 3. Serialize request body once before any attempts for exact byte-reproducibility
     let bodyPayload: string | undefined = undefined;
     if (options.body !== undefined) {
       bodyPayload = JSON.stringify(options.body);
       headers.set('Content-Type', 'application/json');
     }
 
-    // 4. Coordinate AbortSignal and timeout
-    const controller = new AbortController();
-    let isTimeout = false;
-    let timer: NodeJS.Timeout | undefined = undefined;
+    // 4. Resolve retry configuration and operation safety
+    const resolvedRetry = resolveRetryOptions(this.clientRetries, options.retries);
+    const method = options.method || 'GET';
+    const isIdempotent = isOperationSafe(method, options.retrySafety);
 
     const callerSignal = options.signal;
     if (callerSignal?.aborted) {
@@ -77,92 +97,10 @@ export class HttpTransport {
       });
     }
 
-    const onCallerAbort = () => {
-      controller.abort(callerSignal?.reason);
-    };
+    let attempt = 1;
+    const maxAttempts = 1 + resolvedRetry.maxRetries;
 
-    if (callerSignal) {
-      callerSignal.addEventListener('abort', onCallerAbort, { once: true });
-    }
-
-    const timeout = options.timeoutMs ?? this.timeoutMs;
-    if (timeout > 0) {
-      timer = setTimeout(() => {
-        isTimeout = true;
-        controller.abort(new Error(`Request timed out after ${timeout}ms`));
-      }, timeout);
-    }
-
-    try {
-      const response = await this.fetchFn(fullUrl.toString(), {
-        method: options.method || 'GET',
-        headers,
-        body: bodyPayload,
-        signal: controller.signal,
-      });
-
-      const headerRequestId = response.headers.get('x-request-id') || undefined;
-
-      // Handle successful responses (200 - 299)
-      if (response.ok) {
-        if (response.status === 204) {
-          return {
-            data: undefined as unknown as T,
-            statusCode: 204,
-            requestId: headerRequestId,
-            headers: response.headers,
-          };
-        }
-
-        const rawText = await response.text();
-        if (rawText.trim() === '') {
-          return {
-            data: undefined as unknown as T,
-            statusCode: response.status,
-            requestId: headerRequestId,
-            headers: response.headers,
-          };
-        }
-
-        let parsedData: unknown;
-        try {
-          parsedData = JSON.parse(rawText);
-        } catch {
-          // If response is not JSON, return raw text as data
-          parsedData = rawText;
-        }
-
-        const requestId =
-          (parsedData &&
-          typeof parsedData === 'object' &&
-          'request_id' in parsedData &&
-          typeof (parsedData as Record<string, unknown>).request_id === 'string'
-            ? ((parsedData as Record<string, unknown>).request_id as string)
-            : undefined) || headerRequestId;
-
-        return {
-          data: parsedData as T,
-          statusCode: response.status,
-          requestId,
-          headers: response.headers,
-        };
-      }
-
-      // Handle error status codes (400 - 599)
-      const errorRawText = await response.text();
-      throw createZyvanErrorFromResponse({
-        statusCode: response.status,
-        rawText: errorRawText,
-        headers: response.headers,
-      });
-    } catch (err: unknown) {
-      if (isTimeout) {
-        throw new NetworkError(`Request timed out after ${timeout}ms`, {
-          code: 'TIMEOUT',
-          cause: err instanceof Error ? err : undefined,
-        });
-      }
-
+    while (true) {
       if (callerSignal?.aborted) {
         throw new NetworkError('Request was aborted by caller', {
           code: 'ABORTED',
@@ -170,22 +108,153 @@ export class HttpTransport {
         });
       }
 
-      // If already a typed ZyvanError (e.g. ValidationError, AuthenticationError, etc.), rethrow
-      if (err instanceof Error && 'statusCode' in err) {
-        throw err;
+      // Coordinate per-attempt timeout and caller cancellation
+      const controller = new AbortController();
+      let isTimeout = false;
+      let timer: NodeJS.Timeout | undefined = undefined;
+
+      const onCallerAbort = () => {
+        controller.abort(callerSignal?.reason);
+      };
+
+      if (callerSignal) {
+        callerSignal.addEventListener('abort', onCallerAbort, { once: true });
       }
 
-      // Generic network / DNS / socket error
-      throw new NetworkError(err instanceof Error ? err.message : 'Network connection failed', {
-        code: 'NETWORK_ERROR',
-        cause: err instanceof Error ? err : undefined,
-      });
-    } finally {
-      if (timer) {
-        clearTimeout(timer);
+      const timeout = options.timeoutMs ?? this.timeoutMs;
+      if (timeout > 0) {
+        timer = setTimeout(() => {
+          isTimeout = true;
+          controller.abort(new Error(`Request timed out after ${timeout}ms`));
+        }, timeout);
       }
-      if (callerSignal) {
-        callerSignal.removeEventListener('abort', onCallerAbort);
+
+      try {
+        const response = await this.fetchFn(fullUrl.toString(), {
+          method,
+          headers,
+          body: bodyPayload,
+          signal: controller.signal,
+        });
+
+        const headerRequestId = response.headers.get('x-request-id') || undefined;
+
+        // Handle successful responses (200 - 299)
+        if (response.ok) {
+          if (response.status === 204) {
+            return {
+              data: undefined as unknown as T,
+              statusCode: 204,
+              requestId: headerRequestId,
+              headers: response.headers,
+            };
+          }
+
+          const rawText = await response.text();
+          if (rawText.trim() === '') {
+            return {
+              data: undefined as unknown as T,
+              statusCode: response.status,
+              requestId: headerRequestId,
+              headers: response.headers,
+            };
+          }
+
+          let parsedData: unknown;
+          try {
+            parsedData = JSON.parse(rawText);
+          } catch {
+            parsedData = rawText;
+          }
+
+          const requestId =
+            (parsedData &&
+            typeof parsedData === 'object' &&
+            'request_id' in parsedData &&
+            typeof (parsedData as Record<string, unknown>).request_id === 'string'
+              ? ((parsedData as Record<string, unknown>).request_id as string)
+              : undefined) || headerRequestId;
+
+          return {
+            data: parsedData as T,
+            statusCode: response.status,
+            requestId,
+            headers: response.headers,
+          };
+        }
+
+        // Handle error status codes (400 - 599)
+        const errorRawText = await response.text();
+        throw createZyvanErrorFromResponse({
+          statusCode: response.status,
+          rawText: errorRawText,
+          headers: response.headers,
+        });
+      } catch (err: unknown) {
+        let errorToEvaluate: unknown;
+
+        if (isTimeout) {
+          errorToEvaluate = new NetworkError(`Request timed out after ${timeout}ms`, {
+            code: 'TIMEOUT',
+            cause: err instanceof Error ? err : undefined,
+          });
+        } else if (callerSignal?.aborted) {
+          errorToEvaluate = new NetworkError('Request was aborted by caller', {
+            code: 'ABORTED',
+            cause: callerSignal.reason instanceof Error ? callerSignal.reason : undefined,
+          });
+        } else if (err instanceof Error && 'statusCode' in err) {
+          errorToEvaluate = err;
+        } else {
+          errorToEvaluate = new NetworkError(
+            err instanceof Error ? err.message : 'Network connection failed',
+            {
+              code: 'NETWORK_ERROR',
+              cause: err instanceof Error ? err : undefined,
+            }
+          );
+        }
+
+        // Classify error and safety context
+        const transientInfo = isTransientError(errorToEvaluate);
+        const retryContext: RetryContext = {
+          error: errorToEvaluate,
+          attempt,
+          method,
+          isIdempotent,
+          idempotencyKey: options.idempotencyKey,
+        };
+
+        const shouldRetry = shouldRetryRequest(
+          retryContext,
+          resolvedRetry,
+          transientInfo
+        );
+
+        if (!shouldRetry || attempt >= maxAttempts) {
+          // Re-throw the exact final error preserved without wrapping
+          throw errorToEvaluate;
+        }
+
+        // Calculate backoff delay with full jitter or server Retry-After
+        const delay = calculateBackoffDelay(
+          attempt,
+          resolvedRetry,
+          transientInfo.retryAfterMs,
+          this.randomFn
+        );
+
+        attempt++;
+
+        // Await interruptible sleep (aborted immediately if caller cancels)
+        await this.sleepFn(delay, callerSignal);
+      } finally {
+        if (timer) {
+          clearTimeout(timer);
+        }
+        if (callerSignal) {
+          callerSignal.removeEventListener('abort', onCallerAbort);
+        }
       }
     }
   }

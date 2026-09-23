@@ -311,7 +311,7 @@ describe('PR 4.1: SDK Transport Layer (HttpTransport)', () => {
           new Response(`Server error ${status}`, { status })
         );
 
-        await expect(transport.request({ path: '/v1/health' })).rejects.toThrow(ServerError);
+        await expect(transport.request({ path: '/v1/health', retries: false })).rejects.toThrow(ServerError);
       }
     });
   });

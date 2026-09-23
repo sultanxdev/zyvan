@@ -112,6 +112,7 @@ describe('PR 4.2: Cross-Resource Contract Invariants', () => {
   it('propagates typed SDK errors without wrapping into generic Error', async () => {
     const client = new ZyvanClient({
       apiKey,
+      retries: false,
       fetch: mockFetch as unknown as typeof fetch,
     });
 

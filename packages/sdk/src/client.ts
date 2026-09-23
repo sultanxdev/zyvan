@@ -54,12 +54,12 @@ export class ZyvanClient {
    */
   public readonly deadLetters: DeadLettersResource;
 
-  constructor(options: ZyvanClientOptions) {
+  constructor(options: ZyvanClientOptions, testHooks?: import('./transport').HttpTransportTestHooks) {
     if (!options?.apiKey || typeof options.apiKey !== 'string' || options.apiKey.trim() === '') {
       throw new Error('ZyvanClient requires a non-empty apiKey');
     }
 
-    this.transport = new HttpTransport(options);
+    this.transport = new HttpTransport(options, testHooks);
     this.apiKey = options.apiKey.trim();
     this.baseUrl = (options.baseUrl || 'https://api.zyvan.dev').replace(/\/$/, '');
     this.projectId = options.projectId?.trim() || undefined;

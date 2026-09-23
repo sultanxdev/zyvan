@@ -63,6 +63,7 @@ export class EventsResource extends Resource {
 
     return this.httpPost<IngestResponse>('/v1/events', body, {
       idempotencyKey,
+      retrySafety: 'idempotent',
       projectId: input.projectId?.trim(),
     });
   }

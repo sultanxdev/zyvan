@@ -2,6 +2,77 @@
 // Zyvan SDK — Types & Request Contracts
 // ─────────────────────────────────────────────────────────────
 
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+
+export type RetrySafety = 'safe' | 'idempotent' | 'unsafe';
+
+export interface RetryContext {
+  /**
+   * The error or status response that triggered the retry evaluation.
+   */
+  error: unknown;
+
+  /**
+   * The 1-based attempt number that just completed (1 for first attempt, etc.).
+   */
+  attempt: number;
+
+  /**
+   * HTTP method of the request.
+   */
+  method: HttpMethod;
+
+  /**
+   * Whether the operation is naturally or contractually idempotent.
+   */
+  isIdempotent: boolean;
+
+  /**
+   * Idempotency-Key if present on the request.
+   */
+  idempotencyKey?: string;
+}
+
+export interface RetryOptions {
+  /**
+   * Maximum number of retry attempts.
+   * Defaults to 2 (total 3 attempts: 1 initial + 2 retries). Max allowed: 10.
+   * Set to 0 to disable retries.
+   */
+  maxRetries?: number;
+
+  /**
+   * Initial backoff delay in milliseconds.
+   * Defaults to 500ms.
+   */
+  initialDelayMs?: number;
+
+  /**
+   * Maximum exponential backoff delay in milliseconds.
+   * Defaults to 10,000ms (10 seconds).
+   */
+  maxDelayMs?: number;
+
+  /**
+   * Maximum duration in milliseconds to honor a server-provided Retry-After header.
+   * Defaults to 60,000ms (60 seconds).
+   */
+  maxRetryAfterMs?: number;
+
+  /**
+   * Exponential backoff multiplier factor.
+   * Defaults to 2.
+   */
+  backoffFactor?: number;
+
+  /**
+   * Optional custom predicate to veto a retry.
+   * Note: This predicate can only veto an otherwise safe retry;
+   * it cannot override the SDK's built-in safety boundaries for unkeyed unsafe mutations.
+   */
+  shouldRetry?: (context: RetryContext) => boolean;
+}
+
 export interface ZyvanClientOptions {
   /**
    * Zyvan Project API key (e.g. zyvan_live_... / zyvan_test_...).
@@ -35,9 +106,13 @@ export interface ZyvanClientOptions {
    * Custom fetch implementation (useful for testing or non-standard runtimes).
    */
   fetch?: typeof globalThis.fetch;
-}
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+  /**
+   * Retry configuration for transient failures, rate limits, and 5xx errors.
+   * Can be set to false to completely disable automatic retries.
+   */
+  retries?: RetryOptions | boolean;
+}
 
 export interface RequestOptions {
   /**
@@ -56,7 +131,7 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined | null>;
 
   /**
-   * Request payload for POST/PUT/PATCH. Automatically serialized to JSON.
+   * Request payload for POST/PUT/PATCH. Automatically serialized to JSON once before attempts.
    */
   body?: unknown;
 
@@ -69,6 +144,20 @@ export interface RequestOptions {
    * Explicit Idempotency-Key header for safely retrying mutating operations.
    */
   idempotencyKey?: string;
+
+  /**
+   * Operation safety classification.
+   * 'safe': Naturally read-only (GET/HEAD).
+   * 'idempotent': Mutating operation with guaranteed idempotency contract.
+   * 'unsafe': Non-idempotent mutation (never retried on network/timeout/5xx/429).
+   * Defaults to 'safe' for GET/HEAD, and 'unsafe' for other methods.
+   */
+  retrySafety?: RetrySafety;
+
+  /**
+   * Override retry behavior for this specific request.
+   */
+  retries?: RetryOptions | boolean;
 
   /**
    * Optional project override for this request via 'X-Project-Id'.
