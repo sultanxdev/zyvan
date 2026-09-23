@@ -3,7 +3,6 @@
 // Strongly typed API client with resource namespaces.
 // ─────────────────────────────────────────────────────────────
 
-import crypto from 'crypto';
 import type { ZyvanClientOptions, RequestOptions, ApiResponse } from './types';
 import { HttpTransport } from './transport';
 import {
@@ -13,14 +12,8 @@ import {
   DeliveriesResource,
   DeadLettersResource,
 } from './resources';
-
-export interface WebhookVerifyOptions {
-  payload: string | Buffer;
-  signature: string;
-  timestamp: string | number;
-  secret: string;
-  toleranceMs?: number;
-}
+import { Webhooks, webhooks } from './webhooks';
+export type { WebhookVerifyOptions } from './webhooks';
 
 export class ZyvanClient {
   private readonly transport: HttpTransport;
