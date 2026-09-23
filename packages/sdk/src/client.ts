@@ -3,7 +3,6 @@
 // Strongly typed API client with resource namespaces.
 // ─────────────────────────────────────────────────────────────
 
-import crypto from 'crypto';
 import type { ZyvanClientOptions, RequestOptions, ApiResponse } from './types';
 import { HttpTransport } from './transport';
 import {
@@ -13,14 +12,8 @@ import {
   DeliveriesResource,
   DeadLettersResource,
 } from './resources';
-
-export interface WebhookVerifyOptions {
-  payload: string | Buffer;
-  signature: string;
-  timestamp: string | number;
-  secret: string;
-  toleranceMs?: number;
-}
+import { Webhooks, webhooks } from './webhooks';
+export type { WebhookVerifyOptions } from './webhooks';
 
 export class ZyvanClient {
   private readonly transport: HttpTransport;
@@ -53,6 +46,16 @@ export class ZyvanClient {
    * DeadLetters resource: inspect, triage, replay, dismiss, or resolve DLQ failures.
    */
   public readonly deadLetters: DeadLettersResource;
+
+  /**
+   * Webhooks engine: verify incoming webhook signatures and construct typed events.
+   */
+  public readonly webhooks: Webhooks = webhooks;
+
+  /**
+   * Static Webhooks engine for verifying signatures without instantiating ZyvanClient.
+   */
+  public static readonly webhooks: Webhooks = webhooks;
 
   constructor(options: ZyvanClientOptions, testHooks?: import('./transport').HttpTransportTestHooks) {
     if (!options?.apiKey || typeof options.apiKey !== 'string' || options.apiKey.trim() === '') {
@@ -132,48 +135,4 @@ export class ZyvanClient {
   ): Promise<ApiResponse<T>> {
     return this.transport.request<T>({ ...options, path, method: 'DELETE' });
   }
-
-  /**
-   * Zero-dependency Webhook Signature Verification.
-   */
-  public static webhooks = {
-    verify(options: WebhookVerifyOptions): boolean {
-      const { payload, signature, timestamp, secret, toleranceMs = 300000 } = options;
-
-      if (!signature || !timestamp || !secret) {
-        return false;
-      }
-
-      const tsNum = typeof timestamp === 'string' ? parseInt(timestamp, 10) : timestamp;
-      const nowSec = Math.floor(Date.now() / 1000);
-      const toleranceSec = Math.floor(toleranceMs / 1000);
-
-      if (Math.abs(nowSec - tsNum) > toleranceSec) {
-        return false;
-      }
-
-      const payloadStr = Buffer.isBuffer(payload) ? payload.toString('utf-8') : payload;
-      const signedContent = `${tsNum}.${payloadStr}`;
-      const expectedHmac = crypto
-        .createHmac('sha256', secret)
-        .update(signedContent, 'utf-8')
-        .digest('hex');
-
-      let candidate = signature.trim();
-      if (candidate.startsWith('v1=')) {
-        candidate = candidate.substring(3);
-      }
-
-      try {
-        const candidateBuf = Buffer.from(candidate, 'hex');
-        const expectedBuf = Buffer.from(expectedHmac, 'hex');
-        if (candidateBuf.length !== expectedBuf.length) {
-          return false;
-        }
-        return crypto.timingSafeEqual(candidateBuf, expectedBuf);
-      } catch {
-        return false;
-      }
-    },
-  };
 }
