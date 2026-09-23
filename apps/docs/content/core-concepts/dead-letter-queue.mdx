@@ -1,0 +1,138 @@
+---
+title: "Dead-Letter Queue (DLQ)"
+description: "How Zyvan archives exhausted webhook deliveries in the Dead-Letter Queue, provides comprehensive forensic telemetry, and supports atomic 1-click and bulk replays."
+category: "Core Concepts"
+order: 6
+badge: "DLQ & Replay"
+readTime: "5 min"
+---
+
+# Dead-Letter Queue (DLQ)
+
+Even with exponential backoff and jitter, downstream webhook endpoints can suffer prolonged outages: an expired SSL certificate, a botched production deployment, an unpaid cloud provider bill, or an internal crash loop lasting several hours or days.
+
+Rather than indefinitely consuming retry queue resources or silently dropping events, Zyvan routes exhausted deliveries to the **Dead-Letter Queue (DLQ)**.
+
+---
+
+## When Does a Delivery Enter the DLQ?
+
+A delivery transitions from `RETRYING` to `DEAD_LETTER` when:
+1. **Max Retry Attempts Exhausted**: The delivery has reached `max_attempts` (e.g. 5 attempts over 2 hours) without receiving a `2xx` HTTP success.
+2. **Persistent Network Partition**: The receiver domain no longer resolves via DNS or TCP connections consistently drop across all scheduled retry windows.
+
+```mermaid
+graph TD
+    A[Delivery Created: PENDING] --> B[Attempt 1: 500 Error]
+    B --> C[Attempt 2: 503 Error]
+    C --> D[Attempt 3: 504 Timeout]
+    D --> E[Attempt 4: 502 Bad Gateway]
+    E --> F[Attempt 5: 500 Error (Max Reached!)]
+    F --> G["DEAD-LETTER QUEUE<br/>(Archived with Full Forensic Logs)"]
+    
+    G --> H["Operator Fixes Downstream Server"]
+    H --> I["Atomic 1-Click Replay"]
+    I --> J["Attempt 6: 200 OK (DELIVERED)"]
+```
+
+---
+
+## Anatomy of a Dead-Letter Record
+
+When inspecting a dead-lettered delivery in the dashboard or via the REST API, you receive complete forensic telemetry:
+
+| Property | Description |
+| :--- | :--- |
+| `delivery_id` | Unique ID of the failed delivery job (`del_...`). |
+| `event_id` | ID of the source event record (`evt_...`). |
+| `destination_id` | Destination endpoint URL and metadata. |
+| `last_status_code` | HTTP status code returned on final attempt (e.g., `500`, `504`). |
+| `failure_reason` | Human-readable diagnosis (e.g., `MAX_ATTEMPTS_EXCEEDED: HTTP 504`). |
+| `payload` | The exact immutable JSON payload that was dispatched. |
+| `attempts` | Array of every individual attempt with latency, timestamp, and response body. |
+
+### Sample DLQ API Response
+
+```json
+{
+  "id": "del_01H8X92M4Q892",
+  "event_id": "evt_01H8X92M4Q",
+  "destination_id": "dst_prod_accounting",
+  "status": "DEAD_LETTER",
+  "attempts_count": 5,
+  "last_status_code": 504,
+  "failure_reason": "MAX_ATTEMPTS_EXCEEDED",
+  "created_at": "2026-03-24T12:00:00Z",
+  "dead_lettered_at": "2026-03-24T14:32:15Z",
+  "attempts": [
+    {
+      "attempt_number": 5,
+      "status_code": 504,
+      "latency_ms": 10002,
+      "error_message": "Gateway Timeout",
+      "response_body": "<html><body>504 Gateway Time-out</body></html>"
+    }
+  ]
+}
+```
+
+---
+
+## The Triage & Recovery Workflow
+
+<Steps>
+  <Step number={1} title="Forensic Inspection">
+    Inspect the truncated `response_body` and error codes in the DLQ to identify why the customer's server failed (e.g. database connection pool exhaustion or unhandled schema error).
+  </Step>
+
+  <Step number={2} title="Resolve Downstream Outage">
+    The customer or engineering team deploys a fix or restores the affected service.
+  </Step>
+
+  <Step number={3} title="Endpoint Health Validation">
+    Before replaying thousands of queued events, execute a single synthetic test ping using the Zyvan API or dashboard to confirm the endpoint is responding with `200 OK`.
+  </Step>
+
+  <Step number={4} title="Trigger Atomic Replay">
+    Replay a single delivery or trigger a bulk replay for all dead-lettered events within a specific time window.
+  </Step>
+</Steps>
+
+---
+
+## Replaying Failed Deliveries via SDK
+
+### 1. Replay a Single Delivery
+
+```typescript
+import { ZyvanClient } from '@zyvan/sdk';
+
+const zyvan = new ZyvanClient({
+  apiKey: process.env.ZYVAN_API_KEY!,
+  projectId: 'prj_live_01H8X92M4Q',
+});
+
+// Replay a specific dead-letter delivery
+const replayed = await zyvan.deliveries.replay('del_01H8X92M4Q892');
+console.log(`Delivery reset to PENDING: ${replayed.id}`);
+```
+
+### 2. Bulk Replay Filtered by Destination and Date
+
+When an endpoint was offline for 3 hours and is now back online, you can replay all impacted events in one atomic batch:
+
+```typescript
+// Replay all events that failed for this destination during the incident
+const result = await zyvan.dlq.replay({
+  destinationId: 'dst_prod_accounting',
+  failedAfter: '2026-03-24T12:00:00Z',
+  failedBefore: '2026-03-24T15:00:00Z',
+  limit: 500, // Batch ceiling
+});
+
+console.log(`Replayed ${result.replayedCount} deliveries back to active queue.`);
+```
+
+<Callout type="tip" title="Rate-Paced Replay Protection">
+  When replaying a large batch from the DLQ, Zyvan automatically enforces the destination's configured `rateLimit` and tenant `concurrencyLimit`. This prevents a bulk replay of 10,000 events from immediately crashing the newly restored server again.
+</Callout>

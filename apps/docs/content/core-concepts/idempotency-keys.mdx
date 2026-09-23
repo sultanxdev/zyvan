@@ -1,17 +1,28 @@
 ---
 title: "Idempotency and Deduplication"
-description: "How Zyvan guarantees exactly-once ingestion using database-level uniqueness constraints and 24-hour deduplication windows."
+description: "How Zyvan guarantees exactly-once event ingestion using database-level uniqueness constraints and 24-hour deduplication windows."
 category: "Core Concepts"
-order: 4
-badge: "Reliability"
-readTime: "4 min"
+order: 3
+badge: "Reliability & Safety"
+readTime: "5 min"
 ---
 
 # Idempotency and Deduplication
 
-In distributed systems, network partitions or client timeouts can cause your application to retry sending an event. Without idempotency protection, this causes duplicate events and repeated downstream actions (e.g., charging a card twice or double-shipping an order).
+In distributed systems, the network is fundamentally unreliable. A client application might send an HTTP `POST` to publish an event, and the Zyvan server successfully receives and commits the event—but a transient network timeout or dropped TCP packet causes the client to believe the request timed out.
 
-Zyvan provides **atomic, database-enforced deduplication** via the `idempotency_key` parameter.
+```text
+Client Application ──► POST /v1/events ──► Zyvan Server (Committed to DB)
+        ▲                                          │
+        │                                          ▼
+   HTTP Timeout ◄─────────────────── Network Drop (Response Lost)
+        │
+   Client Retries ──► POST /v1/events ──► DUPLICATE EVENT! (Without Idempotency)
+```
+
+Without idempotency, client retries cause **duplicate event ingestion**, triggering duplicate billing charges, double-provisioned customer accounts, or multiple conflicting webhook deliveries.
+
+Zyvan solves this with **database-enforced atomic deduplication** powered by the `Idempotency-Key` header.
 
 ---
 
@@ -20,42 +31,110 @@ Zyvan provides **atomic, database-enforced deduplication** via the `idempotency_
 ```mermaid
 sequenceDiagram
     autonumber
-    actor App as Your Application
-    participant Zyvan as Zyvan Ingestion
+    actor App as Client Application
+    participant Zyvan as Zyvan Ingestion API
     participant DB as PostgreSQL (Unique Index)
 
-    App->>Zyvan: POST /v1/projects/:id/events (key: "tx_order_8819")
+    App->>Zyvan: POST /v1/events (Idempotency-Key: "tx_order_998124")
     Zyvan->>DB: INSERT INTO events (project_id, idempotency_key, ...)
     DB-->>Zyvan: Success (Row Created)
-    Zyvan-->>App: 202 Accepted (event_id: "evt_01", status: "QUEUED")
+    Zyvan-->>App: 202 Accepted (event_id: "evt_01", duplicate: false)
 
-    Note over App,Zyvan: Network drops or client retries request!
+    Note over App,Zyvan: Network connection drops; client retries the exact same request
 
-    App->>Zyvan: POST /v1/projects/:id/events (key: "tx_order_8819")
+    App->>Zyvan: POST /v1/events (Idempotency-Key: "tx_order_998124")
     Zyvan->>DB: INSERT INTO events (project_id, idempotency_key, ...)
-    DB-->>Zyvan: Unique Constraint Violation (Duplicate Key)
-    Zyvan->>DB: SELECT original event by (project_id, idempotency_key)
+    DB-->>Zyvan: Unique Constraint Violation (duplicate key)
+    Zyvan->>DB: SELECT event by (project_id, idempotency_key)
     Zyvan-->>App: 200 OK (event_id: "evt_01", duplicate: true)
 ```
 
 ---
 
-## Best Practices for Idempotency Keys
+## Database-Level Invariants
+
+Unlike lightweight caching layers (such as Redis) which are vulnerable to cache eviction, key expiration race conditions, or replication lag, Zyvan enforces idempotency at the database engine level:
+
+```sql
+CREATE UNIQUE INDEX idx_events_project_idempotency 
+ON events (project_id, idempotency_key) 
+WHERE created_at > NOW() - INTERVAL '24 hours';
+```
+
+### Key Behavioral Rules
+
+1. **24-Hour Active Window**:
+   Idempotency keys are guaranteed unique within a rolling 24-hour window per project.
+2. **Deterministic Payload Matching**:
+   If a client retries a request with the same `Idempotency-Key` but changes the `event_type` or `payload`, Zyvan detects the conflict and rejects the request with `409 Conflict`:
+   ```json
+   {
+     "error": {
+       "code": "IDEMPOTENCY_KEY_MISMATCH",
+       "message": "An event with this idempotency key was previously submitted with a different payload."
+     }
+   }
+   ```
+3. **Concurrent Execution Safety**:
+   If two identical requests with the same key arrive at the exact same millisecond, PostgreSQL row-level locking ensures that exactly one transaction succeeds in creating the row, while the second transaction waits and safely receives the existing event.
+
+---
+
+## Best Practices for Choosing Idempotency Keys
 
 <Steps>
-  <Step number={1} title="Use Natural Domain Identifiers">
-    Whenever possible, use business-level unique keys from your database (e.g., `checkout_session_id`, `invoice_id`, `user_uuid + action_name`).
+  <Step number={1} title="Use Business Domain Identifiers">
+    Derive keys directly from the primary entity in your database:
+    - Orders: `order_ord_998124_created`
+    - Subscriptions: `sub_883109_renewal_2026_03`
+    - Invoices: `inv_554109_paid`
   </Step>
 
-  <Step number={2} title="Do Not Use Random UUIDs for Retries">
-    If your HTTP client encounters a network timeout and retries, reuse the exact same `idempotency_key` so Zyvan can safely identify and deduplicate the retry.
+  <Step number={2} title="Never Use Random UUIDs on Retries">
+    If your HTTP client generates a random `v4()` UUID inside the retry loop, every retry will present a different key, entirely defeating deduplication. Generate the UUID once before initiating the operation.
   </Step>
 
-  <Step number={3} title="24-Hour Deduplication Window">
-    Idempotency keys are guaranteed unique within a rolling 24-hour window per project.
+  <Step number={3} title="Combine Action + Entity ID">
+    If an entity experiences multiple events throughout its lifecycle (e.g. `order.created`, `order.shipped`), qualify the key with the action name:
+    ```typescript
+    const idempotencyKey = `order_${order.id}_shipped`;
+    ```
   </Step>
 </Steps>
 
-<Callout type="tip" title="Zero-Duplicate Guarantee">
-  Even if 10 concurrent requests arrive simultaneously with the exact same `idempotency_key`, PostgreSQL transaction isolation guarantees that exactly **one** insert will succeed, and the remaining 9 will safely return the existing event.
+---
+
+## SDK Integration & Safe Automatic Retries
+
+The official `@zyvan/sdk` integrates idempotency directly into its retry engine:
+
+```typescript
+import { ZyvanClient } from '@zyvan/sdk';
+
+const zyvan = new ZyvanClient({
+  apiKey: process.env.ZYVAN_API_KEY!,
+  projectId: 'prj_live_01H8X92M4Q',
+});
+
+// The SDK automatically attaches this key to the HTTP header
+const event = await zyvan.events.create({
+  eventType: 'payment.completed',
+  tenantId: 'cust_enterprise_01',
+  idempotencyKey: `tx_stripe_charge_${charge.id}`,
+  payload: {
+    chargeId: charge.id,
+    amount: charge.amount,
+    currency: charge.currency,
+  },
+});
+
+if (event.duplicate) {
+  console.log(`Event was already processed previously: ${event.id}`);
+} else {
+  console.log(`New event published: ${event.id}`);
+}
+```
+
+<Callout type="note" title="SDK Operation Safety">
+  In `@zyvan/sdk`, transient network failures (connection drops, socket timeouts) on `POST` requests are **only retried if an idempotency key was provided**. Unkeyed mutations are intentionally never retried over the network to protect you from duplicate execution.
 </Callout>

@@ -14,11 +14,12 @@ const CONTENT_PATH = path.join(process.cwd(), 'content');
 const GROUP_ORDER: Record<string, number> = {
   'Getting Started': 1,
   'Core Concepts': 2,
-  'SDKs & Tools': 3,
-  'Guides': 4,
-  'API Reference': 5,
-  'Architecture': 6,
-  'Resources': 7,
+  'Webhooks & Reliability': 3,
+  'SDKs & Tools': 4,
+  'Guides': 5,
+  'API Reference': 6,
+  'Architecture': 7,
+  'Resources': 8,
 };
 
 function slugify(text: string): string {

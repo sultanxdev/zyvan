@@ -1,57 +1,130 @@
 ---
 title: "Destinations and Endpoints"
-description: "How to configure webhook destinations in Zyvan, set up signing secrets, configure custom retry policies, and enforce security policies."
+description: "How to configure webhook destinations in Zyvan: signing secrets, AES-256-GCM encryption, SSRF protection, custom retry policies, and event type filtering."
 category: "Core Concepts"
-order: 3
-badge: "Configuration"
-readTime: "4 min"
+order: 2
+badge: "Configuration & Security"
+readTime: "5 min"
 ---
 
 # Destinations and Endpoints
 
-A **Destination** is a registered target URL where Zyvan dispatches webhook payloads when events are emitted.
+A **Destination** is a registered HTTP(S) endpoint configured in Zyvan to receive webhook payloads when specific event types are published.
+
+Destinations define where webhooks are delivered, how they are cryptographically signed, and what retry policies apply when downstream endpoints experience outages.
 
 ---
 
-## Destination Configuration Schema
+## Destination Lifecycle States
 
-When registering a destination, you configure the target URL, cryptographic signing key, rate limits, and failure handling policies.
+```mermaid
+stateDiagram-v2
+    [*] --> ACTIVE: Created via Dashboard or API
+    ACTIVE --> PAUSED: Manually Paused by Operator
+    PAUSED --> ACTIVE: Manually Resumed
+    ACTIVE --> DISABLED: Repeated Unrecoverable Errors (404/410)
+    DISABLED --> ACTIVE: Endpoint URL Updated
+    ACTIVE --> [*]: Deleted
+```
 
-<ParamGroup>
-  <ParamField name="url" type="string" required location="body">
-    The public HTTPS endpoint that will receive the webhook `POST` requests. Must begin with `https://` (HTTP allowed only in localhost/development).
-  </ParamField>
-  
-  <ParamField name="secret" type="string" required location="body">
-    The shared secret key used to compute the `HMAC-SHA256` signature sent in the `x-zyvan-signature` header. Zyvan encrypts this secret at rest using **AES-256-GCM**.
-  </ParamField>
-
-  <ParamField name="retry_policy" type="object" location="body">
-    Defines the retry behavior for transient delivery failures:
-    - `max_attempts`: Total attempts before marking as `DEAD_LETTER` (default: 5).
-    - `initial_interval_sec`: Initial delay before attempt 2 (default: 5).
-    - `backoff_multiplier`: Exponential scale factor (default: 2.0).
-    - `max_interval_sec`: Ceiling for delay interval (default: 86400).
-  </ParamField>
-
-  <ParamField name="rate_limit" type="number" location="body" defaultValue="100">
-    Maximum requests per second allowed for this specific destination to prevent overwhelming downstream receiver servers.
-  </ParamField>
-
-  <ParamField name="active" type="boolean" location="body" defaultValue="true">
-    Whether Zyvan should actively dispatch events to this destination. When `false`, events matching this destination will be skipped.
-  </ParamField>
-</ParamGroup>
+- **`ACTIVE`**: The destination actively receives all matching events.
+- **`PAUSED`**: Event matching continues, but deliveries are held in queue and not dispatched over the network. Useful during planned customer maintenance windows.
+- **`DISABLED`**: Zyvan automatically disables destinations that return persistent `404 Not Found` or `410 Gone` across 50 consecutive deliveries, preventing wasted network capacity.
 
 ---
 
-## SSRF (Server-Side Request Forgery) Protection
+## Configuration Schema
 
-Zyvan enforces strict network-level SSRF filters on all destination URLs before dispatch:
-- Prohibits internal IP ranges (`127.0.0.1`, `10.0.0.0/8`, `192.168.0.0/16`, `169.254.169.254` AWS metadata).
-- Resolves DNS records prior to connection and prevents DNS rebinding exploits.
-- Rejects non-standard ports (allowing only 443 for HTTPS and 80 for HTTP in local test mode).
+When registering a destination via the SDK or REST API, you configure the following parameters:
 
-<Callout type="security" title="Automatic Secret Encryption">
-  Signing secrets stored in Zyvan are never saved in plaintext. They are encrypted using envelope encryption with **AES-256-GCM** before writing to PostgreSQL.
+| Field | Type | Required | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `url` | `string` | **Yes** | — | Public HTTPS URL where `POST` requests are delivered. |
+| `description` | `string?` | No | `null` | Human-readable label (e.g., "Production Stripe Webhooks"). |
+| `event_types` | `string[]` | No | `["*"]` | Subscribed event types (supports wildcards like `order.*`). |
+| `secret` | `string?` | No | Auto-gen | Shared secret used to sign HMAC-SHA256 headers (`whsec_...`). |
+| `rate_limit` | `number` | No | `100` | Max requests per second dispatched to this endpoint. |
+| `retry_policy` | `object` | No | Default | Custom exponential backoff parameters. |
+
+---
+
+## Cryptographic Signing Secrets
+
+Every destination possesses a dedicated signing secret prefixed with `whsec_`.
+
+```text
+whsec_99f2e718b5c90a12e34f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7
+```
+
+### Encryption at Rest (AES-256-GCM)
+
+Signing secrets are never stored in plaintext within the Zyvan database:
+1. When a secret is generated or updated, Zyvan generates a unique 96-bit Initialization Vector (IV).
+2. The secret is encrypted using **AES-256-GCM** (Galois/Counter Mode) authenticated encryption.
+3. The ciphertext, initialization vector, and 128-bit authentication tag are committed to PostgreSQL.
+4. Plaintext secrets are decrypted in worker memory only for the millisecond required to compute the HMAC signature.
+
+<Callout type="security" title="Zero-Knowledge Secret Storage">
+  Zyvan operators, database backups, and SQL query logs never expose raw signing secrets. In the dashboard, secrets are masked after initial generation.
 </Callout>
+
+---
+
+## SSRF (Server-Side Request Forgery) Defense
+
+Because webhooks require dispatching HTTP requests to user-provided URLs, webhook engines are prime targets for SSRF attacks aiming to probe internal VPC infrastructure or cloud metadata services.
+
+Zyvan implements defense-in-depth protection before every network socket connection:
+
+<Steps>
+  <Step number={1} title="Strict Protocol Enforcement">
+    Only `https://` URLs are accepted in production environments. Plain `http://` is strictly prohibited unless `NODE_ENV=development` targeting `localhost`.
+  </Step>
+
+  <Step number={2} title="Private IP & Metadata Blocklist">
+    Zyvan resolves the destination domain via DNS and verifies that the resulting IP address does not fall within reserved ranges:
+    - `127.0.0.0/8` (Loopback)
+    - `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (Private RFC 1918)
+    - `169.254.169.254` & `fd00::/8` (AWS/GCP/Azure Instance Metadata)
+    - `0.0.0.0/8`, `100.64.0.0/10`, `198.18.0.0/15` (Carrier-grade NAT & benchmark ranges)
+  </Step>
+
+  <Step number={3} title="DNS Rebinding Prevention (Socket Pinning)">
+    Attackers often configure DNS records that resolve to a public IP during initial validation, then switch to `169.254.169.254` milliseconds later.
+    
+    Zyvan prevents DNS rebinding by performing DNS resolution first, validating the IP, and **pinning the outgoing TCP connection directly to the verified IP**, bypassing subsequent DNS lookups during request dispatch.
+  </Step>
+
+  <Step number={4} title="Strict Port Whitelist">
+    Outgoing connections are strictly restricted to port `443` (HTTPS) and port `80` (local HTTP test mode only). All other ports (e.g. `22`, `3306`, `5432`, `6379`, `8080`) are blocked at the transport layer.
+  </Step>
+</Steps>
+
+---
+
+## Custom Retry Policies
+
+You can customize retry policies per destination to match downstream capabilities:
+
+```typescript
+import { ZyvanClient } from '@zyvan/sdk';
+
+const zyvan = new ZyvanClient({
+  apiKey: process.env.ZYVAN_API_KEY!,
+  projectId: 'prj_live_01H8X92M4Q',
+});
+
+// Configure destination with custom retry policy
+const destination = await zyvan.destinations.create({
+  url: 'https://api.customer.com/webhooks',
+  description: 'Customer Billing Webhook',
+  eventTypes: ['payment.*', 'invoice.*'],
+  retryPolicy: {
+    maxAttempts: 7,           // Maximum attempts before DLQ (default: 5)
+    initialIntervalSec: 10,   // Delay before 2nd attempt (default: 5s)
+    backoffMultiplier: 2.5,   // Exponential multiplier (default: 2.0)
+    maxIntervalSec: 43200,    // 12-hour maximum retry interval ceiling
+  },
+  rateLimit: 50,              // 50 requests / second ceiling
+});
+```
