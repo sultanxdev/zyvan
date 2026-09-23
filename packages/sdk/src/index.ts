@@ -3,8 +3,25 @@
 // ─────────────────────────────────────────────────────────────
 
 export { ZyvanClient } from './client';
-export type { WebhookVerifyOptions } from './client';
 export { HttpTransport } from './transport';
+
+// Webhook Verification Engine
+export {
+  Webhooks,
+  webhooks,
+  WebhookVerificationError,
+  verifyWebhookSignature,
+  verifyWebhookSignatureOrThrow,
+  constructWebhookEvent,
+} from './webhooks';
+
+export type {
+  WebhookVerificationErrorCode,
+  WebhookVerificationErrorOptions,
+  WebhookHeaderBag,
+  WebhookVerifyOptions,
+  WebhookConstructEventOptions,
+} from './webhooks';
 
 // Resources
 export {
