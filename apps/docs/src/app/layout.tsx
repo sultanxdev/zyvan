@@ -48,11 +48,17 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+import { getNavigation, getSearchIndex } from '@/lib/content';
+import { DocsShell } from '@/components/layout/DocsShell';
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const groups = getNavigation();
+  const searchIndex = getSearchIndex();
+
   return (
     <html lang="en" className="dark">
       <body className="bg-[#050505] text-[#F4F4F5] antialiased min-h-screen flex flex-col font-mono">
@@ -63,7 +69,9 @@ export default function RootLayout({
           Skip to content
         </a>
         <MotionConfig reducedMotion="user">
-          {children}
+          <DocsShell groups={groups} searchIndex={searchIndex}>
+            {children}
+          </DocsShell>
         </MotionConfig>
       </body>
     </html>
