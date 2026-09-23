@@ -85,3 +85,7 @@ export function Cards({
     </div>
   );
 }
+
+// Backward-compatible alias
+export const CardGroup = Cards;
+

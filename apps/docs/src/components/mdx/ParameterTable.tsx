@@ -81,3 +81,7 @@ export function ParameterTable({ parameters = [], children }: ParameterTableProp
     </div>
   );
 }
+
+// Backward-compatible alias for existing MDX files
+export const ParamGroup = ParameterTable;
+
