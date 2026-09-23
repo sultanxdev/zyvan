@@ -112,7 +112,7 @@ export function DocsHeader({
             aria-label="Zyvan GitHub repository"
             className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1B241F] bg-[#0B0D0C] text-zinc-400 hover:text-zinc-100 hover:border-[#22C55E]/30 transition-colors"
           >
-            <Github className="w-4 h-4" />
+            <GithubIcon className="w-4 h-4" />
           </a>
 
           {/* Customer Dashboard Link */}

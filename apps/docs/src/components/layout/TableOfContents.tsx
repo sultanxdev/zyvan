@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useEffect, useState } from 'react';
 import { AlignLeft, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import clsx from 'clsx';
@@ -152,7 +153,7 @@ export function TableOfContents({ toc, slug }: TableOfContentsProps) {
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors"
           >
-            <Github className="w-3.5 h-3.5" />
+            <GithubIcon className="w-3.5 h-3.5" />
             <span>Edit on GitHub</span>
           </a>
         </div>
