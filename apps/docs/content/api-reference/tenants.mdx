@@ -2,22 +2,26 @@
 title: "Tenants API"
 description: "Manage multi-tenant isolation: create tenants, set custom concurrency limits, apply rate limit caps, and pause accounts."
 category: "API Reference"
-order: 3
+order: 7
 badge: "Tenants"
 readTime: "4 min"
 apiMethod: "POST"
-apiPath: "/v1/projects/:projectId/tenants"
+apiPath: "/v1/tenants"
 ---
 
 # Tenants API
 
-Tenants isolate customer workloads and configure distinct concurrency limits and rate bounds.
+Tenants isolate customer workloads and configure distinct concurrency limits, token-bucket rate bounds, and operational statuses.
 
 ---
 
-## 1. Create a Tenant
+## 1. Create or Register a Tenant
 
-<EndpointBadge method="POST" path="/v1/projects/:projectId/tenants" auth="Bearer API Key" />
+<EndpointBadge method="POST" path="/v1/tenants" auth="Bearer API Key (organizations:create)" />
+
+Register a tenant partition with custom concurrency and throughput bounds.
+
+### Request Body Parameters
 
 <ParamGroup>
   <ParamField name="external_id" type="string" required location="body">
@@ -27,18 +31,18 @@ Tenants isolate customer workloads and configure distinct concurrency limits and
     Display name for the tenant (e.g. `Acme Corp`).
   </ParamField>
   <ParamField name="concurrency_limit" type="number" location="body" defaultValue="10">
-    Max simultaneous in-flight HTTP requests for this tenant.
+    Max simultaneous in-flight HTTP requests dispatched across all destinations for this tenant.
   </ParamField>
   <ParamField name="rate_limit" type="number" location="body" defaultValue="100">
-    Max webhook requests per second.
+    Max webhook requests dispatched per second.
   </ParamField>
 </ParamGroup>
 
-### Request Example
+### cURL Example
 
 ```bash
-curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/tenants" \
-  -H "Authorization: Bearer zyvan_live_sec_10982347" \
+curl -X POST https://api.zyvan.dev/v1/tenants \
+  -H "Authorization: Bearer zyv_live_99f2e718b..." \
   -H "Content-Type: application/json" \
   -d '{
     "external_id": "cust_acme_corp_42",
@@ -46,4 +50,69 @@ curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/tenants" \
     "concurrency_limit": 20,
     "rate_limit": 200
   }'
+```
+
+### Response (`201 Created`)
+
+```json
+{
+  "data": {
+    "id": "tnt_01H8X92M4Q99",
+    "externalId": "cust_acme_corp_42",
+    "name": "Acme Corporation",
+    "status": "ACTIVE",
+    "concurrencyLimit": 20,
+    "rateLimit": 200,
+    "createdAt": "2026-03-24T12:00:00Z"
+  }
+}
+```
+
+---
+
+## 2. List Tenants
+
+<EndpointBadge method="GET" path="/v1/tenants" auth="Bearer API Key (organizations:read)" />
+
+Retrieve all registered tenant partitions.
+
+### Response (`200 OK`)
+
+```json
+{
+  "data": [
+    {
+      "id": "tnt_01H8X92M4Q99",
+      "externalId": "cust_acme_corp_42",
+      "name": "Acme Corporation",
+      "status": "ACTIVE",
+      "concurrencyLimit": 20,
+      "rateLimit": 200
+    }
+  ]
+}
+```
+
+---
+
+## 3. Get Tenant Details
+
+<EndpointBadge method="GET" path="/v1/tenants/:id" auth="Bearer API Key (organizations:read)" />
+
+Retrieve quota and configuration details for a single tenant partition.
+
+### Response (`200 OK`)
+
+```json
+{
+  "data": {
+    "id": "tnt_01H8X92M4Q99",
+    "externalId": "cust_acme_corp_42",
+    "name": "Acme Corporation",
+    "status": "ACTIVE",
+    "concurrencyLimit": 20,
+    "rateLimit": 200,
+    "activeConnections": 3
+  }
+}
 ```

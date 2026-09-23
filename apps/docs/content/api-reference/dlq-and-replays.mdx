@@ -1,46 +1,176 @@
 ---
-title: "DLQ & Replays API"
-description: "Inspect Dead Letter Queue entries and trigger single or bulk atomic replays without overwriting past attempts."
+title: "Dead Letter Queue (DLQ) API"
+description: "Endpoints to inspect exhausted webhook deliveries, view aggregated triage summaries, and trigger atomic single or bulk replays."
 category: "API Reference"
-order: 7
-badge: "Recovery"
-readTime: "4 min"
-apiMethod: "POST"
-apiPath: "/v1/projects/:projectId/dlq/:deliveryId/replay"
+order: 5
+badge: "DLQ & Recovery"
+readTime: "5 min"
+apiMethod: "GET"
+apiPath: "/v1/dead-letters"
 ---
 
-# Dead Letter Queue & Replays API
+# Dead Letter Queue (DLQ) API
 
-Endpoints for listing permanently failed deliveries and triggering atomic replay jobs.
+When a webhook delivery exhausts all configured retry attempts without receiving a successful HTTP response, it is quarantined in the **Dead Letter Queue (DLQ)**.
 
----
-
-## 1. List DLQ Deliveries
-
-<EndpointBadge method="GET" path="/v1/projects/:projectId/dlq" auth="Bearer API Key" />
+The DLQ API provides endpoints to inspect failed deliveries, query triage metrics, and safely replay events individually or in rate-paced bulk batches.
 
 ---
 
-## 2. Replay Single Delivery
+## 1. List Dead Letters
 
-<EndpointBadge method="POST" path="/v1/projects/:projectId/dlq/:deliveryId/replay" auth="Bearer API Key" />
+<EndpointBadge method="GET" path="/v1/dead-letters" auth="Bearer API Key (delivery:read)" />
+
+Retrieve paginated dead-letter records. By default, only unresolved (`status=open`) items are returned.
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `destinationId` | `string` | — | Filter by specific destination endpoint. |
+| `status` | `string` | `open` | Filter by status: `open`, `dismissed`, `resolved`. |
+| `failedAfter` | `string` | — | ISO 8601 timestamp filter. |
+| `failedBefore` | `string` | — | ISO 8601 timestamp filter. |
+| `limit` | `integer` | `50` | Maximum items to return (1 – 100). |
+| `cursor` | `string` | — | Pagination cursor. |
+
+### cURL Example
 
 ```bash
-curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/dlq/deliv_01HZX87AB9823KJ/replay" \
-  -H "Authorization: Bearer zyvan_live_sec_10982347"
+curl -X GET "https://api.zyvan.dev/v1/dead-letters?destinationId=dst_accounting&limit=25" \
+  -H "Authorization: Bearer zyv_live_99f2e718b..."
+```
+
+### Response (`200 OK`)
+
+```json
+{
+  "data": [
+    {
+      "id": "del_01H8X92M4Q892",
+      "eventId": "evt_01H8X92M4Q",
+      "destinationId": "dst_accounting",
+      "destinationUrl": "https://api.customer.com/webhooks",
+      "status": "open",
+      "attemptsCount": 5,
+      "lastStatusCode": 504,
+      "failureReason": "MAX_ATTEMPTS_EXCEEDED",
+      "deadLetteredAt": "2026-03-24T14:32:15Z"
+    }
+  ],
+  "pagination": {
+    "hasMore": false,
+    "nextCursor": null
+  }
+}
 ```
 
 ---
 
-## 3. Bulk Replay
+## 2. Get DLQ Triage Summary
 
-<EndpointBadge method="POST" path="/v1/projects/:projectId/dlq/bulk-replay" auth="Bearer API Key" />
+<EndpointBadge method="GET" path="/v1/dead-letters/summary" auth="Bearer API Key (delivery:read)" />
+
+Retrieve aggregated operational metrics on dead-lettered deliveries grouped by status and failure reason.
+
+### Response (`200 OK`)
+
+```json
+{
+  "totalDeadLetters": 142,
+  "openCount": 38,
+  "dismissedCount": 14,
+  "resolvedCount": 90,
+  "topFailingDestinations": [
+    {
+      "destinationId": "dst_accounting",
+      "count": 29
+    },
+    {
+      "destinationId": "dst_analytics",
+      "count": 9
+    }
+  ]
+}
+```
+
+---
+
+## 3. Replay a Single Dead Letter
+
+<EndpointBadge method="POST" path="/v1/dead-letters/:id/replay" auth="Bearer API Key (delivery:replay)" />
+
+Replay a single dead-letter delivery. The delivery state transitions to `PENDING` and is immediately scheduled for delivery worker dispatch.
+
+### cURL Example
+
+```bash
+curl -X POST https://api.zyvan.dev/v1/dead-letters/del_01H8X92M4Q892/replay \
+  -H "Authorization: Bearer zyv_live_99f2e718b..."
+```
+
+### Response (`200 OK`)
+
+```json
+{
+  "id": "del_01H8X92M4Q892",
+  "status": "PENDING",
+  "replayedAt": "2026-03-24T15:00:00Z"
+}
+```
+
+---
+
+## 4. Bulk Replay Dead Letters
+
+<EndpointBadge method="POST" path="/v1/dead-letters/replay-bulk" auth="Bearer API Key (delivery:replay)" />
+
+Trigger bulk replay for all open dead letters matching criteria. Replays are automatically dispatched at the destination's configured rate limit to prevent overwhelming the recovering downstream endpoint.
+
+### Request Body Parameters
 
 <ParamGroup>
-  <ParamField name="destination_id" type="string" location="body">
-    Replay all DLQ items for a specific destination.
+  <ParamField name="destinationId" type="string" location="body">
+    Optional destination ID filter.
   </ParamField>
-  <ParamField name="failed_after" type="string" location="body">
-    ISO 8601 timestamp filter (e.g. `2026-09-09T00:00:00Z`).
+  <ParamField name="failedAfter" type="string" location="body">
+    ISO 8601 timestamp string (e.g. `2026-03-24T12:00:00Z`).
+  </ParamField>
+  <ParamField name="failedBefore" type="string" location="body">
+    ISO 8601 timestamp string.
+  </ParamField>
+  <ParamField name="limit" type="number" location="body">
+    Maximum deliveries to replay in this batch (default: `100`, max: `1000`).
   </ParamField>
 </ParamGroup>
+
+### cURL Example
+
+```bash
+curl -X POST https://api.zyvan.dev/v1/dead-letters/replay-bulk \
+  -H "Authorization: Bearer zyv_live_99f2e718b..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "destinationId": "dst_accounting",
+    "limit": 250
+  }'
+```
+
+### Response (`200 OK`)
+
+```json
+{
+  "replayedCount": 29,
+  "destinationId": "dst_accounting",
+  "status": "QUEUED"
+}
+```
+
+---
+
+## 5. Dismiss or Resolve Dead Letters
+
+If an endpoint outage resulted in dead letters that do not need to be redelivered, you can triage them:
+
+- **Dismiss**: Ignore without redelivering (`POST /v1/dead-letters/:id/dismiss` or `/dismiss-bulk`).
+- **Resolve**: Mark as manually addressed (`POST /v1/dead-letters/:id/resolve` or `/resolve-bulk`).

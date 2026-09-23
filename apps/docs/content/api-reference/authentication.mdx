@@ -1,40 +1,101 @@
 ---
 title: "Authentication"
-description: "How to authenticate API requests with Zyvan using Bearer token API keys and manage fine-grained scopes."
+description: "How to authenticate API requests with Zyvan using Bearer token API keys, project scoping headers, and granular role permissions."
 category: "API Reference"
 order: 1
-badge: "Auth"
-readTime: "3 min"
+badge: "Security & Auth"
+readTime: "4 min"
 ---
 
 # API Authentication
 
-All requests to the Zyvan REST API must be authenticated using a secret API key passed in the standard `Authorization` HTTP header.
+All requests to the Zyvan REST API must be authenticated using an API key passed in the standard `Authorization` HTTP header.
+
+---
+
+## Base URLs
+
+| Environment | Base URL |
+| :--- | :--- |
+| **Production** | `https://api.zyvan.dev` |
+| **Local Development** | `http://localhost:3000` |
 
 ---
 
 ## Authorization Header Format
 
+Pass your secret API key with the `Bearer` scheme:
+
 ```http
-Authorization: Bearer zyvan_live_sec_99a8b7c6d5e4
+Authorization: Bearer zyv_live_99a8b7c6d5e4f3a2b1c0d9e8f7a6
 ```
 
-<Callout type="security" title="API Key Security">
-  API keys carry broad privileges. Keep them strictly secret! Never commit them to Git or expose them in browser/client-side code.
+### Key Prefixes
+
+Zyvan API keys use standard prefixes to indicate their environment:
+- `zyv_live_...`: Production API keys. Events dispatched will invoke live external webhook destinations.
+- `zyv_test_...`: Sandbox / development API keys. Dispatches are isolated from production pipelines.
+
+<Callout type="security" title="Protect Your API Keys">
+  API keys carry full permission to publish events and configure webhook endpoints. Keep them securely stored in server environment variables (`ZYVAN_API_KEY`). Never commit them to version control or expose them in client-side browser applications.
 </Callout>
 
 ---
 
-## API Key Scopes
+## Project Scoping Header
 
-When creating API keys in the Zyvan console or via the admin API, you can restrict permissions with fine-grained scopes:
+If an API key has access to multiple projects within an organization, you can specify the target project using the optional `x-project-id` header:
 
-| Scope | Permission |
+```http
+x-project-id: prj_live_01H8X92M4Q
+```
+
+Alternatively, you can provide `projectId` in request bodies or initialize the SDK with a default `projectId`.
+
+---
+
+## API Permissions & Scopes
+
+API keys can be scoped with fine-grained permissions:
+
+| Permission | Description |
 | :--- | :--- |
-| `events:write` | Emit and publish new events to a project. |
-| `events:read` | Query ingested events and status. |
-| `destinations:write` | Register, update, and delete webhook destinations. |
-| `destinations:read` | List configured destinations and endpoints. |
-| `deliveries:read` | Inspect delivery statuses and attempt logs. |
-| `dlq:replay` | Trigger single or bulk Dead Letter Queue replays. |
-| `*` (Admin) | Full access to all project resources. |
+| `events:write` | Ingest and publish events via `POST /v1/events`. |
+| `events:read` | Query historical events and view delivery timelines. |
+| `destinations:manage` | Create, update, pause, resume, and test webhook destinations. |
+| `delivery:read` | Inspect delivery logs, attempt durations, and response bodies. |
+| `delivery:replay` | Trigger single or bulk delivery replays from the DLQ. |
+| `delivery:manage` | Dismiss or resolve dead-letter deliveries. |
+| `*` (Admin) | Unrestricted access across all project resources. |
+
+---
+
+## Error Responses
+
+Requests missing valid authentication credentials receive an immediate `401 Unauthorized` response:
+
+```http
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json
+
+{
+  "error": {
+    "code": "AUTHENTICATION_FAILED",
+    "message": "Invalid or missing Bearer API key in Authorization header."
+  }
+}
+```
+
+If an API key is valid but lacks the required permission for an operation, the API returns `403 Forbidden`:
+
+```http
+HTTP/1.1 403 Forbidden
+Content-Type: application/json
+
+{
+  "error": {
+    "code": "INSUFFICIENT_PERMISSIONS",
+    "message": "API key lacks the required 'destinations:manage' permission."
+  }
+}
+```

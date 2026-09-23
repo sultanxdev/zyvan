@@ -1,9 +1,9 @@
 ---
 title: "Projects API"
-description: "Manage projects in Zyvan: create projects, retrieve details, update settings, and generate scoped API keys."
+description: "Endpoints to manage projects, configure environment boundaries, query usage stats, and manage environment settings."
 category: "API Reference"
-order: 2
-badge: "Projects"
+order: 6
+badge: "Environments"
 readTime: "4 min"
 apiMethod: "POST"
 apiPath: "/v1/projects"
@@ -11,32 +11,36 @@ apiPath: "/v1/projects"
 
 # Projects API
 
-Projects serve as top-level containers for environments, tenants, destinations, and billing.
+Projects serve as top-level operational boundaries in Zyvan. Each project encapsulates its own destinations, delivery logs, rate limits, and API keys.
 
 ---
 
 ## 1. Create a Project
 
-<EndpointBadge method="POST" path="/v1/projects" auth="Bearer Master Key" />
+<EndpointBadge method="POST" path="/v1/projects" auth="Bearer API Key (projects:manage)" />
+
+Create a new project environment within the authenticated organization.
+
+### Request Body Parameters
 
 <ParamGroup>
   <ParamField name="name" type="string" required location="body">
-    A human-readable name for the project (e.g. `Production SaaS`).
+    Human-readable project name (e.g. `Production SaaS`, `Staging Environment`).
   </ParamField>
-  <ParamField name="plan" type="string" location="body" defaultValue="pro">
-    The tier plan for the project: `free`, `pro`, `enterprise`.
+  <ParamField name="description" type="string" location="body">
+    Optional description of the project purpose.
   </ParamField>
 </ParamGroup>
 
-### Request Example
+### cURL Example
 
 ```bash
-curl -X POST "https://api.zyvan.dev/v1/projects" \
-  -H "Authorization: Bearer zyvan_admin_key" \
+curl -X POST https://api.zyvan.dev/v1/projects \
+  -H "Authorization: Bearer zyv_live_99f2e718b..." \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Production App",
-    "plan": "enterprise"
+    "name": "Production Core",
+    "description": "Primary webhook routing environment"
   }'
 ```
 
@@ -44,11 +48,66 @@ curl -X POST "https://api.zyvan.dev/v1/projects" \
 
 ```json
 {
-  "id": "proj_live_99",
-  "name": "Production App",
-  "plan": "enterprise",
-  "status": "ACTIVE",
-  "created_at": "2026-09-09T17:00:00.000Z",
-  "api_key": "zyvan_live_sec_10982347"
+  "data": {
+    "id": "prj_live_01H8X92M4Q",
+    "organizationId": "org_01H8X8",
+    "name": "Production Core",
+    "description": "Primary webhook routing environment",
+    "createdAt": "2026-03-24T12:00:00Z"
+  }
+}
+```
+
+---
+
+## 2. List Projects
+
+<EndpointBadge method="GET" path="/v1/projects" auth="Bearer API Key (projects:read)" />
+
+Retrieve all projects accessible to the authenticated API key or user session.
+
+### Response (`200 OK`)
+
+```json
+{
+  "data": [
+    {
+      "id": "prj_live_01H8X92M4Q",
+      "name": "Production Core",
+      "createdAt": "2026-03-24T12:00:00Z"
+    },
+    {
+      "id": "prj_test_01H8X93N5R",
+      "name": "Staging",
+      "createdAt": "2026-03-24T12:30:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## 3. Get Project Details
+
+<EndpointBadge method="GET" path="/v1/projects/:id" auth="Bearer API Key (projects:read)" />
+
+Retrieve metadata and configuration for a single project.
+
+### Response (`200 OK`)
+
+```json
+{
+  "data": {
+    "id": "prj_live_01H8X92M4Q",
+    "organizationId": "org_01H8X8",
+    "name": "Production Core",
+    "description": "Primary webhook routing environment",
+    "createdAt": "2026-03-24T12:00:00Z",
+    "stats": {
+      "destinationsCount": 12,
+      "deliveries24h": 48290,
+      "successRate": 99.98
+    }
+  }
 }
 ```

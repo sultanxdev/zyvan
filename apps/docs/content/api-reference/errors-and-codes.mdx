@@ -3,39 +3,101 @@ title: "Errors & Status Codes"
 description: "Comprehensive error dictionary: standard error schema, error codes, HTTP statuses, and recovery actions in Zyvan."
 category: "API Reference"
 order: 8
-badge: "Errors"
-readTime: "4 min"
+badge: "Error Reference"
+readTime: "5 min"
 ---
 
 # Errors & Status Codes
 
-Zyvan uses standard HTTP response codes combined with structured JSON error responses.
+Zyvan uses conventional HTTP response status codes combined with structured JSON error responses.
 
 ---
 
 ## Standard Error Schema
 
+All `4xx` and `5xx` responses return a unified JSON envelope:
+
 ```json
 {
   "error": {
-    "code": "INVALID_IDEMPOTENCY_KEY",
-    "message": "The idempotency_key must be a non-empty string between 1 and 255 characters.",
-    "status": 400,
-    "doc_url": "https://zyvan.dev/docs/core-concepts/idempotency-keys"
+    "code": "invalid_request",
+    "message": "The event 'type' parameter is required and must be a non-empty string.",
+    "statusCode": 400,
+    "requestId": "req_01H8X94...",
+    "details": [
+      {
+        "field": "type",
+        "message": "Expected string, received undefined"
+      }
+    ]
   }
 }
 ```
 
+### Envelope Attributes
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `code` | `string` | Programmatic error identifier (e.g., `authentication_failed`, `rate_limited`). |
+| `message` | `string` | Developer-facing explanation of why the request failed. |
+| `statusCode` | `number` | The HTTP status code mirror. |
+| `requestId` | `string?` | Unique trace ID for the request. Include this when contacting Zyvan support. |
+| `details` | `array?` | Array of specific field-level validation errors, if applicable. |
+
 ---
 
-## Common Error Codes
+## HTTP Status Codes & Error Codes Dictionary
 
-| HTTP Status | Error Code | Description | Action |
+| HTTP Status | Error Code | Description | Recommended Client Action |
 | :--- | :--- | :--- | :--- |
-| `400 Bad Request` | `VALIDATION_ERROR` | Request body failed JSON schema validation. | Inspect error details. |
-| `401 Unauthorized` | `INVALID_API_KEY` | Missing or invalid `Bearer` token. | Verify API key. |
-| `403 Forbidden` | `INSUFFICIENT_SCOPE` | Key lacks required scope. | Add scope or use admin key. |
-| `404 Not Found` | `RESOURCE_NOT_FOUND` | Project, tenant, or destination not found. | Check UUID / slug. |
-| `409 Conflict` | `IDEMPOTENCY_CONFLICT` | Key matched in-flight request with different payload. | Use unique key. |
-| `429 Too Many Requests` | `RATE_LIMIT_EXCEEDED` | Request exceeded tenant or project rate limit. | Back off and retry. |
-| `500 Internal Error` | `INTERNAL_SERVER_ERROR` | Zyvan internal server error. | Contact support. |
+| **`400 Bad Request`** | `invalid_request` | The request body, query parameter, or headers failed validation. | Inspect `details` and correct invalid parameters. |
+| **`401 Unauthorized`** | `authentication_failed` | Missing, malformed, or invalid API key in `Authorization` header. | Verify `ZYVAN_API_KEY` in environment. |
+| **`403 Forbidden`** | `authorization_denied` | The API key lacks the required permission scope. | Grant the necessary permission to the key in the dashboard. |
+| **`404 Not Found`** | `not_found` | The requested project, destination, event, or tenant does not exist. | Check resource ID formatting and project scope. |
+| **`409 Conflict`** | `conflict` | Idempotency key conflict: an event with this key was already submitted with different data. | Use a unique idempotency key or do not alter the payload on retries. |
+| **`429 Too Many Requests`** | `rate_limited` | Tenant or project throughput quota exceeded. | Inspect `Retry-After` header and back off before retrying. |
+| **`500 Internal Error`** | `internal_error` | An unexpected error occurred within Zyvan infrastructure. | Safe to retry with exponential backoff if idempotency key was attached. |
+| **`502 Bad Gateway`** | `bad_gateway` | Upstream network routing or reverse proxy transient failure. | Retry with backoff. |
+| **`503 Unavailable`** | `service_unavailable` | Temporary maintenance or capacity shed. | Inspect `Retry-After` and retry. |
+| **`504 Gateway Timeout`** | `gateway_timeout` | Internal request processing timed out. | Retry with backoff. |
+
+---
+
+## Handling Rate Limits (HTTP 429)
+
+When your application exceeds its configured requests-per-second limit, Zyvan returns HTTP `429 Too Many Requests` alongside a standard `Retry-After` HTTP header:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/json
+Retry-After: 3
+
+{
+  "error": {
+    "code": "rate_limited",
+    "message": "Tenant rate limit of 100 req/s exceeded. Please back off.",
+    "statusCode": 429
+  }
+}
+```
+
+### SDK Automatic Rate Limit Handling
+
+The official `@zyvan/sdk` automatically inspects `Retry-After` (supporting both integer seconds and RFC 7231 HTTP dates), sleeping for the designated period before retrying safe requests:
+
+```typescript
+import { ZyvanClient, RateLimitError } from '@zyvan/sdk';
+
+const zyvan = new ZyvanClient({
+  apiKey: process.env.ZYVAN_API_KEY!,
+  maxRetries: 3, // Automatically retries up to 3 times on 429
+});
+
+try {
+  await zyvan.events.send({ /* ... */ });
+} catch (err) {
+  if (err instanceof RateLimitError) {
+    console.error(`Rate limited! Reset in ${err.retryAfter}ms`);
+  }
+}
+```

@@ -1,43 +1,130 @@
 ---
 title: "Deliveries API"
-description: "Query webhook delivery jobs, check current retry status, and retrieve detailed physical HTTP attempt execution logs."
+description: "Endpoints to list delivery jobs, query attempt telemetry logs, and inspect HTTP headers, latencies, and responses."
 category: "API Reference"
-order: 6
-badge: "Deliveries"
+order: 4
+badge: "Telemetry"
 readTime: "4 min"
 apiMethod: "GET"
-apiPath: "/v1/projects/:projectId/deliveries"
+apiPath: "/v1/destinations/:destinationId/deliveries"
 ---
 
 # Deliveries API
 
-Query individual delivery jobs and physical execution attempts.
+A **Delivery** is the unit of work representing the routing of an event to a single destination. The Deliveries API allows inspecting delivery statuses, latency metrics, and detailed HTTP attempt execution logs.
 
 ---
 
-## 1. List Deliveries
+## 1. List Deliveries by Destination
 
-<EndpointBadge method="GET" path="/v1/projects/:projectId/deliveries" auth="Bearer API Key" />
+<EndpointBadge method="GET" path="/v1/destinations/:destinationId/deliveries" auth="Bearer API Key (events:read)" />
 
-<ParamGroup>
-  <ParamField name="status" type="string" location="query">
-    Filter by delivery state: `PENDING`, `DELIVERED`, `RETRYING`, `DEAD_LETTER`.
-  </ParamField>
-  <ParamField name="destination_id" type="string" location="query">
-    Filter deliveries targeting a specific destination.
-  </ParamField>
-  <ParamField name="limit" type="number" location="query" defaultValue="50">
-    Pagination limit (1-100).
-  </ParamField>
-</ParamGroup>
+Retrieve paginated delivery jobs for a specific destination.
 
----
+### Query Parameters
 
-## 2. Get Delivery Attempts
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `limit` | `integer` | `50` | Maximum items to return (1 – 100). |
+| `cursor` | `string` | — | Opaque pagination cursor. |
 
-<EndpointBadge method="GET" path="/v1/projects/:projectId/deliveries/:deliveryId/attempts" auth="Bearer API Key" />
+### cURL Example
 
 ```bash
-curl -X GET "https://api.zyvan.dev/v1/projects/proj_live_99/deliveries/deliv_01HZX87AB9823KJ/attempts" \
-  -H "Authorization: Bearer zyvan_live_sec_10982347"
+curl -X GET "https://api.zyvan.dev/v1/destinations/dst_01H8X92M4Q01/deliveries?limit=25" \
+  -H "Authorization: Bearer zyv_live_99f2e718b..."
+```
+
+### Response (`200 OK`)
+
+```json
+{
+  "data": [
+    {
+      "id": "del_01H8X92M4Q892",
+      "eventId": "evt_01H8X92M4Q",
+      "destinationId": "dst_01H8X92M4Q01",
+      "status": "DELIVERED",
+      "attemptsCount": 1,
+      "lastStatusCode": 200,
+      "createdAt": "2026-03-24T12:00:00Z",
+      "deliveredAt": "2026-03-24T12:00:00.412Z"
+    }
+  ],
+  "pagination": {
+    "hasMore": false,
+    "nextCursor": null
+  }
+}
+```
+
+---
+
+## 2. Inspect Delivery Attempt Logs
+
+<EndpointBadge method="GET" path="/v1/deliveries/:id/attempts" auth="Bearer API Key (delivery:read)" />
+
+Retrieve the complete forensic log of every HTTP attempt made by Zyvan workers towards the destination endpoint.
+
+### Response (`200 OK`)
+
+```json
+{
+  "deliveryId": "del_01H8X92M4Q892",
+  "attempts": [
+    {
+      "id": "att_01H8X92M4Q001",
+      "attemptNumber": 1,
+      "statusCode": 504,
+      "latencyMs": 10002,
+      "errorMessage": "Gateway Timeout",
+      "responseBody": "<html><title>504 Gateway Time-out</title></html>",
+      "headers": {
+        "x-zyvan-signature": "t=1774353600,v1=99f2e718b5...",
+        "x-zyvan-timestamp": "1774353600",
+        "content-type": "application/json"
+      },
+      "attemptedAt": "2026-03-24T12:00:00Z"
+    },
+    {
+      "id": "att_01H8X92M4Q002",
+      "attemptNumber": 2,
+      "statusCode": 200,
+      "latencyMs": 84,
+      "errorMessage": null,
+      "responseBody": "{\"status\":\"ok\"}",
+      "headers": {
+        "x-zyvan-signature": "t=1774353612,v1=a1b2c3d4e5...",
+        "x-zyvan-timestamp": "1774353612",
+        "content-type": "application/json"
+      },
+      "attemptedAt": "2026-03-24T12:00:12Z"
+    }
+  ]
+}
+```
+
+---
+
+## 3. Replay a Delivery
+
+<EndpointBadge method="POST" path="/v1/deliveries/:id/replay" auth="Bearer API Key (delivery:replay)" />
+
+Reset a failed or dead-lettered delivery back to `PENDING` state to be immediately picked up by an active delivery worker.
+
+### cURL Example
+
+```bash
+curl -X POST https://api.zyvan.dev/v1/deliveries/del_01H8X92M4Q892/replay \
+  -H "Authorization: Bearer zyv_live_99f2e718b..."
+```
+
+### Response (`200 OK`)
+
+```json
+{
+  "id": "del_01H8X92M4Q892",
+  "status": "PENDING",
+  "message": "Delivery successfully queued for replay."
+}
 ```

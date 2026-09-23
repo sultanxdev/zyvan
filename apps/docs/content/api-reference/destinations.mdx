@@ -1,48 +1,171 @@
 ---
 title: "Destinations API"
-description: "Register webhook endpoints, configure secret signing keys, set retry policies, and list active destinations."
+description: "Endpoints to manage webhook endpoints, configure HMAC signing secrets, set rate limits, customize retry policies, and send test pings."
 category: "API Reference"
-order: 4
-badge: "Destinations"
-readTime: "4 min"
+order: 3
+badge: "Endpoints"
+readTime: "5 min"
 apiMethod: "POST"
-apiPath: "/v1/projects/:projectId/destinations"
+apiPath: "/v1/destinations"
 ---
 
 # Destinations API
 
-Destinations specify target webhook URLs, their HMAC signing secrets, and individual retry parameters.
+Manage webhook destinations, cryptographic signing keys, retry parameters, and endpoint lifecycle states.
 
 ---
 
 ## 1. Create a Destination
 
-<EndpointBadge method="POST" path="/v1/projects/:projectId/destinations" auth="Bearer API Key" />
+<EndpointBadge method="POST" path="/v1/destinations" auth="Bearer API Key (destinations:manage)" />
+
+Register a new webhook target URL. Zyvan automatically generates an AES-256 encrypted HMAC signing secret if one is not provided.
+
+### Request Body Parameters
 
 <ParamGroup>
-  <ParamField name="tenant_id" type="string" required location="body">
-    The ID of the tenant owning this destination.
-  </ParamField>
   <ParamField name="url" type="string" required location="body">
-    The receiver URL (`https://...`).
+    Target HTTPS URL that receives webhook `POST` requests.
   </ParamField>
-  <ParamField name="secret" type="string" location="body">
-    Custom signing secret. If omitted, Zyvan auto-generates a secure 32-byte secret.
+  <ParamField name="description" type="string" location="body">
+    Optional human-readable label (e.g. "Customer Production ERP").
   </ParamField>
-  <ParamField name="rate_limit" type="number" location="body" defaultValue="100">
-    Max requests per second for this destination.
+  <ParamField name="event_types" type="string[]" location="body">
+    Array of event types to subscribe to (e.g. `["order.*", "invoice.paid"]`). Defaults to `["*"]`.
+  </ParamField>
+  <ParamField name="rate_limit" type="number" location="body">
+    Maximum requests dispatched per second to this destination (default: `100`).
+  </ParamField>
+  <ParamField name="retry_policy" type="object" location="body">
+    Custom backoff policy:
+    - `max_attempts`: Total attempts before DLQ (default: `5`).
+    - `initial_interval_sec`: Base delay in seconds (default: `5`).
+    - `backoff_multiplier`: Scale multiplier (default: `2.0`).
+    - `max_interval_sec`: Ceiling for delay interval (default: `86400`).
   </ParamField>
 </ParamGroup>
 
-### Request Example
+### cURL Example
 
 ```bash
-curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/destinations" \
-  -H "Authorization: Bearer zyvan_live_sec_10982347" \
+curl -X POST https://api.zyvan.dev/v1/destinations \
+  -H "Authorization: Bearer zyv_live_99f2e718b..." \
   -H "Content-Type: application/json" \
   -d '{
-    "tenant_id": "tenant_acme_corp",
-    "url": "https://acme.com/api/webhooks",
-    "rate_limit": 100
+    "url": "https://api.customer.com/webhooks",
+    "description": "Primary Customer Webhook",
+    "event_types": ["order.*", "payment.*"],
+    "rate_limit": 150
   }'
+```
+
+### Response (`201 Created`)
+
+```json
+{
+  "data": {
+    "id": "dst_01H8X92M4Q01",
+    "url": "https://api.customer.com/webhooks",
+    "description": "Primary Customer Webhook",
+    "status": "ACTIVE",
+    "secret": "whsec_99f2e718b5c90a12e34f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7",
+    "eventTypes": ["order.*", "payment.*"],
+    "rateLimit": 150,
+    "createdAt": "2026-03-24T12:00:00Z"
+  }
+}
+```
+
+<Callout type="warning" title="Save the Signing Secret">
+  The signing secret (`whsec_...`) is returned in plaintext only upon initial creation. After creation, the secret is encrypted with AES-256-GCM and masked in subsequent API responses.
+</Callout>
+
+---
+
+## 2. List Destinations
+
+<EndpointBadge method="GET" path="/v1/destinations" auth="Bearer API Key (destinations:manage)" />
+
+Retrieve all registered destinations for the organization or project.
+
+### cURL Example
+
+```bash
+curl -X GET https://api.zyvan.dev/v1/destinations \
+  -H "Authorization: Bearer zyv_live_99f2e718b..."
+```
+
+### Response (`200 OK`)
+
+```json
+{
+  "data": [
+    {
+      "id": "dst_01H8X92M4Q01",
+      "url": "https://api.customer.com/webhooks",
+      "description": "Primary Customer Webhook",
+      "status": "ACTIVE",
+      "rateLimit": 150,
+      "eventTypes": ["order.*", "payment.*"]
+    }
+  ]
+}
+```
+
+---
+
+## 3. Pause & Resume Deliveries
+
+Pause or resume outgoing delivery jobs for a specific destination without deleting its configuration:
+
+### Pause Destination
+
+<EndpointBadge method="POST" path="/v1/destinations/:id/pause" auth="Bearer API Key (destinations:manage)" />
+
+```bash
+curl -X POST https://api.zyvan.dev/v1/destinations/dst_01H8X92M4Q01/pause \
+  -H "Authorization: Bearer zyv_live_99f2e718b..."
+```
+
+### Resume Destination
+
+<EndpointBadge method="POST" path="/v1/destinations/:id/resume" auth="Bearer API Key (destinations:manage)" />
+
+```bash
+curl -X POST https://api.zyvan.dev/v1/destinations/dst_01H8X92M4Q01/resume \
+  -H "Authorization: Bearer zyv_live_99f2e718b..."
+```
+
+---
+
+## 4. Test a Destination Endpoint
+
+<EndpointBadge method="POST" path="/v1/destinations/:id/test" auth="Bearer API Key (destinations:manage)" />
+
+Send a synthetic test ping to verify connectivity and validate that the customer's server correctly acknowledges requests with `200 OK`.
+
+### Request Body
+
+```json
+{
+  "eventType": "ping",
+  "payload": {
+    "ping": true,
+    "timestamp": 1774353600
+  }
+}
+```
+
+### Response (`200 OK`)
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "latencyMs": 42,
+  "responseHeaders": {
+    "content-type": "application/json"
+  },
+  "responseBody": "{\"received\":true}"
+}
 ```

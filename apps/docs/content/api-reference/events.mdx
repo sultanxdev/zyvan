@@ -1,55 +1,170 @@
 ---
 title: "Events API"
-description: "Durable event ingestion endpoint: send events, check delivery status, and retrieve past event payloads."
+description: "Durable event ingestion and retrieval endpoints: send events with idempotency, query event history, and inspect delivery fan-out."
 category: "API Reference"
-order: 5
+order: 2
 badge: "Core API"
-readTime: "4 min"
+readTime: "5 min"
 apiMethod: "POST"
-apiPath: "/v1/projects/:projectId/events"
+apiPath: "/v1/events"
 ---
 
 # Events API
 
-The primary ingestion endpoint for durably publishing events to Zyvan.
+The Events API is Zyvan's primary ingestion gateway. Ingested events are durably persisted to PostgreSQL and asynchronously fanned out to all matching active webhook destinations.
 
 ---
 
-## 1. Send an Event
+## 1. Ingest an Event
 
-<EndpointBadge method="POST" path="/v1/projects/:projectId/events" auth="Bearer API Key" />
+<EndpointBadge method="POST" path="/v1/events" auth="Bearer API Key (events:write)" />
+
+Ingest a webhook event with guaranteed at-least-once delivery and database-backed idempotency.
+
+### Request Headers
+
+| Header | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `Authorization` | `string` | **Yes** | `Bearer zyv_live_...` |
+| `Content-Type` | `string` | **Yes** | `application/json` |
+| `Idempotency-Key` | `string` | Recommended | Unique request key for 24-hour deduplication. |
+| `x-project-id` | `string` | Optional | Target project scope. |
+
+### Request Body Parameters
 
 <ParamGroup>
   <ParamField name="type" type="string" required location="body">
-    Dot-separated event type name (e.g. `invoice.paid`, `user.created`).
+    Domain event identifier (e.g. `order.completed`, `invoice.payment_failed`).
   </ParamField>
-  <ParamField name="idempotency_key" type="string" required location="body">
-    Unique transaction or event key used for atomic 24h deduplication.
+  <ParamField name="data" type="object" required location="body">
+    Arbitrary JSON payload dispatched to downstream webhook destinations (up to 256KB).
+  </ParamField>
+  <ParamField name="idempotency_key" type="string" location="body">
+    Optional duplicate key (fallback if `Idempotency-Key` HTTP header is omitted).
   </ParamField>
   <ParamField name="tenant_id" type="string" location="body">
-    Optional tenant identifier to target tenant-specific webhook destinations.
+    Optional customer or workspace identifier for per-tenant rate and concurrency limits.
   </ParamField>
-  <ParamField name="payload" type="object" required location="body">
-    The arbitrary JSON data payload to deliver (Max: 1MB).
+  <ParamField name="headers" type="object" location="body">
+    Optional custom headers forwarded to downstream webhooks (e.g. `{"x-trace-id": "trc_9981"}`).
   </ParamField>
 </ParamGroup>
 
-### Response (`202 Accepted`)
+### cURL Example
 
-<ResponseGroup>
-  <ResponseField name="event_id" type="string">
-    The unique Zyvan event identifier (e.g. `evt_01HZX87AB9823KJ`).
-  </ResponseField>
-  <ResponseField name="status" type="string" enum={["QUEUED", "DUPLICATE"]}>
-    `QUEUED` for newly ingested events, or `DUPLICATE` if an identical idempotency key was already ingested.
-  </ResponseField>
-  <ResponseField name="deliveries_scheduled" type="number">
-    Number of matching destinations queued for delivery.
-  </ResponseField>
-</ResponseGroup>
+```bash
+curl -X POST https://api.zyvan.dev/v1/events \
+  -H "Authorization: Bearer zyv_live_99f2e718b..." \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: tx_ord_998124_stripe" \
+  -d '{
+    "type": "order.completed",
+    "tenant_id": "cust_acme_corp",
+    "data": {
+      "order_id": "ord_998124",
+      "amount": 14900,
+      "currency": "USD"
+    }
+  }'
+```
+
+### Response (`202 Accepted` / `200 OK`)
+
+When a new event is ingested, the API responds with `202 Accepted`. If an identical request with the same `Idempotency-Key` was already received within the last 24 hours, the API returns `200 OK` with `duplicate: true`.
+
+```json
+{
+  "id": "evt_01H8X92M4Q9823KJ",
+  "type": "order.completed",
+  "status": "QUEUED",
+  "duplicate": false,
+  "deliveryCount": 3,
+  "createdAt": "2026-03-24T12:00:00.124Z"
+}
+```
 
 ---
 
-## Interactive API Sandbox
+## 2. List Events
 
-<ApiPlayground />
+<EndpointBadge method="GET" path="/v1/events" auth="Bearer API Key (events:read)" />
+
+Retrieve a paginated list of ingested events with status and type filtering.
+
+### Query Parameters
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `eventType` | `string` | — | Filter by exact type or wildcard prefix (`order.*`). |
+| `status` | `string` | — | Filter by delivery status: `QUEUED`, `DELIVERED`, `RETRYING`, `FAILED`. |
+| `limit` | `integer` | `50` | Maximum items to return (1 – 100). |
+| `cursor` | `string` | — | Opaque cursor token for next page. |
+
+### cURL Example
+
+```bash
+curl -X GET "https://api.zyvan.dev/v1/events?eventType=order.*&limit=20" \
+  -H "Authorization: Bearer zyv_live_99f2e718b..."
+```
+
+### Response (`200 OK`)
+
+```json
+{
+  "data": [
+    {
+      "id": "evt_01H8X92M4Q9823KJ",
+      "type": "order.completed",
+      "status": "DELIVERED",
+      "tenantId": "cust_acme_corp",
+      "createdAt": "2026-03-24T12:00:00.124Z"
+    }
+  ],
+  "pagination": {
+    "hasMore": true,
+    "nextCursor": "cur_01H8X94..."
+  }
+}
+```
+
+---
+
+## 3. Get Event Details
+
+<EndpointBadge method="GET" path="/v1/events/:id" auth="Bearer API Key (events:read)" />
+
+Retrieve full event information including payload and delivery timeline.
+
+### cURL Example
+
+```bash
+curl -X GET https://api.zyvan.dev/v1/events/evt_01H8X92M4Q9823KJ \
+  -H "Authorization: Bearer zyv_live_99f2e718b..."
+```
+
+### Response (`200 OK`)
+
+```json
+{
+  "id": "evt_01H8X92M4Q9823KJ",
+  "type": "order.completed",
+  "tenantId": "cust_acme_corp",
+  "idempotencyKey": "tx_ord_998124_stripe",
+  "payload": {
+    "order_id": "ord_998124",
+    "amount": 14900,
+    "currency": "USD"
+  },
+  "deliveries": [
+    {
+      "id": "del_01H8X92M4Q892",
+      "destinationId": "dst_prod_accounting",
+      "destinationUrl": "https://api.customer.com/webhooks",
+      "status": "DELIVERED",
+      "attemptsCount": 1,
+      "deliveredAt": "2026-03-24T12:00:00.342Z"
+    }
+  ],
+  "createdAt": "2026-03-24T12:00:00.124Z"
+}
+```
