@@ -1,0 +1,115 @@
+---
+title: "Database and ER Models"
+description: "Entity-Relationship model and database schema design for Zyvan: PostgreSQL single source of truth, indices, and constraints."
+category: "Architecture"
+order: 4
+badge: "PostgreSQL"
+readTime: "5 min"
+---
+
+# Database & Entity-Relationship Models
+
+Zyvan uses **PostgreSQL 16** via **Prisma ORM** as its authoritative system of record.
+
+---
+
+## Entity-Relationship (ER) Diagram
+
+```mermaid
+erDiagram
+    PROJECT ||--o{ API_KEY : "has"
+    PROJECT ||--o{ TENANT : "contains"
+    PROJECT ||--o{ EVENT : "owns"
+    TENANT ||--o{ DESTINATION : "registers"
+    EVENT ||--o{ DELIVERY : "generates"
+    DESTINATION ||--o{ DELIVERY : "targets"
+    DELIVERY ||--o{ ATTEMPT : "logs"
+
+    PROJECT {
+        string id PK
+        string name
+        string plan
+        string status
+        datetime created_at
+    }
+
+    API_KEY {
+        string id PK
+        string project_id FK
+        string key_hash
+        string prefix
+        string[] scopes
+        datetime expires_at
+    }
+
+    TENANT {
+        string id PK
+        string project_id FK
+        string external_id
+        string name
+        int concurrency_limit
+        int rate_limit
+        string status
+    }
+
+    DESTINATION {
+        string id PK
+        string tenant_id FK
+        string url
+        string secret_encrypted
+        jsonb retry_policy
+        int rate_limit
+        boolean active
+    }
+
+    EVENT {
+        string id PK
+        string project_id FK
+        string tenant_id FK
+        string type
+        string idempotency_key
+        jsonb payload
+        datetime created_at
+    }
+
+    DELIVERY {
+        string id PK
+        string event_id FK
+        string destination_id FK
+        string status
+        int current_attempt
+        datetime next_retry_at
+        datetime completed_at
+    }
+
+    ATTEMPT {
+        string id PK
+        string delivery_id FK
+        int attempt_number
+        int status_code
+        int latency_ms
+        string error_code
+        text response_body
+        datetime executed_at
+    }
+```
+
+---
+
+## Critical Indices & Unique Constraints
+
+1. **Idempotency Uniqueness**:
+   ```sql
+   CREATE UNIQUE INDEX idx_events_project_idempotency 
+   ON events (project_id, idempotency_key);
+   ```
+2. **Delivery Status Querying**:
+   ```sql
+   CREATE INDEX idx_deliveries_destination_status 
+   ON deliveries (destination_id, status);
+   ```
+3. **Attempt Log Partitioning**:
+   ```sql
+   CREATE INDEX idx_attempts_delivery_created 
+   ON attempts (delivery_id, executed_at DESC);
+   ```

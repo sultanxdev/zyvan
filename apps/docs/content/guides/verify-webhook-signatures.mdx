@@ -1,0 +1,168 @@
+---
+title: "Verify Webhook Signatures"
+description: "How to cryptographically verify incoming Zyvan webhooks using HMAC-SHA256 and constant-time string comparison in Node.js, Python, and Go."
+category: "Guides"
+order: 3
+badge: "Security"
+readTime: "4 min"
+---
+
+# Verify Webhook Signatures
+
+To ensure that incoming HTTP requests originate from **Zyvan** and have not been altered in transit or replayed by an attacker, verify the cryptographic signature on your server.
+
+---
+
+## The Signature Header Format
+
+Zyvan sends two headers with each webhook dispatch:
+- `x-zyvan-timestamp`: Unix epoch in seconds (e.g. `1718029300`).
+- `x-zyvan-signature`: The signature in the format `v1=<hex_signature>`.
+
+---
+
+## Verification Implementations
+
+<CodeTabs
+  tabs={[
+    {
+      label: "Node.js / Express",
+      language: "typescript",
+      filename: "verify.ts",
+      code: `import crypto from 'crypto';
+import express from 'express';
+
+const app = express();
+// CRITICAL: We need the raw buffer body for signature verification!
+app.use(express.raw({ type: 'application/json' }));
+
+app.post('/api/webhooks', (req, res) => {
+  const signatureHeader = req.headers['x-zyvan-signature'] as string;
+  const timestampHeader = req.headers['x-zyvan-timestamp'] as string;
+  const rawBody = req.body.toString('utf8');
+  const secret = process.env.ZYVAN_WEBHOOK_SECRET!;
+
+  if (!signatureHeader || !timestampHeader) {
+    return res.status(401).send('Missing signature headers');
+  }
+
+  // 1. Prevent Replay Attacks (Max 5 minute clock drift)
+  const now = Math.floor(Date.now() / 1000);
+  const timestamp = parseInt(timestampHeader, 10);
+  if (Math.abs(now - timestamp) > 300) {
+    return res.status(400).send('Timestamp out of tolerance window');
+  }
+
+  // 2. Compute HMAC-SHA256
+  const payloadToSign = \`\${timestampHeader}.\${rawBody}\`;
+  const expectedSignature = 'v1=' + crypto
+    .createHmac('sha256', secret)
+    .update(payloadToSign)
+    .digest('hex');
+
+  // 3. Constant-Time Comparison
+  const isValid = crypto.timingSafeEqual(
+    Buffer.from(signatureHeader),
+    Buffer.from(expectedSignature)
+  );
+
+  if (!isValid) {
+    return res.status(401).send('Invalid webhook signature');
+  }
+
+  // Parse payload and process
+  const event = JSON.parse(rawBody);
+  console.log('Received Verified Event:', event.type);
+  res.status(200).json({ received: true });
+});`
+    },
+    {
+      label: "Python / FastAPI",
+      language: "python",
+      filename: "verify.py",
+      code: `import hmac
+import hashlib
+import time
+from fastapi import FastAPI, Request, HTTPException, status
+
+app = FastAPI()
+SECRET = "whsec_your_secret_key"
+
+@app.post("/api/webhooks")
+async def handle_webhook(request: Request):
+    sig_header = request.headers.get("x-zyvan-signature")
+    timestamp_header = request.headers.get("x-zyvan-timestamp")
+    
+    if not sig_header or not timestamp_header:
+        raise HTTPException(status_code=401, detail="Missing signature headers")
+        
+    # Check timestamp drift (5 mins)
+    now = int(time.time())
+    if abs(now - int(timestamp_header)) > 300:
+        raise HTTPException(status_code=400, detail="Timestamp expired")
+        
+    raw_body = await request.body()
+    payload_to_sign = f"{timestamp_header}.".encode() + raw_body
+    
+    computed_sig = "v1=" + hmac.new(
+        SECRET.encode(),
+        payload_to_sign,
+        hashlib.sha256
+    ).hexdigest()
+    
+    # Constant-time comparison
+    if not hmac.compare_digest(sig_header, computed_sig):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+        
+    return {"status": "success"}`
+    },
+    {
+      label: "Go",
+      language: "go",
+      filename: "verify.go",
+      code: `package main
+
+import (
+    "crypto/hmac"
+    "crypto/sha256"
+    "encoding/hex"
+    "fmt"
+    "io"
+    "net/http"
+    "strconv"
+    "time"
+)
+
+func webhookHandler(w http.ResponseWriter, r *http.Request) {
+    sigHeader := r.Header.Get("x-zyvan-signature")
+    timestampHeader := r.Header.Get("x-zyvan-timestamp")
+    secret := []byte("whsec_your_secret_key")
+
+    ts, err := strconv.ParseInt(timestampHeader, 10, 64)
+    if err != nil || time.Now().Unix()-ts > 300 || ts-time.Now().Unix() > 300 {
+        http.Error(w, "Timestamp drift exceeded", http.StatusBadRequest)
+        return
+    }
+
+    body, err := io.ReadAll(r.Body)
+    if err != nil {
+        http.Error(w, "Cannot read body", http.StatusInternalServerError)
+        return
+    }
+
+    mac := hmac.New(sha256.New, secret)
+    mac.Write([]byte(fmt.Sprintf("%s.", timestampHeader)))
+    mac.Write(body)
+    expectedSig := "v1=" + hex.EncodeToString(mac.Sum(nil))
+
+    if !hmac.Equal([]byte(sigHeader), []byte(expectedSig)) {
+        http.Error(w, "Invalid signature", http.StatusUnauthorized)
+        return
+    }
+
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte("OK"))
+}`
+    }
+  ]}
+/>

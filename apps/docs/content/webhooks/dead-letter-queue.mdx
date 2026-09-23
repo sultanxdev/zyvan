@@ -1,0 +1,34 @@
+---
+title: "Dead Letter Queue (DLQ)"
+description: "How the Dead Letter Queue isolates permanently failed deliveries, triggers alert webhooks, and supports atomic replay."
+category: "Webhooks & Reliability"
+order: 5
+badge: "Recovery"
+readTime: "4 min"
+---
+
+# Dead Letter Queue (DLQ)
+
+When a webhook fails to deliver after all configured retry attempts have been exhausted, Zyvan moves the delivery to the **Dead Letter Queue (DLQ)**.
+
+---
+
+## Why a Dedicated DLQ?
+
+- **Zero Data Loss**: Failed payloads are preserved in PostgreSQL indefinitely with their entire attempt log history.
+- **Worker De-congestion**: Prevents broken endpoints from cycling through worker queues indefinitely.
+- **Granular Recovery**: Replay individual failed deliveries or execute bulk replays after fixing downstream issues.
+
+```mermaid
+graph LR
+    Worker[Delivery Worker] -->|Attempt 5 Failed| Check{Retries Remaining?}
+    Check -->|No| MoveDLQ[Move to DLQ<br/>Status: DEAD_LETTER]
+    MoveDLQ --> Alert[Trigger Alert Webhook / Slack]
+    MoveDLQ --> DB[(PostgreSQL Archive)]
+    DB -.->|Admin Clicks Replay| ReplayEngine[Zyvan Replay Engine]
+    ReplayEngine -->|New Delivery Scheduled| Worker
+```
+
+<Callout type="tip" title="DLQ Alerting">
+  You can configure a Slack webhook or email notification in your Zyvan project settings to receive instant alerts whenever a delivery lands in the Dead Letter Queue.
+</Callout>

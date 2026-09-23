@@ -1,0 +1,44 @@
+---
+title: "Delivery Guarantees"
+description: "Why distributed webhook systems operate on at-least-once delivery, and how to build idempotent receivers."
+category: "Webhooks & Reliability"
+order: 4
+badge: "Guarantees"
+readTime: "4 min"
+---
+
+# Delivery Guarantees
+
+In distributed systems, the **Two Generals Problem** proves that truly deterministic "exactly-once" delivery over an unreliable network is physically impossible.
+
+Zyvan provides a guaranteed **At-Least-Once Delivery SLA**.
+
+---
+
+## What Does At-Least-Once Mean?
+
+1. Zyvan guarantees that every accepted event will be delivered to every active matching destination at least once.
+2. In rare edge cases (e.g. your server receives and processes the webhook, but crashes or drops the network connection before returning the `200 OK` HTTP status), Zyvan treats the request as timed out and safely retries.
+3. Therefore, **your webhook receiver must be idempotent**.
+
+---
+
+## How to Build Idempotent Receivers
+
+<Steps>
+  <Step number={1} title="Check the Event ID in your Database">
+    Every Zyvan webhook payload includes a top-level `id` (e.g. `evt_01HZX87AB9823KJ`). Check if your database has already processed this `id`.
+  </Step>
+
+  <Step number={2} title="Use Database Unique Constraints">
+    Insert a record into a `processed_webhooks` table within the same ACID transaction that updates your user records:
+    ```sql
+    INSERT INTO processed_webhooks (event_id, processed_at) 
+    VALUES ('evt_01HZX87AB9823KJ', NOW());
+    ```
+  </Step>
+
+  <Step number={3} title="Acknowledge Immediately with 200 OK">
+    If the event was already processed, immediately return `200 OK` so Zyvan stops retrying.
+  </Step>
+</Steps>

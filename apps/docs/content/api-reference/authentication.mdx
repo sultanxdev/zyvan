@@ -1,0 +1,40 @@
+---
+title: "Authentication"
+description: "How to authenticate API requests with Zyvan using Bearer token API keys and manage fine-grained scopes."
+category: "API Reference"
+order: 1
+badge: "Auth"
+readTime: "3 min"
+---
+
+# API Authentication
+
+All requests to the Zyvan REST API must be authenticated using a secret API key passed in the standard `Authorization` HTTP header.
+
+---
+
+## Authorization Header Format
+
+```http
+Authorization: Bearer zyvan_live_sec_99a8b7c6d5e4
+```
+
+<Callout type="security" title="API Key Security">
+  API keys carry broad privileges. Keep them strictly secret! Never commit them to Git or expose them in browser/client-side code.
+</Callout>
+
+---
+
+## API Key Scopes
+
+When creating API keys in the Zyvan console or via the admin API, you can restrict permissions with fine-grained scopes:
+
+| Scope | Permission |
+| :--- | :--- |
+| `events:write` | Emit and publish new events to a project. |
+| `events:read` | Query ingested events and status. |
+| `destinations:write` | Register, update, and delete webhook destinations. |
+| `destinations:read` | List configured destinations and endpoints. |
+| `deliveries:read` | Inspect delivery statuses and attempt logs. |
+| `dlq:replay` | Trigger single or bulk Dead Letter Queue replays. |
+| `*` (Admin) | Full access to all project resources. |

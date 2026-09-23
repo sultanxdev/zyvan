@@ -1,0 +1,45 @@
+---
+title: "Ingestion Pipeline"
+description: "How Zyvan processes incoming events in under 25ms: auth validation, idempotency checks, transactional writes, and broker fanout."
+category: "Architecture"
+order: 2
+badge: "Pipeline"
+readTime: "5 min"
+---
+
+# The Ingestion Pipeline
+
+The Zyvan Ingestion Pipeline is optimized for high-throughput, sub-30 millisecond response times while ensuring strict durability guarantees.
+
+---
+
+## Ingestion Flow Stages
+
+<Steps>
+  <Step number={1} title="Authentication & Project Scope Check" badge="0.8ms">
+    The API Gateway intercepts the request, extracts the `Authorization: Bearer <API_KEY>` header, computes the SHA-256 hash of the token, and verifies project permissions against Redis cache or PostgreSQL.
+  </Step>
+
+  <Step number={2} title="Payload & Schema Validation" badge="1.2ms">
+    Zyvan validates the incoming JSON payload against size limits (maximum 1MB) and ensures standard fields (`type`, `idempotency_key`, `payload`) are present.
+  </Step>
+
+  <Step number={3} title="Atomic Database Transaction" badge="12ms">
+    Using PostgreSQL serializable or read-committed transactions:
+    1. The Event row is inserted with `(project_id, idempotency_key)` uniqueness check.
+    2. Active Destinations matching the `event_type` and `tenant_id` are queried.
+    3. Delivery records are created with initial status `PENDING`.
+  </Step>
+
+  <Step number={4} title="Message Broker Publish" badge="3ms">
+    Delivery tasks are published to the RabbitMQ exchange. Message headers include `delivery_id`, `destination_id`, `project_id`, and `attempt_number: 1`.
+  </Step>
+
+  <Step number={5} title="202 Accepted Response" badge="Immediate">
+    Zyvan returns HTTP `202 Accepted` with the generated `event_id` and the count of scheduled deliveries.
+  </Step>
+</Steps>
+
+<Callout type="note" title="Zero Loss Guarantee">
+  Because the event and its associated delivery tasks are durably committed to PostgreSQL **before** responding to the client, even an abrupt queue crash immediately after ingestion will never result in lost events.
+</Callout>

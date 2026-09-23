@@ -1,0 +1,81 @@
+---
+title: "System Overview"
+description: "Comprehensive architecture breakdown of Zyvan: Ingestion Plane, Message Broker topology, Delivery Worker fleet, and Recovery subsystem."
+category: "Architecture"
+order: 1
+badge: "Deep Dive"
+readTime: "6 min"
+---
+
+# System Architecture Overview
+
+Zyvan is designed with a **distributed, decoupled topology** where fast HTTP ingest operations never depend on the availability or latency of downstream webhook endpoints.
+
+---
+
+## High-Level Topology
+
+```mermaid
+graph TD
+    subgraph Client Application Layer
+        App1[Backend Microservices]
+        App2[Monolith / APIs]
+    end
+
+    subgraph Zyvan Ingestion Plane
+        API[Zyvan Ingestion Gateway<br/>Node.js / Express / Fastify]
+        Auth[API Key & Scope Auth]
+        Validator[Schema & Payload Validation]
+    end
+
+    subgraph Persistence Layer
+        DB[(PostgreSQL 16 Cluster<br/>System of Record)]
+    end
+
+    subgraph Messaging & Queue Plane
+        Broker[(RabbitMQ / BullMQ Cluster)]
+        Exchange[Direct & Topic Exchanges]
+        DelayQ[Delayed Queue TTL + DLX]
+    end
+
+    subgraph Zyvan Delivery Plane
+        Worker1[Delivery Worker Node 1]
+        Worker2[Delivery Worker Node 2]
+        WorkerN[Delivery Worker Node N]
+    end
+
+    subgraph Target Destinations
+        Dest1[Customer Endpoint 1]
+        Dest2[Customer Endpoint 2]
+        Dest3[Customer Endpoint 3]
+    end
+
+    App1 -->|POST /events| API
+    App2 -->|POST /events| API
+    API --> Auth --> Validator
+    Validator -->|Durable Insert| DB
+    Validator -->|Publish Job| Exchange
+    Exchange --> Broker
+    Broker --> Worker1 & Worker2 & WorkerN
+    Worker1 -->|HMAC Webhook| Dest1
+    Worker2 -->|HMAC Webhook| Dest2
+    WorkerN -->|HMAC Webhook| Dest3
+    Worker1 -.->|Retry Backoff| DelayQ
+    DelayQ -.->|TTL Expired DLX| Exchange
+```
+
+---
+
+## Component Responsibilities
+
+| Subsystem | Technology | Responsibility | SLA / Latency |
+| :--- | :--- | :--- | :--- |
+| **Ingestion Plane** | Node.js, TypeScript, Fastify/Express | Validates auth, enforces rate limits, checks idempotency, persists to PostgreSQL, and publishes to queue. | $< 25$ ms |
+| **System of Record** | PostgreSQL 16 (Prisma ORM) | Stores events, projects, tenants, encrypted secrets, deliveries, and physical attempt logs. | 99.999% Durability |
+| **Message Broker** | RabbitMQ / BullMQ | Coordinates delivery tasks, dead letter exchanges, and scheduled delays without DB polling. | High Throughput |
+| **Delivery Plane** | Node.js Worker Fleet | Executes HTTP requests, signs HMAC payloads, handles retries with jitter, logs latency, and manages circuit breaking. | Autoscaling |
+| **DLQ & Recovery** | Zyvan Replay Engine | Quarantines permanently failed deliveries and coordinates manual/bulk replays without state overwrites. | Zero Data Loss |
+
+<Callout type="tip" title="Stateless Workers">
+  Delivery worker processes are entirely stateless. They can be dynamically scaled up or down using Kubernetes HPA or ECS based on queue depth metrics.
+</Callout>
