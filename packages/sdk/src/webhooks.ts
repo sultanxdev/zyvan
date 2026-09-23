@@ -33,9 +33,8 @@ export class WebhookVerificationError extends ZyvanError {
   constructor(message: string, options: WebhookVerificationErrorOptions) {
     super(message, {
       code: options.code,
-      status: 400,
-      retryable: false,
-      cause: options.cause,
+      statusCode: 400,
+      cause: options.cause instanceof Error ? options.cause : undefined,
     });
     this.name = 'WebhookVerificationError';
     this.code = options.code;
