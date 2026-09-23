@@ -1,0 +1,41 @@
+---
+title: "Errors & Status Codes"
+description: "Comprehensive error dictionary: standard error schema, error codes, HTTP statuses, and recovery actions in Zyvan."
+category: "API Reference"
+order: 8
+badge: "Errors"
+readTime: "4 min"
+---
+
+# Errors & Status Codes
+
+Zyvan uses standard HTTP response codes combined with structured JSON error responses.
+
+---
+
+## Standard Error Schema
+
+```json
+{
+  "error": {
+    "code": "INVALID_IDEMPOTENCY_KEY",
+    "message": "The idempotency_key must be a non-empty string between 1 and 255 characters.",
+    "status": 400,
+    "doc_url": "https://zyvan.dev/docs/core-concepts/idempotency-keys"
+  }
+}
+```
+
+---
+
+## Common Error Codes
+
+| HTTP Status | Error Code | Description | Action |
+| :--- | :--- | :--- | :--- |
+| `400 Bad Request` | `VALIDATION_ERROR` | Request body failed JSON schema validation. | Inspect error details. |
+| `401 Unauthorized` | `INVALID_API_KEY` | Missing or invalid `Bearer` token. | Verify API key. |
+| `403 Forbidden` | `INSUFFICIENT_SCOPE` | Key lacks required scope. | Add scope or use admin key. |
+| `404 Not Found` | `RESOURCE_NOT_FOUND` | Project, tenant, or destination not found. | Check UUID / slug. |
+| `409 Conflict` | `IDEMPOTENCY_CONFLICT` | Key matched in-flight request with different payload. | Use unique key. |
+| `429 Too Many Requests` | `RATE_LIMIT_EXCEEDED` | Request exceeded tenant or project rate limit. | Back off and retry. |
+| `500 Internal Error` | `INTERNAL_SERVER_ERROR` | Zyvan internal server error. | Contact support. |
