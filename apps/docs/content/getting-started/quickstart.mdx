@@ -17,10 +17,10 @@ This guide walks you through sending and delivering your first webhook event thr
 
 <Steps>
   <Step number={1} title="Obtain your API Key" badge="Auth">
-    Log in to the [Zyvan Console](/dashboard) and navigate to **API Keys**. Generate a new key with `events:write` and `destinations:write` permissions.
+    Log in to the [Zyvan Console](https://app.zyvan.dev) and navigate to **API Keys**. Generate a new key with `events:write` and `destinations:manage` permissions.
     
     <Callout type="security" title="Keep your API Key Secret">
-      Never expose your Secret Key (`zyvan_live_...`) in client-side code or public repositories. Store it in environment variables.
+      Never expose your Secret Key (`zyv_live_...`) in client-side code or public repositories. Store it in environment variables.
     </Callout>
   </Step>
 
@@ -28,19 +28,13 @@ This guide walks you through sending and delivering your first webhook event thr
     A **Destination** represents the HTTPS endpoint where Zyvan will deliver your webhook events.
 
 ```bash
-curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/destinations" \
-  -H "Authorization: Bearer zyvan_live_sec_10982347" \
+curl -X POST "https://api.zyvan.dev/v1/destinations" \
+  -H "Authorization: Bearer zyv_live_99a8b7c6d5e4" \
   -H "Content-Type: application/json" \
   -d '{
-    "tenant_id": "tenant_default",
     "url": "https://example.com/api/webhooks",
-    "secret": "whsec_super_secret_signing_key_42",
     "rate_limit": 100,
-    "retry_policy": {
-      "max_attempts": 5,
-      "initial_interval_sec": 5,
-      "backoff_multiplier": 2
-    }
+    "event_types": ["order.*"]
   }'
 ```
   </Step>
@@ -53,9 +47,10 @@ curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/destinations" \
         {
           label: "cURL",
           language: "bash",
-          code: `curl -X POST "https://api.zyvan.dev/v1/projects/proj_live_99/events" \\
-  -H "Authorization: Bearer zyvan_live_sec_10982347" \\
+          code: `curl -X POST "https://api.zyvan.dev/v1/events" \\
+  -H "Authorization: Bearer zyv_live_99a8b7c6d5e4" \\
   -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: tx_ord_998124_stripe" \\
   -d '{
     "type": "order.completed",
     "idempotency_key": "order_evt_998124",
@@ -123,7 +118,7 @@ print(f"Event queued: {event.id}")`
   </Step>
 
   <Step number={4} title="Verify Webhook Delivery" badge="Verification">
-    Zyvan signs the payload with HMAC-SHA256 and sends it with `x-zyvan-signature` and `x-zyvan-timestamp` headers. Inspect the response in your server logs or view attempt traces in the [Zyvan Console](/dashboard).
+    Zyvan signs the payload with HMAC-SHA256 and sends it with `x-zyvan-signature` and `x-zyvan-timestamp` headers. Inspect the response in your server logs or view attempt traces in the [Zyvan Console](https://app.zyvan.dev).
   </Step>
 </Steps>
 
