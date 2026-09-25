@@ -141,7 +141,7 @@ The public API handles event ingestion and platform configuration while workers 
 | --- | --- |
 | Frontend | Next.js, React |
 | Language | TypeScript |
-| API | Node.js, Fastify |
+| API | Node.js, express.js |
 | Database | PostgreSQL |
 | ORM | Prisma |
 | Queue | RabbitMQ |
