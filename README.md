@@ -236,13 +236,8 @@ The focus is on system behavior when dependencies fail, not only on the successf
 
 **Active Development**
 
-Current focus:
 
-`Receive → Persist → Queue → Deliver → Retry → Recover → Replay`
 
 > **Send the event. Zyvan handles what happens next.**
 
-## Links
 
-- Website: https://www.zyvan.dev
-- Portfolio: https://www.sultanx.dev/projects/zyvan
