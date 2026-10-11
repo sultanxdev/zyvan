@@ -106,7 +106,7 @@ describe('@zyvan/auth', () => {
     it('returns statements from getRolePermissions', () => {
       const viewerPerms = getRolePermissions('viewer');
       expect(viewerPerms.length).toBeGreaterThan(0);
-      expect(viewerPerms.every((p) => p.action === 'read')).toBe(true);
+      expect(viewerPerms.every((p) => p.endsWith(':read'))).toBe(true);
     });
   });
 
