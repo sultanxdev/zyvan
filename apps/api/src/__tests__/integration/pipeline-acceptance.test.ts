@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../../app';
 import * as rabbitmq from '../../lib/rabbitmq';
+import { ingestEvent } from '../../modules/events/service';
 import * as eventRepo from '../../modules/events/repository';
 import * as destRepo from '../../modules/destinations/repository';
 import * as deliveryRepo from '../../modules/deliveries/repository';
@@ -51,9 +52,19 @@ vi.mock('../../lib/rabbitmq', () => ({
   disconnectRabbitMQ: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('../../modules/destinations/repository');
-vi.mock('../../modules/events/repository');
-vi.mock('../../modules/deliveries/repository');
+vi.mock('../../modules/destinations/repository', () => ({
+  listByOrganization: vi.fn(),
+  findById: vi.fn(),
+}));
+
+vi.mock('../../modules/events/repository', () => ({
+  findByIdempotencyKey: vi.fn(),
+  createWithDeliveries: vi.fn(),
+}));
+
+vi.mock('../../modules/deliveries/repository', () => ({
+  listByDestination: vi.fn(),
+}));
 
 describe('Production Pipeline Acceptance: Event Ingestion to Delivery, Retries & DLQ', () => {
   const orgId = 'org_enterprise_01';
@@ -106,24 +117,28 @@ describe('Production Pipeline Acceptance: Event Ingestion to Delivery, Retries &
         failed: [],
       });
 
-      // Inject authenticated session via mock or headers
-      // Here we invoke through supertest with mock session or auth helper
-      const res = await request(app)
-        .post('/v1/events')
-        .set('Authorization', 'Bearer zyvan_live_testkey123')
-        .set('Idempotency-Key', 'idemp_key_unique_999')
-        .send({
-          type: 'order.completed',
-          payload: { orderId: 'ord_123', total: 299.99 },
-          projectId: projId,
-        });
+      const res = await ingestEvent(
+        orgId,
+        projId,
+        'order.completed',
+        'idemp_key_unique_999',
+        { orderId: 'ord_123', total: 299.99 }
+      );
 
-      // API key was checked; if unauthenticated, test verifies security gate
-      expect(res.status).toBeOneOf([200, 201, 202, 401]);
+      expect(res.event_id).toBe('evt_100');
+      expect(res.duplicate).toBe(false);
+      expect(rabbitmq.publishDeliveryJobsConfirmed).toHaveBeenCalledWith([
+        { deliveryId: 'del_100', attemptNo: 1 },
+      ]);
+      expect(mockPrisma.outboxMessage.deleteMany).toHaveBeenCalledWith({
+        where: {
+          deliveryId: { in: ['del_100'] },
+        },
+      });
     });
 
     it('idempotency: duplicate request with same key returns existing event without re-publishing', async () => {
-      vi.mocked(eventRepo.findByIdempotencyKey).mockResolvedValue({
+      vi.mocked(eventRepo.findByIdempotencyKey).mockResolvedValueOnce({
         id: 'evt_already_processed',
         type: 'invoice.paid',
         status: 'queued',
@@ -131,10 +146,16 @@ describe('Production Pipeline Acceptance: Event Ingestion to Delivery, Retries &
         deliveries: [{ id: 'del_existing' }],
       } as any);
 
-      // Verify that findByIdempotencyKey prevents double fan-out
-      const existing = await eventRepo.findByIdempotencyKey(orgId, 'idemp_duplicate_test');
-      expect(existing).not.toBeNull();
-      expect(existing?.id).toBe('evt_already_processed');
+      const result = await ingestEvent(
+        orgId,
+        projId,
+        'invoice.paid',
+        'idemp_duplicate_test',
+        { invoiceId: 'inv_123' }
+      );
+
+      expect(result.duplicate).toBe(true);
+      expect(result.event_id).toBe('evt_already_processed');
       // Broker publish was not triggered for duplicate
       expect(rabbitmq.publishDeliveryJobsConfirmed).not.toHaveBeenCalled();
     });
