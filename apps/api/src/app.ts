@@ -20,6 +20,7 @@ import { logger } from './lib/logger';
 import { connectRabbitMQ, disconnectRabbitMQ } from './lib/rabbitmq';
 import { disconnectRedis } from './lib/redis';
 import { requestIdMiddleware } from './middleware/request-id';
+import { createIpRateLimiter, createIdentityRateLimiter } from './middleware/rate-limit';
 import { errorHandler } from './middleware/error-handler';
 import { authenticate } from './middleware/authenticate';
 import { requireSession } from './auth/guards';
