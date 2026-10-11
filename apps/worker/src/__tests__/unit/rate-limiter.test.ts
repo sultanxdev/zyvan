@@ -13,22 +13,27 @@ describe('Destination Rate Limiter Unit Tests', () => {
     setRedisClientForTesting(mockRedis);
   });
 
-  it('allows requests within rate limit', async () => {
-    mockRedis.eval.mockResolvedValueOnce(5); // 5th request in current second
+  it('allows requests within sliding rate limit', async () => {
+    mockRedis.eval.mockResolvedValueOnce([1, 5]); // [allowed=1, currentCount=5]
 
     const result = await checkRateLimit('dest-1', 10);
 
     expect(result.allowed).toBe(true);
     expect(result.currentCount).toBe(5);
     expect(mockRedis.eval).toHaveBeenCalledWith(
-      expect.stringContaining("redis.call('INCR', KEYS[1])"),
+      expect.stringContaining("redis.call('ZREMRANGEBYSCORE', key, '-inf', windowStart)"),
       1,
-      expect.stringMatching(/^dest:dest-1:rate:\d+$/)
+      'dest:dest-1:rate:sliding',
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(String),
+      1000,
+      10
     );
   });
 
-  it('rejects requests exceeding rate limit', async () => {
-    mockRedis.eval.mockResolvedValueOnce(11); // 11th request when limit is 10
+  it('rejects requests exceeding sliding rate limit', async () => {
+    mockRedis.eval.mockResolvedValueOnce([0, 11]); // [allowed=0, currentCount=11]
 
     const result = await checkRateLimit('dest-1', 10);
 
