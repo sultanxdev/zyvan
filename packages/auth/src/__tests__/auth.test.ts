@@ -10,8 +10,10 @@ import {
 import { normalizeResource } from '../permissions';
 import { logAuditEvent, AuditLogParams } from '../audit';
 
-// Mock DB and logger
-const mockCreate = vi.fn();
+const { mockCreate } = vi.hoisted(() => ({
+  mockCreate: vi.fn(),
+}));
+
 vi.mock('@zyvan/db', () => ({
   getPrismaClient: () => ({
     auditLog: {
