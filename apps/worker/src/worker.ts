@@ -22,6 +22,7 @@ import {
   getChannel,
   DELIVERY_QUEUE,
 } from './lib/rabbitmq';
+import { disconnectRedis } from './lib/redis';
 import { processDelivery } from './services/delivery-service';
 import type { DeliveryJob } from './services/delivery-service';
 
@@ -148,6 +149,9 @@ async function gracefulShutdown(signal: string): Promise<void> {
   try {
     // Close RabbitMQ (stops consuming, finishes current messages)
     await disconnectRabbitMQ(logger);
+
+    // Close Redis
+    await disconnectRedis();
 
     // Close database
     await disconnectPrisma();
