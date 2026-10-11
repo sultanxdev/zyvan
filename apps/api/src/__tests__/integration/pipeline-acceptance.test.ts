@@ -12,28 +12,30 @@ import { signPayload } from '@zyvan/crypto';
 import { getPrismaClient } from '@zyvan/db';
 
 // Mock DB
-const mockPrisma = {
-  outboxMessage: {
-    deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+const { mockPrisma } = vi.hoisted(() => ({
+  mockPrisma: {
+    outboxMessage: {
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
+    deadLetter: {
+      create: vi.fn().mockResolvedValue({ id: 'dlq-1', status: 'pending' }),
+    },
+    delivery: {
+      update: vi.fn().mockResolvedValue({ id: 'del-1', status: 'delivered' }),
+    },
+    attempt: {
+      create: vi.fn().mockResolvedValue({ id: 'att-1', attemptNumber: 1 }),
+    },
+    member: {
+      findFirst: vi.fn(),
+    },
+    apiKey: {
+      findUnique: vi.fn(),
+    },
+    $queryRaw: vi.fn(),
+    $executeRaw: vi.fn().mockResolvedValue(1),
   },
-  deadLetter: {
-    create: vi.fn().mockResolvedValue({ id: 'dlq-1', status: 'pending' }),
-  },
-  delivery: {
-    update: vi.fn().mockResolvedValue({ id: 'del-1', status: 'delivered' }),
-  },
-  attempt: {
-    create: vi.fn().mockResolvedValue({ id: 'att-1', attemptNumber: 1 }),
-  },
-  member: {
-    findFirst: vi.fn(),
-  },
-  apiKey: {
-    findUnique: vi.fn(),
-  },
-  $queryRaw: vi.fn(),
-  $executeRaw: vi.fn().mockResolvedValue(1),
-};
+}));
 
 vi.mock('@zyvan/db', () => ({
   getPrismaClient: () => mockPrisma,
