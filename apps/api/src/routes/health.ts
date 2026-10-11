@@ -7,6 +7,7 @@
 import { Router, Request, Response } from 'express';
 import { getPrismaClient } from '@zyvan/db';
 import { isRabbitMQConnected } from '../lib/rabbitmq';
+import { checkRedisHealth } from '../lib/redis';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -33,8 +34,12 @@ router.get('/ready', async (_req: Request, res: Response) => {
     logger.error({ err }, 'Database readiness check failed');
   }
 
-  // Check Redis (placeholder — will be connected in Phase 2+)
-  checks.redis = 'ok';
+  // Check Redis
+  const redisOk = await checkRedisHealth();
+  checks.redis = redisOk ? 'ok' : 'error';
+  if (!redisOk) {
+    logger.warn('Redis readiness check failed — not responding');
+  }
 
   // Check RabbitMQ
   checks.rabbitmq = isRabbitMQConnected() ? 'ok' : 'error';

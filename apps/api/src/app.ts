@@ -227,6 +227,14 @@ async function gracefulShutdown(signal: string): Promise<void> {
       logger.error({ err }, 'Error closing RabbitMQ connection');
     }
 
+    // Close Redis connection
+    try {
+      await disconnectRedis();
+      logger.info('Redis connection closed');
+    } catch (err) {
+      logger.error({ err }, 'Error closing Redis connection');
+    }
+
     logger.info('Graceful shutdown complete');
     process.exit(0);
   });
