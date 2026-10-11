@@ -18,6 +18,7 @@ import { auth } from '@zyvan/auth';
 import { config, validateConfig } from './config';
 import { logger } from './lib/logger';
 import { connectRabbitMQ, disconnectRabbitMQ } from './lib/rabbitmq';
+import { disconnectRedis } from './lib/redis';
 import { requestIdMiddleware } from './middleware/request-id';
 import { errorHandler } from './middleware/error-handler';
 import { authenticate } from './middleware/authenticate';
