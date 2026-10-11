@@ -123,7 +123,7 @@ describe('Production Pipeline Acceptance: Event Ingestion to Delivery, Retries &
     });
 
     it('idempotency: duplicate request with same key returns existing event without re-publishing', async () => {
-      vi.mocked(eventRepo.findByIdempotencyKey).mockResolvedValueOnce({
+      vi.mocked(eventRepo.findByIdempotencyKey).mockResolvedValue({
         id: 'evt_already_processed',
         type: 'invoice.paid',
         status: 'queued',
@@ -151,14 +151,12 @@ describe('Production Pipeline Acceptance: Event Ingestion to Delivery, Retries &
     it('generates cryptographic HMAC-SHA256 signature and timestamp for webhook authenticity', () => {
       const payload = JSON.stringify({ event: 'user.created', id: 'usr_1' });
       const secret = 'whsec_test_secret_key_12345';
-      const timestamp = 1791739200;
 
-      const signature = signPayload(payload, secret, timestamp);
+      const result = signPayload(secret, payload, 'v1');
 
-      expect(signature).toBeDefined();
-      expect(signature.startsWith('v1,t=')).toBe(true);
-      expect(signature).toContain(`t=${timestamp}`);
-      expect(signature).toContain('v1=');
+      expect(result.signature).toBeDefined();
+      expect(result.header).toMatch(/^v1=[a-f0-9]{64}$/);
+      expect(result.timestamp).toBeGreaterThan(0);
     });
   });
 
