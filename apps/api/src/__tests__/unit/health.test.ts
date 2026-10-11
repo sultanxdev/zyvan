@@ -23,4 +23,27 @@ describe('Health Routes', () => {
     expect(res.body.code).toBe('not_found');
     expect(res.body.request_id).toBeDefined();
   });
+
+  it('GET /metrics returns 200 with Prometheus metrics exposition format', async () => {
+    const res = await request(app).get('/metrics');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/plain');
+    expect(res.text).toContain('zyvan_');
+  });
+
+  it('GET /metrics enforces token protection when METRICS_TOKEN is set', async () => {
+    process.env.METRICS_TOKEN = 'secret-scrape-token-123';
+    try {
+      const unauthorizedRes = await request(app).get('/metrics');
+      expect(unauthorizedRes.status).toBe(403);
+      expect(unauthorizedRes.body.code).toBe('forbidden');
+
+      const authorizedRes = await request(app)
+        .get('/metrics')
+        .set('Authorization', 'Bearer secret-scrape-token-123');
+      expect(authorizedRes.status).toBe(200);
+    } finally {
+      delete process.env.METRICS_TOKEN;
+    }
+  });
 });

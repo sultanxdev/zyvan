@@ -19,6 +19,7 @@ import { config, validateConfig } from './config';
 import { logger } from './lib/logger';
 import { connectRabbitMQ, disconnectRabbitMQ } from './lib/rabbitmq';
 import { disconnectRedis } from './lib/redis';
+import { metricsMiddleware, metricsRegistry, metricsAuthGuard } from './lib/metrics';
 import { requestIdMiddleware } from './middleware/request-id';
 import { createIpRateLimiter, createIdentityRateLimiter } from './middleware/rate-limit';
 import { errorHandler } from './middleware/error-handler';
@@ -89,11 +90,17 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(metricsMiddleware);
+
 // ─── Trust Proxy & Rate Limiting ──────────────────────────────
 app.set('trust proxy', 1);
 
 const ipRateLimit = createIpRateLimiter({
-  skip: (req) => req.path === '/health' || req.path === '/ready' || req.path === '/v1',
+  skip: (req) =>
+    req.path === '/health' ||
+    req.path === '/ready' ||
+    req.path === '/v1' ||
+    req.path === '/metrics',
 });
 const identityRateLimit = createIdentityRateLimiter();
 const authenticated = [authenticate, identityRateLimit];
@@ -104,6 +111,12 @@ app.use(ipRateLimit);
 
 // Health & readiness (no auth required)
 app.use('/', healthRoutes);
+
+// Prometheus metrics (protected scraper endpoint)
+app.get('/metrics', metricsAuthGuard, async (_req, res) => {
+  res.setHeader('Content-Type', metricsRegistry.contentType);
+  res.send(await metricsRegistry.metrics());
+});
 
 // Bootstrap (no auth — only works when zero projects exist)
 app.use('/v1/bootstrap', bootstrapRoutes);
