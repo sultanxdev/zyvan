@@ -89,6 +89,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// ─── Trust Proxy & Rate Limiting ──────────────────────────────
+app.set('trust proxy', 1);
+
+const ipRateLimit = createIpRateLimiter({
+  skip: (req) => req.path === '/health' || req.path === '/ready' || req.path === '/v1',
+});
+const identityRateLimit = createIdentityRateLimiter();
+const authenticated = [authenticate, identityRateLimit];
+
+app.use(ipRateLimit);
+
 // ─── Routes ──────────────────────────────────────────────────
 
 // Health & readiness (no auth required)
@@ -110,7 +121,7 @@ app.get('/v1', (_req, res) => {
 });
 
 // Current authenticated user session & active organization
-app.get('/v1/me', requireSession, (req, res) => {
+app.get('/v1/me', requireSession, identityRateLimit, (req, res) => {
   res.json({
     data: {
       user: req.currentUser,
@@ -124,25 +135,25 @@ app.get('/v1/me', requireSession, (req, res) => {
 // ─── Authenticated API v1 Routes ─────────────────────────────
 
 app.use('/v1/organizations', organizationRoutes);
-app.use('/v1/api-keys', authenticate, apiKeyRoutes);
-app.use('/v1/projects', authenticate, projectRoutes);
-app.use('/v1/tenants', authenticate, tenantRoutes);
-app.use('/v1/destinations', authenticate, destinationRoutes);
+app.use('/v1/api-keys', authenticated, apiKeyRoutes);
+app.use('/v1/projects', authenticated, projectRoutes);
+app.use('/v1/tenants', authenticated, tenantRoutes);
+app.use('/v1/destinations', authenticated, destinationRoutes);
 
 // Event ingestion & query
-app.use('/v1/events', authenticate, eventRoutes);
+app.use('/v1/events', authenticated, eventRoutes);
 
 // Delivery listing (nested under destinations)
-app.use('/v1/destinations', authenticate, deliveryRoutes);
+app.use('/v1/destinations', authenticated, deliveryRoutes);
 
 // Dead Letter Queue
-app.use('/v1/dead-letters', authenticate, dlqRoutes);
+app.use('/v1/dead-letters', authenticated, dlqRoutes);
 
 // Replay
-app.use('/v1/events', authenticate, replayRoutes);
+app.use('/v1/events', authenticated, replayRoutes);
 
 // Usage metrics
-app.use('/v1/usage', authenticate, usageRoutes);
+app.use('/v1/usage', authenticated, usageRoutes);
 
 // 404 handler
 app.use((_req, res) => {
