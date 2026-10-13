@@ -8,7 +8,7 @@ interface StepsProps {
 
 export function Steps({ children }: StepsProps) {
   return (
-    <div className="relative my-8 border-l border-zinc-800 ml-4 pl-6 space-y-8 font-geist-mono font-mono">
+    <div className="relative my-8 border-l border-zinc-800 ml-4 pl-6 space-y-8">
       {children}
     </div>
   );

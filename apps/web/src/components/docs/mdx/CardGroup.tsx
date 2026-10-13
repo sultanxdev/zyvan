@@ -28,7 +28,7 @@ export function CardGroup({ cols = 2, children }: CardGroupProps) {
   };
 
   return (
-    <div className={`my-8 grid gap-4 ${colClass[cols] || colClass[2]} font-geist-mono font-mono`}>
+    <div className={`my-8 grid gap-4 ${colClass[cols] || colClass[2]}`}>
       {children}
     </div>
   );

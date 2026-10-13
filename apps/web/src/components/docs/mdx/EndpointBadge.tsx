@@ -38,7 +38,7 @@ export function EndpointBadge({
   };
 
   return (
-    <div className="my-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-zinc-950 p-3 backdrop-blur-md shadow-lg font-geist-mono font-mono">
+    <div className="my-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-zinc-950 p-3 backdrop-blur-md shadow-lg">
       <div className="flex flex-wrap items-center gap-2.5">
         <span
           className={`rounded-lg border px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${

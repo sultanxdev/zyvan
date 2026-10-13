@@ -75,7 +75,7 @@ export function ApiPlayground({
   };
 
   return (
-    <div className="my-8 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden font-geist-mono font-mono text-[13px]">
+    <div className="my-8 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden text-[13px]">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between border-b border-white/[0.06] bg-zinc-950 px-4 py-3 gap-3">
         <div className="flex items-center gap-2">

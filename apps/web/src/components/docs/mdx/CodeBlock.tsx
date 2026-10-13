@@ -49,7 +49,7 @@ export function CodeBlock({
   const lines = rawCode.split('\n');
 
   return (
-    <div className="group relative my-6 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden font-geist-mono font-mono text-[13px]">
+    <div className="group relative my-6 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden font-mono text-[13px]">
       {/* Top Header Bar */}
       <div className="flex items-center justify-between border-b border-white/[0.06] bg-zinc-950 px-4 py-2.5 backdrop-blur-md">
         <div className="flex items-center gap-2">
@@ -90,7 +90,7 @@ export function CodeBlock({
 
       {/* Code Container */}
       <div className="overflow-x-auto p-4 leading-relaxed text-zinc-200">
-        <pre className="font-geist-mono font-mono text-[13px]">
+        <pre className="font-mono text-[13px]">
           {showLineNumbers || highlightLines.length > 0 ? (
             <code>
               {lines.map((line, idx) => {

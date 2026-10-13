@@ -38,7 +38,7 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
     const lines = currentTab.code.trim().split('\n');
 
     return (
-      <div className="group relative my-6 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden font-geist-mono font-mono text-[13px]">
+      <div className="group relative my-6 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden font-mono text-[13px]">
         {/* Tab Headers */}
         <div className="flex items-center justify-between border-b border-white/[0.06] bg-zinc-950 px-3 py-1.5 backdrop-blur-md">
           <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -90,7 +90,7 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
               // {currentTab.filename}
             </div>
           )}
-          <pre className="font-geist-mono font-mono text-[13px]">
+          <pre className="font-mono text-[13px]">
             <code>
               {lines.map((line, idx) => {
                 const lineNum = idx + 1;
@@ -120,7 +120,7 @@ export function CodeTabs({ tabs = [], items, children }: CodeTabsProps) {
   const childArray = React.Children.toArray(children);
 
   return (
-    <div className="my-6 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden font-geist-mono font-mono text-[13px]">
+    <div className="my-6 rounded-xl border border-white/[0.08] bg-[#0A0A0E] shadow-2xl overflow-hidden font-mono text-[13px]">
       <div className="flex items-center border-b border-white/[0.06] bg-zinc-950 px-3 py-1.5 backdrop-blur-md">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           {tabTitles.map((title, idx) => (

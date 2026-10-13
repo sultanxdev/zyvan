@@ -69,7 +69,7 @@ export function Callout({ type = 'note', title, children }: CalloutProps) {
 
   return (
     <div
-      className={`my-6 rounded-xl border ${config.border} ${config.bg} ${config.glow} p-4.5 backdrop-blur-sm transition-all font-geist-mono font-mono`}
+      className={`my-6 rounded-xl border ${config.border} ${config.bg} ${config.glow} p-4.5 backdrop-blur-sm transition-all`}
     >
       <div className="flex items-start gap-3">
         <div className={`mt-0.5 shrink-0 ${config.iconColor}`}>
