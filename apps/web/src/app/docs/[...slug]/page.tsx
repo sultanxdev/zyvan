@@ -54,7 +54,7 @@ export default async function DocSlugPage({ params }: PageProps) {
   const { prev, next } = getAdjacentDocs(doc.slug);
 
   return (
-    <div className="flex w-full justify-between gap-8 font-geist-mono font-mono">
+    <div className="flex w-full justify-between gap-8">
       {/* Center Reading Column */}
       <div className="min-w-0 max-w-4xl flex-1">
         {/* Breadcrumb Trail */}

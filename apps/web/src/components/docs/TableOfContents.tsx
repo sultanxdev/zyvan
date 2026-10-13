@@ -78,7 +78,7 @@ export function TableOfContents({ toc, title, filePath }: TableOfContentsProps) 
   }
 
   return (
-    <aside className="sticky top-14 h-[calc(100vh-3.5rem)] w-64 overflow-y-auto px-4 py-6 font-geist-mono font-mono select-none scrollbar-none hidden xl:block shrink-0">
+    <aside className="sticky top-14 h-[calc(100vh-3.5rem)] w-64 overflow-y-auto px-4 py-6 select-none scrollbar-none hidden xl:block shrink-0">
       {/* Table of Contents Header */}
       <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400">
         <AlignLeft className="w-3.5 h-3.5 text-[#00DC5A]" />

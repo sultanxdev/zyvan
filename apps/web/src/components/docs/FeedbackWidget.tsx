@@ -7,7 +7,7 @@ export function FeedbackWidget() {
   const [feedbackState, setFeedbackState] = useState<'idle' | 'helpful' | 'unhelpful'>('idle');
 
   return (
-    <div className="my-8 rounded-xl border border-white/[0.08] bg-zinc-950/60 p-4 backdrop-blur-sm flex flex-wrap items-center justify-between gap-4 font-geist-mono font-mono">
+    <div className="my-8 rounded-xl border border-white/[0.08] bg-zinc-950/60 p-4 backdrop-blur-sm flex flex-wrap items-center justify-between gap-4">
       <div className="flex items-center gap-2">
         <Sparkles className="w-4 h-4 text-[#00DC5A]" />
         <span className="text-xs font-medium text-zinc-300">

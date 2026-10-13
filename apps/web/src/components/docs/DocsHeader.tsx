@@ -33,7 +33,7 @@ export function DocsHeader({
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#0A0A0D]/90 backdrop-blur-xl font-geist-mono font-mono">
+    <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#0A0A0D]/90 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Left: Mobile menu toggle + Brand Logo */}
         <div className="flex items-center gap-4">

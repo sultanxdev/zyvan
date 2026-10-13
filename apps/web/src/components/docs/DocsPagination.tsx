@@ -13,7 +13,7 @@ export function DocsPagination({ prev, next }: DocsPaginationProps) {
   if (!prev && !next) return null;
 
   return (
-    <div className="my-10 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-zinc-800 pt-6 font-geist-mono font-mono">
+    <div className="my-10 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-zinc-800 pt-6">
       {prev ? (
         <Link
           href={`/docs/${prev.slug}`}

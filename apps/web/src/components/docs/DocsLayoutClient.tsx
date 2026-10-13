@@ -21,7 +21,7 @@ export function DocsLayoutClient({
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0D] text-zinc-100 font-geist-mono font-mono selection:bg-[#00DC5A]/30 selection:text-white relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#0A0A0D] text-zinc-100 selection:bg-[#00DC5A]/30 selection:text-white relative overflow-x-hidden">
       {/* Top Ambient Emerald Green Radial Glow matching landing page */}
       <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 h-[450px] w-full max-w-7xl bg-[radial-gradient(ellipse_at_top,_rgba(0,220,90,0.14),_rgba(0,220,90,0.03),_transparent_70%)] z-0" />
 

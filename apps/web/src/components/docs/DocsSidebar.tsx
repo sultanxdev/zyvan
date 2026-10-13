@@ -52,7 +52,7 @@ export function DocsSidebar({ categories, onItemClick }: DocsSidebarProps) {
   };
 
   return (
-    <aside className="h-full w-full flex flex-col font-geist-mono font-mono select-none">
+    <aside className="h-full w-full flex flex-col select-none">
       {/* Quick sidebar filter */}
       <div className="px-3 pt-4 pb-2">
         <div className="relative flex items-center">

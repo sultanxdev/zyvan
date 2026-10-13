@@ -30,10 +30,10 @@ function createHeading(level: 1 | 2 | 3 | 4) {
     const id = props.id || slugify(text);
 
     const baseClasses = {
-      1: 'text-3xl font-bold tracking-tight text-white mb-4 mt-8 first:mt-0 font-geist-mono font-mono',
-      2: 'text-2xl font-semibold tracking-tight text-white mb-3 mt-10 border-b border-white/[0.08] pb-2 font-geist-mono font-mono group flex items-center gap-2',
-      3: 'text-lg font-semibold text-zinc-100 mb-2 mt-8 font-geist-mono font-mono group flex items-center gap-2',
-      4: 'text-base font-semibold text-zinc-200 mb-2 mt-6 font-geist-mono font-mono',
+      1: 'text-3xl font-bold tracking-tight text-white mb-4 mt-8 first:mt-0',
+      2: 'text-2xl font-semibold tracking-tight text-white mb-3 mt-10 border-b border-white/[0.08] pb-2 group flex items-center gap-2',
+      3: 'text-lg font-semibold text-zinc-100 mb-2 mt-8 group flex items-center gap-2',
+      4: 'text-base font-semibold text-zinc-200 mb-2 mt-6',
     };
 
     const Tag = `h${level}` as keyof JSX.IntrinsicElements;
@@ -76,7 +76,7 @@ export const mdxComponentsMap = {
   h4: createHeading(4),
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
     <p
-      className="text-[14.5px] leading-relaxed text-zinc-300 my-4 font-geist-mono font-mono font-normal"
+      className="text-[14.5px] leading-relaxed text-zinc-300 my-4 font-normal"
       {...props}
     />
   ),
@@ -112,10 +112,10 @@ export const mdxComponentsMap = {
     );
   },
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
-    <ul className="my-4 space-y-2 list-disc list-outside ml-5 text-zinc-300 text-[14.5px] font-geist-mono font-mono" {...props} />
+    <ul className="my-4 space-y-2 list-disc list-outside ml-5 text-zinc-300 text-[14.5px]" {...props} />
   ),
   ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
-    <ol className="my-4 space-y-2 list-decimal list-outside ml-5 text-zinc-300 text-[14.5px] font-geist-mono font-mono" {...props} />
+    <ol className="my-4 space-y-2 list-decimal list-outside ml-5 text-zinc-300 text-[14.5px]" {...props} />
   ),
   li: (props: React.LiHTMLAttributes<HTMLLIElement>) => (
     <li className="leading-relaxed pl-1" {...props} />
@@ -130,7 +130,7 @@ export const mdxComponentsMap = {
     <CodeBlock {...props} />
   ),
   table: (props: React.TableHTMLAttributes<HTMLTableElement>) => (
-    <div className="my-6 w-full overflow-x-auto rounded-xl border border-white/[0.08] bg-zinc-950/80 shadow-lg font-geist-mono font-mono">
+    <div className="my-6 w-full overflow-x-auto rounded-xl border border-white/[0.08] bg-zinc-950/80 shadow-lg">
       <table className="w-full text-left text-sm border-collapse" {...props} />
     </div>
   ),
@@ -149,7 +149,7 @@ export const mdxComponentsMap = {
   hr: () => <hr className="my-8 border-zinc-800" />,
   blockquote: (props: React.BlockquoteHTMLAttributes<HTMLQuoteElement>) => (
     <blockquote
-      className="my-6 border-l-2 border-[#00DC5A] bg-[#00DC5A]/[0.05] pl-4 py-2 italic text-zinc-300 font-geist-mono font-mono"
+      className="my-6 border-l-2 border-[#00DC5A] bg-[#00DC5A]/[0.05] pl-4 py-2 italic text-zinc-300"
       {...props}
     />
   ),
