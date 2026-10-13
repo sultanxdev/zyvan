@@ -33,19 +33,19 @@ export function FAQ() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="py-20 sm:py-24 relative font-geist-mono">
+    <section id="faq" className="py-20 sm:py-24 relative">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
           <Badge variant="pill" className="mb-3.5 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
             Technical FAQ
           </Badge>
-          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#17172B] leading-[1.12] font-geist-mono">
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#17172B] leading-[1.12]">
             Frequently asked{' '}
             <span className="text-[#18181B]">
               questions.
             </span>
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal font-geist-mono">
+          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
             Clear answers to common questions about Zyvan&apos;s webhook delivery platform.
           </p>
         </div>

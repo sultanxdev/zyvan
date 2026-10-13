@@ -8,7 +8,7 @@ import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
 
 export function CtaBanner() {
   return (
-    <section className="py-16 sm:py-24 relative overflow-hidden font-geist-mono">
+    <section className="py-16 sm:py-24 relative overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         {/* Soft Pastel CTA Card */}
         <div className="relative rounded-[32px] border border-[#D6E4FF] bg-gradient-to-b from-[#F3F7FF] via-[#EEF4FF] to-[#E4EFFF] p-8 sm:p-16 text-center shadow-[0_12px_40px_rgba(37,99,235,0.06)] overflow-hidden">

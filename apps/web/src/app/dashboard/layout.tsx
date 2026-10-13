@@ -84,7 +84,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground antialiased selection:bg-zinc-950 selection:text-white font-mono">
+    <div className="min-h-screen flex bg-background text-foreground antialiased selection:bg-zinc-950 selection:text-white">
       {/* ─── Desktop Sidebar ───────────────────────────────────── */}
       <aside className="w-64 border-r border-border bg-white/90 backdrop-blur-md flex flex-col justify-between shrink-0 hidden md:flex">
         <div className="flex flex-col">
