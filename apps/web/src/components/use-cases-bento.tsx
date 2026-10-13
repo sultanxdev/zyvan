@@ -10,7 +10,7 @@ import {
 
 export function UseCasesBento() {
   return (
-    <section id="who-is-zyvan-for" className="py-20 sm:py-24 relative overflow-hidden font-geist-mono">
+    <section id="who-is-zyvan-for" className="py-20 sm:py-24 relative overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
@@ -20,13 +20,13 @@ export function UseCasesBento() {
           >
             Who is Zyvan for?
           </Badge>
-          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#17172B] leading-[1.12] font-geist-mono">
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#17172B] leading-[1.12]">
             Built for applications that{' '}
             <span className="text-[#18181B]">
               rely on webhooks.
             </span>
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal font-geist-mono">
+          <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
             Reliable webhook delivery for products, platforms, and services that depend on their integrations working.
           </p>
         </div>

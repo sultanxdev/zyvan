@@ -1,23 +1,10 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono, Newsreader } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
-  display: 'swap',
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-  display: 'swap',
-});
-
-const newsreader = Newsreader({
-  variable: '--font-serif',
-  subsets: ['latin'],
-  style: ['normal', 'italic'],
   display: 'swap',
 });
 
@@ -57,9 +44,9 @@ export default function RootLayout({
     <html
       lang="en"
       data-scroll-behavior="smooth"
-      className={`${geistMono.variable} ${geistSans.variable} ${newsreader.variable} font-mono h-full antialiased`}
+      className={`${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground font-mono antialiased">
+      <body className="min-h-full flex flex-col bg-background text-foreground antialiased">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

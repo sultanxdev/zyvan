@@ -9,15 +9,15 @@ import {
 
 export function FeaturesGrid() {
   return (
-    <section id="features" className="py-20 sm:py-24 relative overflow-hidden font-geist-mono">
+    <section id="features" className="py-20 sm:py-24 relative overflow-hidden">
       {/* Aligned with Navbar Width: max-w-[1200px] */}
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         {/* Section Header */}
         <div className="text-center max-w-xl mx-auto mb-12 sm:mb-14">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#18181B] leading-[1.15] font-geist-mono">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#18181B] leading-[1.15]">
             Reliable webhooks by default.
           </h2>
-          <p className="mt-3 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal font-geist-mono">
+          <p className="mt-3 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
             Everything between your application and your destination, handled for you.
           </p>
         </div>

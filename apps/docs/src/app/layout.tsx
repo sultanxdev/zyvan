@@ -1,6 +1,13 @@
 import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
 import { MotionConfig } from 'motion/react';
 import './globals.css';
+
+const inter = Inter({
+  variable: '--font-inter',
+  subsets: ['latin'],
+  display: 'swap',
+});
 import { SITE_CONFIG } from '@/lib/constants';
 
 export const metadata: Metadata = {
@@ -60,8 +67,8 @@ export default function RootLayout({
   const searchIndex = getSearchIndex();
 
   return (
-    <html lang="en" className="dark">
-      <body className="bg-[#050505] text-[#F4F4F5] antialiased min-h-screen flex flex-col font-mono">
+    <html lang="en" className={`dark ${inter.variable}`}>
+      <body className="bg-[#050505] text-[#F4F4F5] antialiased min-h-screen flex flex-col">
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:px-3 focus:py-2 focus:bg-[#22C55E] focus:text-black focus:rounded focus:font-semibold text-xs"

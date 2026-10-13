@@ -149,7 +149,7 @@ export function TextHoverEffect({
         }}
         style={{
           fontFamily:
-            'var(--font-geist-mono), ui-monospace, monospace',
+            "var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
           fontSize: '150px',
           fontWeight: 900,
           letterSpacing: '-0.055em',
@@ -170,7 +170,7 @@ export function TextHoverEffect({
         mask={`url(#${maskId})`}
         style={{
           fontFamily:
-            'var(--font-geist-mono), ui-monospace, monospace',
+            "var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
           fontSize: '150px',
           fontWeight: 900,
           letterSpacing: '-0.055em',

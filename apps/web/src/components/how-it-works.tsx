@@ -10,20 +10,20 @@ import {
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-20 sm:py-24 relative overflow-hidden font-geist-mono">
+    <section id="how-it-works" className="py-20 sm:py-24 relative overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-14">
           <Badge variant="pill" className="mb-3.5 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
             How It Works
           </Badge>
-          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#17172B] leading-[1.12] font-geist-mono">
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#17172B] leading-[1.12]">
             Send once.{' '}
             <span className="text-[#18181B]">
               Zyvan handles the rest.
             </span>
           </h2>
-          <p className="mt-3.5 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal font-geist-mono">
+          <p className="mt-3.5 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
             Your app sends a webhook to Zyvan. Zyvan delivers it to your server and tries again when something goes wrong.
           </p>
         </div>
