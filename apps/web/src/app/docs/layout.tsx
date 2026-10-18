@@ -2,6 +2,8 @@ import React from 'react';
 import { getDocsNavigation, getAllDocs, searchDocs } from '@/lib/mdx';
 import { DocsLayoutClient } from '@/components/docs/DocsLayoutClient';
 
+import { NavCategory, SearchResultItem } from '@/lib/docs-types';
+
 export default function DocsLayout({
   children,
 }: {
@@ -12,7 +14,7 @@ export default function DocsLayout({
 
   // Precompute searchable index items for instant Cmd+K search
   const searchIndex = allDocs.flatMap((doc) => {
-    const items = [
+    const items: SearchResultItem[] = [
       {
         slug: doc.slug,
         title: doc.frontmatter.title,

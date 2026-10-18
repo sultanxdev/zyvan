@@ -36,7 +36,7 @@ function createHeading(level: 1 | 2 | 3 | 4) {
       4: 'text-base font-semibold text-zinc-200 mb-2 mt-6',
     };
 
-    const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+    const Tag = `h${level}` as 'h1' | 'h2' | 'h3' | 'h4';
 
     return React.createElement(
       Tag,
