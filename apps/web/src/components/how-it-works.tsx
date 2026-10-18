@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, type Variants } from 'motion/react';
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import {
@@ -10,7 +10,7 @@ import {
   ArrowRight01Icon,
 } from '@hugeicons/core-free-icons';
 
-const cardHoverVariants = {
+const cardHoverVariants: Variants = {
   initial: { y: 0 },
   hover: {
     y: -5,
