@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
-import { ArrowDown01Icon, ArrowUp01Icon } from '@hugeicons/core-free-icons';
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons';
 
 const faqs = [
   {
@@ -21,11 +22,11 @@ const faqs = [
   },
   {
     q: 'How does Zyvan protect webhook destinations?',
-    a: 'Zyvan validates destination URLs and applies SSRF protections before allowing outbound delivery.',
+    a: 'Zyvan validates destination URLs and applies real-time DNS pinning and anti-SSRF protections before allowing outbound delivery.',
   },
   {
     q: 'Can I replay a failed webhook?',
-    a: 'Yes. Replay creates a new delivery attempt while preserving the original delivery and attempt history.',
+    a: 'Yes. Replay creates a new delivery attempt while preserving the original delivery and attempt history with full immutable audit trails.',
   },
 ];
 
@@ -33,9 +34,15 @@ export function FAQ() {
   const [openIdx, setOpenIdx] = useState<number | null>(0);
 
   return (
-    <section id="faq" className="py-20 sm:py-24 relative">
+    <section id="faq" className="py-20 sm:py-24 relative overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-        <div className="text-center max-w-2xl mx-auto mb-14 sm:mb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-50px' }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-2xl mx-auto mb-14 sm:mb-16"
+        >
           <Badge variant="pill" className="mb-3.5 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
             Technical FAQ
           </Badge>
@@ -48,33 +55,53 @@ export function FAQ() {
           <p className="mt-4 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
             Clear answers to common questions about Zyvan&apos;s webhook delivery platform.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="max-w-3xl mx-auto space-y-4">
+        <div className="max-w-3xl mx-auto space-y-3.5">
           {faqs.map((faq, idx) => {
             const isOpen = openIdx === idx;
             return (
-              <Card
+              <motion.div
                 key={idx}
-                className="border-border bg-white overflow-hidden transition-all shadow-xs"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-30px' }}
+                transition={{ duration: 0.45, delay: idx * 0.08 }}
               >
-                <button
-                  onClick={() => setOpenIdx(isOpen ? null : idx)}
-                  className="w-full flex items-center justify-between p-5 text-left cursor-pointer hover:bg-secondary/50 transition-colors"
-                >
-                  <span className="font-semibold text-sm sm:text-base text-foreground pr-4">
-                    {faq.q}
-                  </span>
-                  <span className="text-muted-foreground shrink-0">
-                    <Icon icon={isOpen ? ArrowUp01Icon : ArrowDown01Icon} size={18} />
-                  </span>
-                </button>
-                {isOpen && (
-                  <CardContent className="px-5 pb-5 pt-1 text-sm text-muted-foreground leading-relaxed border-t border-border/60">
-                    {faq.a}
-                  </CardContent>
-                )}
-              </Card>
+                <Card className="border-border bg-white overflow-hidden shadow-xs hover:border-zinc-300 transition-colors">
+                  <button
+                    onClick={() => setOpenIdx(isOpen ? null : idx)}
+                    className="w-full flex items-center justify-between p-5 text-left cursor-pointer hover:bg-secondary/40 transition-colors"
+                  >
+                    <span className="font-semibold text-sm sm:text-base text-foreground pr-4">
+                      {faq.q}
+                    </span>
+                    <motion.span
+                      animate={{ rotate: isOpen ? 180 : 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="text-muted-foreground shrink-0"
+                    >
+                      <Icon icon={ArrowDown01Icon} size={18} />
+                    </motion.span>
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <CardContent className="px-5 pb-5 pt-1 text-sm text-muted-foreground leading-relaxed border-t border-border/60">
+                          {faq.a}
+                        </CardContent>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </Card>
+              </motion.div>
             );
           })}
         </div>
