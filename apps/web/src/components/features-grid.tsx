@@ -1,11 +1,20 @@
 'use client';
 
 import React from 'react';
+import { motion } from 'motion/react';
 import { Icon } from '@/components/ui/icon';
 import {
   ServerIcon,
   ShieldCheckIcon,
 } from '@hugeicons/core-free-icons';
+
+const cardVariants = {
+  initial: { y: 0 },
+  hover: {
+    y: -5,
+    transition: { duration: 0.2, ease: 'easeOut' },
+  },
+};
 
 export function FeaturesGrid() {
   return (
@@ -13,21 +22,35 @@ export function FeaturesGrid() {
       {/* Aligned with Navbar Width: max-w-[1200px] */}
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         {/* Section Header */}
-        <div className="text-center max-w-xl mx-auto mb-12 sm:mb-14">
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-50px' }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-xl mx-auto mb-12 sm:mb-14"
+        >
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#18181B] leading-[1.15]">
             Reliable webhooks by default.
           </h2>
           <p className="mt-3 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
             Everything between your application and your destination, handled for you.
           </p>
-        </div>
+        </motion.div>
 
         {/* Bento Grid: 7 Calm Pastel Cards aligned inside 1200px */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-stretch">
           {/* ============================================================ */}
           {/* CARD 1: From webhook received to delivery (5 cols)           */}
           {/* ============================================================ */}
-          <div className="sm:col-span-5 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F7ECFF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(123,53,240,0.06)] transition-all">
+          <motion.div
+            variants={cardVariants}
+            initial="initial"
+            whileHover="hover"
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5, delay: 0.05 }}
+            className="sm:col-span-5 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F7ECFF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(123,53,240,0.08)] transition-shadow cursor-default"
+          >
             {/* Top Micro-Graphic */}
             <div className="py-2 flex items-center justify-between min-h-[140px]">
               <div className="flex flex-col items-center">
@@ -49,7 +72,7 @@ export function FeaturesGrid() {
               <div className="flex-1 ml-3 bg-white/95 rounded-xl p-3 border border-purple-100/90 shadow-2xs text-[11px] font-mono">
                 <div className="flex items-center justify-between pb-1.5 border-b border-zinc-100 text-zinc-900 font-semibold">
                   <span className="flex items-center gap-1 text-emerald-600">
-                    <span className="size-1.5 rounded-full bg-emerald-500" />
+                    <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     202 Accepted
                   </span>
                   <span className="text-[10px] text-zinc-500 font-normal">Durable</span>
@@ -77,12 +100,20 @@ export function FeaturesGrid() {
                 Zyvan stores the request before delivery begins, so temporary failures don&apos;t become your application&apos;s problem.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* ============================================================ */}
           {/* CARD 2: Retries without database polling (7 cols)            */}
           {/* ============================================================ */}
-          <div className="sm:col-span-7 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F0F9FF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(2,132,199,0.06)] transition-all">
+          <motion.div
+            variants={cardVariants}
+            initial="initial"
+            whileHover="hover"
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="sm:col-span-7 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F0F9FF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(2,132,199,0.08)] transition-shadow cursor-default"
+          >
             {/* Top Micro-Graphic (Chat Dialogue) */}
             <div className="py-2 flex flex-col gap-2 min-h-[140px] justify-center">
               <div className="flex items-center justify-end gap-1.5">
@@ -107,7 +138,7 @@ export function FeaturesGrid() {
               </div>
 
               <div className="self-end bg-white/90 border border-sky-100 rounded-lg px-3 py-1 text-[11px] flex items-center gap-2 shadow-2xs mt-0.5">
-                <span className="size-1.5 rounded-full bg-emerald-500" />
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="font-semibold text-emerald-700">Attempt 2: 200 OK</span>
                 <span className="text-zinc-300">•</span>
                 <span className="text-zinc-500 font-mono">RabbitMQ TTL + DLX</span>
@@ -124,12 +155,20 @@ export function FeaturesGrid() {
                 Failed deliveries are scheduled and retried later without repeatedly querying the database.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* ============================================================ */}
           {/* CARD 3: Works with every destination (4 cols)                */}
           {/* ============================================================ */}
-          <div className="sm:col-span-4 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#FFF5EB] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(234,88,12,0.06)] transition-all">
+          <motion.div
+            variants={cardVariants}
+            initial="initial"
+            whileHover="hover"
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="sm:col-span-4 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#FFF5EB] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(234,88,12,0.08)] transition-shadow cursor-default"
+          >
             <div className="py-2 flex items-center justify-center min-h-[130px]">
               <div className="relative size-28 flex items-center justify-center">
                 <svg className="absolute inset-0 size-full text-orange-300" viewBox="0 0 112 112">
@@ -165,12 +204,20 @@ export function FeaturesGrid() {
                 Configure each endpoint with its own headers, signing secret, timeout, and delivery rules.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* ============================================================ */}
           {/* CARD 4: Built to keep delivering (4 cols)                    */}
           {/* ============================================================ */}
-          <div className="sm:col-span-4 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F0FDF4] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(22,163,74,0.06)] transition-all">
+          <motion.div
+            variants={cardVariants}
+            initial="initial"
+            whileHover="hover"
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="sm:col-span-4 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F0FDF4] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(22,163,74,0.08)] transition-shadow cursor-default"
+          >
             <div className="py-2 flex flex-col justify-end min-h-[130px]">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-zinc-500 font-medium">Automatic Handling</span>
@@ -186,11 +233,11 @@ export function FeaturesGrid() {
                   <path d="M21 30 Q25 35 29 30" stroke="#064E3B" strokeWidth="1.8" strokeLinecap="round" fill="none" />
                 </svg>
                 <div className="flex-1 flex items-end justify-between h-14 gap-1 px-1.5 bg-white/80 rounded-lg p-1.5 border border-emerald-100">
-                  <div className="w-full bg-emerald-200 rounded-t h-[40%]" />
-                  <div className="w-full bg-emerald-300 rounded-t h-[60%]" />
-                  <div className="w-full bg-emerald-400 rounded-t h-[75%]" />
-                  <div className="w-full bg-emerald-500 rounded-t h-[88%]" />
-                  <div className="w-full bg-emerald-600 rounded-t h-[98%]" />
+                  <motion.div initial={{ height: 0 }} whileInView={{ height: '40%' }} transition={{ duration: 0.5 }} className="w-full bg-emerald-200 rounded-t" />
+                  <motion.div initial={{ height: 0 }} whileInView={{ height: '60%' }} transition={{ duration: 0.5, delay: 0.1 }} className="w-full bg-emerald-300 rounded-t" />
+                  <motion.div initial={{ height: 0 }} whileInView={{ height: '75%' }} transition={{ duration: 0.5, delay: 0.2 }} className="w-full bg-emerald-400 rounded-t" />
+                  <motion.div initial={{ height: 0 }} whileInView={{ height: '88%' }} transition={{ duration: 0.5, delay: 0.3 }} className="w-full bg-emerald-500 rounded-t" />
+                  <motion.div initial={{ height: 0 }} whileInView={{ height: '98%' }} transition={{ duration: 0.5, delay: 0.4 }} className="w-full bg-emerald-600 rounded-t" />
                 </div>
               </div>
             </div>
@@ -204,16 +251,24 @@ export function FeaturesGrid() {
                 Automatic retries, backoff, and failure tracking help recover from temporary outages without making your application handle the recovery itself.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* ============================================================ */}
           {/* CARD 5: Security built in (4 cols)                           */}
           {/* ============================================================ */}
-          <div className="sm:col-span-4 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F5F0FF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(124,58,237,0.06)] transition-all">
+          <motion.div
+            variants={cardVariants}
+            initial="initial"
+            whileHover="hover"
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5, delay: 0.25 }}
+            className="sm:col-span-4 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F5F0FF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(124,58,237,0.08)] transition-shadow cursor-default"
+          >
             <div className="py-2 flex items-center justify-between min-h-[130px] gap-2">
               <div className="flex flex-col gap-1.5 flex-1">
                 <div className="flex items-center gap-1.5 bg-white/90 rounded-lg px-2 py-1 border border-purple-100 text-[10px] text-zinc-700 shadow-2xs">
-                  <span className="size-1.5 rounded-full bg-purple-500" />
+                  <span className="size-1.5 rounded-full bg-purple-500 animate-pulse" />
                   <span>SSRF protection</span>
                 </div>
                 <div className="flex items-center gap-1.5 bg-white/90 rounded-lg px-2 py-1 border border-purple-100 text-[10px] text-zinc-700 shadow-2xs">
@@ -225,9 +280,9 @@ export function FeaturesGrid() {
                   <span>Signed requests</span>
                 </div>
               </div>
-              <div className="size-11 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs shrink-0">
+              <motion.div whileHover={{ rotate: 10, scale: 1.08 }} className="size-11 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs shrink-0">
                 <Icon icon={ShieldCheckIcon} size={22} />
-              </div>
+              </motion.div>
             </div>
 
             <div className="mt-2">
@@ -239,12 +294,20 @@ export function FeaturesGrid() {
                 Signed requests, encrypted secrets, and SSRF protection help secure every delivery.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* ============================================================ */}
           {/* CARD 6: See every attempt. Replay safely. (7 cols)           */}
           {/* ============================================================ */}
-          <div className="sm:col-span-7 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F0F7FF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(2,132,199,0.06)] transition-all">
+          <motion.div
+            variants={cardVariants}
+            initial="initial"
+            whileHover="hover"
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="sm:col-span-7 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F0F7FF] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(2,132,199,0.08)] transition-shadow cursor-default"
+          >
             <div className="py-2 flex items-center justify-between min-h-[130px]">
               <div className="flex flex-col gap-1.5">
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 border border-sky-100 shadow-2xs">
@@ -292,12 +355,20 @@ export function FeaturesGrid() {
                 Inspect responses, headers, latency, and failures, then replay a delivery without overwriting its original history.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* ============================================================ */}
           {/* CARD 7: Built for high-volume delivery (5 cols)              */}
           {/* ============================================================ */}
-          <div className="sm:col-span-5 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F7FEE7] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(77,124,15,0.06)] transition-all">
+          <motion.div
+            variants={cardVariants}
+            initial="initial"
+            whileHover="hover"
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-40px' }}
+            transition={{ duration: 0.5, delay: 0.35 }}
+            className="sm:col-span-5 rounded-3xl border border-black/[0.06] p-5 flex flex-col justify-between bg-[#F7FEE7] shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_28px_rgba(77,124,15,0.08)] transition-shadow cursor-default"
+          >
             <div className="py-2 flex flex-col justify-between min-h-[130px]">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 border border-lime-200 px-2.5 py-0.5 text-[11px] font-semibold text-lime-800 shadow-2xs self-start">
                 <span>★</span>
@@ -310,7 +381,12 @@ export function FeaturesGrid() {
                   <span className="font-mono font-bold text-lime-700">Auto-balanced</span>
                 </div>
                 <div className="w-full bg-lime-100 rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-lime-600 h-1.5 rounded-full w-[85%]" />
+                  <motion.div
+                    initial={{ width: 0 }}
+                    whileInView={{ width: '85%' }}
+                    transition={{ duration: 0.8, delay: 0.2 }}
+                    className="bg-lime-600 h-1.5 rounded-full"
+                  />
                 </div>
               </div>
             </div>
@@ -324,7 +400,7 @@ export function FeaturesGrid() {
                 Handle high-volume webhook delivery with controlled concurrency and tenant-level limits.
               </p>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
