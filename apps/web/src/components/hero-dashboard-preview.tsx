@@ -381,20 +381,30 @@ export function HeroDashboardPreview() {
                       >
                         {/* Hover Tooltip */}
                         {hoveredBar === i && (
-                          <div className="absolute -top-10 left-1/2 -translate-x-1/2 rounded-md bg-black px-2 py-1 text-[10px] text-white font-mono shadow-lg whitespace-nowrap z-20 pointer-events-none">
+                          <motion.div
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="absolute -top-10 left-1/2 -translate-x-1/2 rounded-md bg-black px-2 py-1 text-[10px] text-white font-mono shadow-lg whitespace-nowrap z-20 pointer-events-none"
+                          >
                             {d.time}: {d.delivered} deliv
-                          </div>
+                          </motion.div>
                         )}
 
-                        {/* Bar Segment */}
-                        <div
-                          style={{ height: d.height }}
-                          className="w-full rounded-t-sm sm:rounded-t-md bg-[#18181B] group-hover:bg-[#00DC5A] transition-all relative overflow-hidden"
+                        {/* Animated Bar Segment */}
+                        <motion.div
+                          initial={{ height: 0 }}
+                          animate={{ height: d.height }}
+                          transition={{
+                            duration: 0.65,
+                            delay: 0.35 + i * 0.03,
+                            ease: [0.16, 1, 0.3, 1],
+                          }}
+                          className="w-full rounded-t-sm sm:rounded-t-md bg-[#18181B] group-hover:bg-[#00DC5A] transition-colors relative overflow-hidden"
                         >
                           {d.retrying > 0 && (
                             <div className="absolute top-0 left-0 right-0 h-1 bg-amber-400" />
                           )}
-                        </div>
+                        </motion.div>
                       </div>
                     ))}
                   </div>
@@ -450,7 +460,10 @@ export function HeroDashboardPreview() {
                   </div>
                   <div className="h-16 w-full flex items-center justify-center">
                     <svg viewBox="0 0 280 60" className="w-full h-full stroke-zinc-900 stroke-[2] fill-none">
-                      <path
+                      <motion.path
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 1.4, delay: 0.4, ease: 'easeOut' }}
                         d="M 10 40 Q 50 48, 90 35 T 160 22 T 220 30 T 270 42"
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -469,6 +482,6 @@ export function HeroDashboardPreview() {
           </main>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
