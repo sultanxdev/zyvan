@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, type Variants } from 'motion/react';
 import { Icon } from '@/components/ui/icon';
 import {
   ServerIcon,
   ShieldCheckIcon,
 } from '@hugeicons/core-free-icons';
 
-const cardVariants = {
+const cardVariants: Variants = {
   initial: { y: 0 },
   hover: {
     y: -5,
