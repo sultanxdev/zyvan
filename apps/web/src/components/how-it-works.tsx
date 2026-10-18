@@ -1,19 +1,35 @@
 'use client';
 
 import React from 'react';
+import { motion } from 'motion/react';
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import {
   CheckmarkCircle02Icon,
   RefreshIcon,
+  ArrowRight01Icon,
 } from '@hugeicons/core-free-icons';
+
+const cardHoverVariants = {
+  initial: { y: 0 },
+  hover: {
+    y: -5,
+    transition: { duration: 0.25, ease: 'easeOut' },
+  },
+};
 
 export function HowItWorks() {
   return (
     <section id="how-it-works" className="py-20 sm:py-24 relative overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
-        {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-14">
+        {/* Section Header with InView animation */}
+        <motion.div
+          initial={{ opacity: 0, y: 25 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-50px' }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-2xl mx-auto mb-12 sm:mb-14"
+        >
           <Badge variant="pill" className="mb-3.5 px-3.5 py-1 text-xs text-zinc-600 bg-white/90 border-zinc-200 shadow-xs">
             How It Works
           </Badge>
@@ -26,16 +42,25 @@ export function HowItWorks() {
           <p className="mt-3.5 text-sm sm:text-base text-zinc-600 leading-relaxed font-normal">
             Your app sends a webhook to Zyvan. Zyvan delivers it to your server and tries again when something goes wrong.
           </p>
-        </div>
+        </motion.div>
 
         {/* Bento Grid Layout */}
         <div className="space-y-6">
-          {/* Top Flow Card: Visual Diagram */}
-          <div className="rounded-[22px] border border-black/[0.08] bg-white/80 backdrop-blur-md p-6 sm:p-8 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+          {/* Top Flow Card: Interactive Animated Visual Diagram */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-50px' }}
+            transition={{ duration: 0.7 }}
+            className="rounded-[22px] border border-black/[0.08] bg-white/80 backdrop-blur-md p-6 sm:p-8 shadow-[0_2px_12px_rgba(0,0,0,0.02)] relative overflow-hidden"
+          >
             {/* Visual Node Flow */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center relative z-10">
               {/* Node 1: Your App */}
-              <div className="rounded-xl border border-blue-200/80 bg-[#F0F7FF] p-4 text-center">
+              <motion.div
+                whileHover={{ scale: 1.02, y: -2 }}
+                className="rounded-xl border border-blue-200/80 bg-[#F0F7FF] p-4 text-center cursor-default transition-shadow hover:shadow-xs"
+              >
                 <span className="text-[10px] font-mono uppercase tracking-wider text-blue-600 font-semibold block mb-1">
                   Source
                 </span>
@@ -45,23 +70,40 @@ export function HowItWorks() {
                 <span className="text-xs text-zinc-500 font-mono mt-1 block">
                   Send webhook
                 </span>
-              </div>
+              </motion.div>
 
               {/* Node 2: Zyvan Engine */}
-              <div className="rounded-xl border border-zinc-900 bg-zinc-950 p-4 text-center text-white shadow-sm">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold block mb-1">
-                  Engine
-                </span>
-                <span className="font-bold text-sm sm:text-base block">
-                  Zyvan
-                </span>
-                <span className="text-xs text-zinc-400 font-mono mt-1 block">
-                  Store &amp; Sign
-                </span>
-              </div>
+              <motion.div
+                whileHover={{ scale: 1.02, y: -2 }}
+                className="rounded-xl border border-zinc-900 bg-zinc-950 p-4 text-center text-white shadow-sm cursor-default relative overflow-hidden"
+              >
+                {/* Moving glowing particle in Zyvan engine */}
+                <motion.div
+                  animate={{
+                    opacity: [0.3, 0.7, 0.3],
+                    scale: [0.95, 1.05, 0.95],
+                  }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="absolute -inset-1 bg-gradient-to-r from-emerald-500/20 to-blue-500/20 blur-md pointer-events-none"
+                />
+                <div className="relative z-10">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold block mb-1">
+                    Engine
+                  </span>
+                  <span className="font-bold text-sm sm:text-base block">
+                    Zyvan
+                  </span>
+                  <span className="text-xs text-zinc-400 font-mono mt-1 block">
+                    Store &amp; Sign
+                  </span>
+                </div>
+              </motion.div>
 
               {/* Node 3: Your Server */}
-              <div className="rounded-xl border border-amber-200/80 bg-[#FFF7ED] p-4 text-center">
+              <motion.div
+                whileHover={{ scale: 1.02, y: -2 }}
+                className="rounded-xl border border-amber-200/80 bg-[#FFF7ED] p-4 text-center cursor-default transition-shadow hover:shadow-xs"
+              >
                 <span className="text-[10px] font-mono uppercase tracking-wider text-amber-700 font-semibold block mb-1">
                   Destination
                 </span>
@@ -71,12 +113,15 @@ export function HowItWorks() {
                 <span className="text-xs text-zinc-500 font-mono mt-1 block">
                   Receive webhook
                 </span>
-              </div>
+              </motion.div>
 
               {/* Node 4: Dual Outcomes (Works / Retry) */}
               <div className="space-y-2">
                 {/* Works Outcome */}
-                <div className="rounded-lg border border-emerald-200 bg-[#F0FDF4] px-3.5 py-2 flex items-center justify-between text-xs font-mono text-emerald-800">
+                <motion.div
+                  whileHover={{ x: 3 }}
+                  className="rounded-lg border border-emerald-200 bg-[#F0FDF4] px-3.5 py-2 flex items-center justify-between text-xs font-mono text-emerald-800 transition-colors"
+                >
                   <span className="flex items-center gap-1.5 font-semibold">
                     <Icon icon={CheckmarkCircle02Icon} size={14} className="text-emerald-600" />
                     Works
@@ -84,10 +129,13 @@ export function HowItWorks() {
                   <span className="text-[11px] font-medium bg-emerald-100/80 px-2 py-0.5 rounded text-emerald-700">
                     Done (200 OK)
                   </span>
-                </div>
+                </motion.div>
 
                 {/* Fails Outcome */}
-                <div className="rounded-lg border border-purple-200 bg-[#FAF5FF] px-3.5 py-2 flex items-center justify-between text-xs font-mono text-purple-800">
+                <motion.div
+                  whileHover={{ x: 3 }}
+                  className="rounded-lg border border-purple-200 bg-[#FAF5FF] px-3.5 py-2 flex items-center justify-between text-xs font-mono text-purple-800 transition-colors"
+                >
                   <span className="flex items-center gap-1.5 font-semibold">
                     <Icon icon={RefreshIcon} size={14} className="text-purple-600" />
                     Fails
@@ -95,15 +143,23 @@ export function HowItWorks() {
                   <span className="text-[11px] font-medium bg-purple-100/80 px-2 py-0.5 rounded text-purple-700">
                     Auto-Retry
                   </span>
-                </div>
+                </motion.div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Bottom Bento 3-Grid: STEP 01, STEP 02, STEP 03 */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
             {/* STEP 01 */}
-            <div className="rounded-[22px] border border-[#D9EAFD] bg-[#F0F7FF] p-6 sm:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+            <motion.div
+              variants={cardHoverVariants}
+              initial="initial"
+              whileHover="hover"
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="rounded-[22px] border border-[#D9EAFD] bg-[#F0F7FF] p-6 sm:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(59,130,246,0.08)] transition-shadow cursor-default"
+            >
               <div>
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <span className="font-mono text-xs font-bold text-zinc-400">
@@ -130,14 +186,22 @@ export function HowItWorks() {
                   </span>
                 </div>
                 <div className="text-[11px] text-zinc-500 pt-1 border-t border-zinc-100 flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-[#00DC5A]" />
+                  <span className="size-1.5 rounded-full bg-[#00DC5A] animate-pulse" />
                   <span>Stored before delivery</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* STEP 02 */}
-            <div className="rounded-[22px] border border-[#FED7AA]/60 bg-[#FFF7ED] p-6 sm:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+            <motion.div
+              variants={cardHoverVariants}
+              initial="initial"
+              whileHover="hover"
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="rounded-[22px] border border-[#FED7AA]/60 bg-[#FFF7ED] p-6 sm:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(249,115,22,0.08)] transition-shadow cursor-default"
+            >
               <div>
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <span className="font-mono text-xs font-bold text-zinc-400">
@@ -170,10 +234,18 @@ export function HowItWorks() {
                   <span>Ready</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* STEP 03 */}
-            <div className="rounded-[22px] border border-[#BBF7D0] bg-[#F0FDF4] p-6 sm:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+            <motion.div
+              variants={cardHoverVariants}
+              initial="initial"
+              whileHover="hover"
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-40px' }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="rounded-[22px] border border-[#BBF7D0] bg-[#F0FDF4] p-6 sm:p-7 flex flex-col justify-between shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(34,197,94,0.08)] transition-shadow cursor-default"
+            >
               <div>
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <span className="font-mono text-xs font-bold text-zinc-400">
@@ -206,7 +278,7 @@ export function HowItWorks() {
                   </span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>
