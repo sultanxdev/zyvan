@@ -2,12 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import {
   GithubIcon,
-  FlashIcon,
   Menu01Icon,
   Cancel01Icon,
   ArrowRight01Icon,
@@ -21,17 +20,26 @@ export function Navbar() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex flex-col items-center px-3 pt-3 sm:px-8 sm:pt-6 pointer-events-none">
-      <nav className="pointer-events-auto flex w-full max-w-[1200px] items-center justify-between gap-3 rounded-full border border-black/[0.08] bg-white/80 px-4 py-2.5 sm:px-5 sm:py-3 text-foreground shadow-[0_12px_36px_rgba(0,0,0,0.06)] backdrop-blur-xl transition-all">
+      <motion.nav
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+        className="pointer-events-auto flex w-full max-w-[1200px] items-center justify-between gap-3 rounded-full border border-black/[0.08] bg-white/85 px-4 py-2.5 sm:px-5 sm:py-3 text-foreground shadow-[0_12px_36px_rgba(0,0,0,0.06)] backdrop-blur-xl transition-all"
+      >
         {/* Brand Logo & Version */}
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="relative size-7 sm:size-8 rounded-full overflow-hidden shadow-xs group-hover:scale-105 transition-transform flex items-center justify-center bg-black border border-black/10">
+            <motion.div
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.95 }}
+              className="relative size-7 sm:size-8 rounded-full overflow-hidden shadow-xs flex items-center justify-center bg-black border border-black/10"
+            >
               <img
                 src="/logo.png"
                 alt="Zyvan logo"
                 className="w-full h-full object-cover rounded-full"
               />
-            </div>
+            </motion.div>
             <div className="flex items-center gap-1.5">
               <span className="font-semibold text-lg tracking-tight text-foreground lowercase">zyvan</span>
               <span className="hidden sm:inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-600 border border-zinc-200/60 font-mono">
@@ -41,7 +49,7 @@ export function Navbar() {
           </Link>
         </div>
 
-        {/* Desktop Nav Links (Centering inspired by make.design) */}
+        {/* Desktop Nav Links */}
         <div className="hidden md:flex items-center gap-6 lg:gap-7 text-[13.5px] font-medium text-zinc-600">
           <Link href="/#how-it-works" className="hover:text-zinc-950 transition-colors">
             How it works
@@ -59,7 +67,9 @@ export function Navbar() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <a
+          <motion.a
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.95 }}
             href="https://github.com/sultanxdev/zyvan"
             target="_blank"
             rel="noopener noreferrer"
@@ -67,20 +77,22 @@ export function Navbar() {
             title="View on GitHub"
           >
             <Icon icon={GithubIcon} size={15} />
-          </a>
+          </motion.a>
 
           {user ? (
-            <Button
-              variant="default"
-              size="sm"
-              asChild
-              className="rounded-full bg-zinc-950 text-white hover:bg-zinc-800 text-xs px-4 py-1.5 h-8 shadow-xs"
-            >
-              <Link href="/dashboard" className="flex items-center gap-2">
-                <img src={user.avatar} alt={user.name} className="size-4 rounded-full" />
-                <span>Dashboard</span>
-              </Link>
-            </Button>
+            <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+              <Button
+                variant="default"
+                size="sm"
+                asChild
+                className="rounded-full bg-zinc-950 text-white hover:bg-zinc-800 text-xs px-4 py-1.5 h-8 shadow-xs"
+              >
+                <Link href="/dashboard" className="flex items-center gap-2">
+                  <img src={user.avatar} alt={user.name} className="size-4 rounded-full" />
+                  <span>Dashboard</span>
+                </Link>
+              </Button>
+            </motion.div>
           ) : (
             <div className="flex items-center gap-1.5">
               <Link
@@ -89,16 +101,18 @@ export function Navbar() {
               >
                 Sign In
               </Link>
-              <Button
-                size="sm"
-                asChild
-                className="rounded-full bg-zinc-950 text-white hover:bg-zinc-800 text-xs px-3.5 sm:px-4 py-1.5 h-8 shadow-xs font-medium"
-              >
-                <Link href="/dashboard" className="flex items-center gap-1.5">
-                  <span>Get Started</span>
-                  <Icon icon={ArrowRight01Icon} size={14} />
-                </Link>
-              </Button>
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                <Button
+                  size="sm"
+                  asChild
+                  className="rounded-full bg-zinc-950 text-white hover:bg-zinc-800 text-xs px-3.5 sm:px-4 py-1.5 h-8 shadow-xs font-medium"
+                >
+                  <Link href="/dashboard" className="flex items-center gap-1.5">
+                    <span>Get Started</span>
+                    <Icon icon={ArrowRight01Icon} size={14} />
+                  </Link>
+                </Button>
+              </motion.div>
             </div>
           )}
 
@@ -112,61 +126,69 @@ export function Navbar() {
             <Icon icon={mobileMenuOpen ? Cancel01Icon : Menu01Icon} size={16} />
           </button>
         </div>
-      </nav>
+      </motion.nav>
 
-      {/* Mobile Drawer Dropdown */}
-      {mobileMenuOpen && (
-        <div className="pointer-events-auto mt-2 w-full max-w-[1200px] rounded-2xl border border-black/[0.08] bg-white/95 p-4 shadow-xl backdrop-blur-xl md:hidden">
-          <div className="flex flex-col gap-2.5 text-sm font-medium text-zinc-700">
-            <Link
-              href="/#how-it-works"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
-            >
-              How it works
-            </Link>
-            <Link
-              href="/#features"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
-            >
-              Features
-            </Link>
-            <Link
-              href="/docs"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors font-medium text-zinc-950"
-            >
-              Documentation
-            </Link>
-            <Link
-              href="/#pricing"
-              onClick={() => setMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
-            >
-              Pricing
-            </Link>
-            <div className="pt-2 border-t border-zinc-100 flex items-center justify-between">
+      {/* Mobile Drawer Dropdown with AnimatePresence */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="pointer-events-auto mt-2 w-full max-w-[1200px] rounded-2xl border border-black/[0.08] bg-white/95 p-4 shadow-xl backdrop-blur-xl md:hidden"
+          >
+            <div className="flex flex-col gap-2.5 text-sm font-medium text-zinc-700">
               <Link
-                href="/login"
+                href="/#how-it-works"
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-xs font-semibold text-zinc-600 px-2 py-1"
+                className="px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
               >
-                Sign In
+                How it works
               </Link>
-              <a
-                href="https://github.com/sultanxdev/zyvan"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-medium text-zinc-600 flex items-center gap-1.5 px-2 py-1"
+              <Link
+                href="/#features"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
               >
-                <Icon icon={GithubIcon} size={14} />
-                <span>GitHub</span>
-              </a>
+                Features
+              </Link>
+              <Link
+                href="/docs"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors font-medium text-zinc-950"
+              >
+                Documentation
+              </Link>
+              <Link
+                href="/#pricing"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2 rounded-lg hover:bg-zinc-100 transition-colors"
+              >
+                Pricing
+              </Link>
+              <div className="pt-2 border-t border-zinc-100 flex items-center justify-between">
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-xs font-semibold text-zinc-600 px-2 py-1"
+                >
+                  Sign In
+                </Link>
+                <a
+                  href="https://github.com/sultanxdev/zyvan"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-zinc-600 flex items-center gap-1.5 px-2 py-1"
+                >
+                  <Icon icon={GithubIcon} size={14} />
+                  <span>GitHub</span>
+                </a>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
