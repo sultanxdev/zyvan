@@ -190,21 +190,26 @@ export function HeroDashboardPreview() {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={triggerQuickEvent}
                   disabled={isTriggering}
-                  className="flex items-center gap-1.5 rounded-full bg-black px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-75"
+                  className="flex items-center gap-1.5 rounded-full bg-black px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 transition-all shadow-xs cursor-pointer disabled:opacity-75"
                 >
                   <Icon icon={PlayIcon} size={12} className={isTriggering ? 'animate-spin' : 'text-[#00DC5A]'} />
                   <span>{isTriggering ? 'Ingesting...' : 'Trigger Quick Event'}</span>
-                </button>
-                <button
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.08, rotate: 180 }}
+                  whileTap={{ scale: 0.92 }}
+                  transition={{ duration: 0.3 }}
                   onClick={() => setEventsCount((prev) => prev + 1)}
                   className="size-8 rounded-full border border-black/[0.08] bg-white flex items-center justify-center text-zinc-600 hover:bg-zinc-50 transition-colors cursor-pointer"
                   title="Refresh Metrics"
                 >
                   <Icon icon={RefreshIcon} size={14} />
-                </button>
+                </motion.button>
               </div>
             </div>
 
@@ -219,9 +224,15 @@ export function HeroDashboardPreview() {
                   </div>
                 </div>
                 <div className="mt-2.5">
-                  <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#17172B]">
+                  <motion.span
+                    key={eventsCount}
+                    initial={{ scale: 1.25, color: '#00DC5A' }}
+                    animate={{ scale: 1, color: '#17172B' }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+                    className="text-2xl sm:text-3xl font-bold tracking-tight inline-block"
+                  >
                     {eventsCount}
-                  </span>
+                  </motion.span>
                   <p className="mt-1 text-[11px] font-medium text-emerald-600 flex items-center gap-1 font-mono">
                     <span>Stored before delivery</span>
                   </p>
