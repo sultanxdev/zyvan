@@ -49,9 +49,21 @@ export function HeroDashboardPreview() {
   ];
 
   return (
-    <div className="relative mt-12 sm:mt-16 w-full">
+    <motion.div
+      initial={{ opacity: 0, y: 35 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.75, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      className="relative mt-12 sm:mt-16 w-full"
+    >
       {/* Ambient Diffused Glow */}
-      <div className="absolute -inset-1.5 rounded-[28px] bg-gradient-to-b from-[#00DC5A]/15 via-zinc-200/20 to-transparent blur-xl pointer-events-none opacity-80" />
+      <motion.div
+        animate={{
+          opacity: [0.7, 0.9, 0.7],
+          scale: [1, 1.01, 1],
+        }}
+        transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute -inset-1.5 rounded-[28px] bg-gradient-to-b from-[#00DC5A]/15 via-zinc-200/20 to-transparent blur-xl pointer-events-none"
+      />
 
       {/* Main Window Frame */}
       <div className="relative rounded-[24px] border border-black/[0.08] bg-[#FDFDFD] shadow-[0_20px_50px_rgba(0,0,0,0.07),0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden transition-all text-[#18181B]">
