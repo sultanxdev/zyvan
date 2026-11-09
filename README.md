@@ -185,25 +185,8 @@ cd zyvan
 pnpm install
 ```
 
-Start infrastructure:
 
-```bash
-docker compose up -d
-```
 
-Start development:
-
-```bash
-pnpm dev
-```
-
-### Useful Commands
-
-```bash
-pnpm typecheck
-pnpm test
-pnpm build
-```
 
 Use the repository's `.env.example` files for configuration.
 
